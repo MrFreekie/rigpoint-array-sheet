@@ -1,0 +1,33 @@
+{
+  "name": "rigpoint-array-sheet",
+  "version": "0.1.0",
+  "description": "RigPoint Array – reads a Soundvision report PDF and shows only the rigging and array information from it.",
+  "private": true,
+  "license": "CC-BY-NC-4.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "extract:fixtures": "node scripts/extract-fixtures.mjs",
+    "reference": "python3 reference/extract_reference.py",
+    "ci": "npm run typecheck && npm run lint && npm test"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.4.299",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.5",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  }
+}

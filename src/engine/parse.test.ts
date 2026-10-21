@@ -1,0 +1,163 @@
+// Expected values below were read by hand from the two sample Soundvision reports
+// (fixtures/soundvision-a and -b, anonymised copies of the PDFs the owner supplied).
+// The PDF is the source of truth: never edit an expected value to make a test pass. Raise it.
+
+import { describe, expect, it } from 'vitest';
+import { parseFixture } from '../testing/fixtures';
+import type { ArraySource } from './types';
+
+const a = parseFixture('a');
+const b = parseFixture('b');
+
+function find(result: typeof a, name: string): ArraySource {
+  const s = result.report.sources.find((x) => x.name === name);
+  if (!s) throw new Error(`No source called ${name}`);
+  return s;
+}
+
+describe('report A (L and R mains, out hangs, subs, fills)', () => {
+  it('reads cleanly with nothing to check', () => {
+    expect(a.problems).toEqual([]);
+    expect(a.ok).toBe(true);
+  });
+
+  it('reads the document heading', () => {
+    expect(a.report.document).toEqual({
+      version: '2026.3.1',
+      author: 'Example Author',
+      date: '2026/10/21',
+      fileName: 'Example Arena - Example Show.xmlp',
+      distanceUnit: 'm',
+      weightUnit: 'kg',
+    });
+  });
+
+  it('finds all 18 sources, in order', () => {
+    expect(a.report.sources.map((s) => s.name)).toEqual([
+      'KARA II L Main', 'KARA II R Main', 'KARA II L Out', 'KARA II R Out',
+      'SB28 L Front', 'SB28 R Front', 'SB28 L Rear', 'SB28 R Rear',
+      'X8 2', 'X8 3', 'X8 4', 'X8 5', 'X8 6', 'X8 7',
+      'X12 A L', 'X12 B L', 'X12 B R', 'X12 A R',
+    ]);
+  });
+
+  it('follows the group numbering', () => {
+    expect(find(a, 'KARA II L Main').groups).toEqual(['ALL', 'MAINS & SUBS', 'MAINS']);
+    expect(find(a, 'KARA II L Out').groups).toEqual(['ALL', 'MAINS & SUBS', 'OUT HANGS']);
+    expect(find(a, 'SB28 R Rear').groups).toEqual(['ALL', 'MAINS & SUBS', 'SUBS']);
+    expect(find(a, 'X8 2').groups).toEqual(['ALL', 'LIPFILL']);
+    expect(find(a, 'X12 A R').groups).toEqual(['ALL', 'X12']);
+  });
+
+  it('reads the left main array', () => {
+    const s = find(a, 'KARA II L Main');
+    expect(s.configuration).toBe('vertical, flown array');
+    expect(s.orientation).toBe('vertical');
+    expect(s.mounting).toBe('flown');
+    expect(s.bumper).toBe('M-BUMP+MBAR hole A');
+    expect(s.motors).toBe(1);
+    expect(s.pickups).toEqual([{ which: 'front', position: 6, at: { x: 10, y: 12.68, z: 9.51 } }]);
+    expect(s.position).toEqual({ x: 10, y: 13.01, z: 9.4 });
+    expect(s.site).toBe(3.8);
+    expect(s.azimuth).toBe(0);
+    expect(s.dimensions).toEqual({ x: 0.75, y: 1.09, z: 3.81 });
+    expect(s.bottomElevation).toBe(5.75);
+    expect(s.topSite).toBe(3.8);
+    expect(s.bottomSite).toBe(-41.2);
+    expect(s.weights).toEqual({ total: 414.2, enclosures: 383.2, frontMotorLoad: 414.2, rearMotorLoad: null });
+    expect(s.warnings).toEqual([]);
+  });
+
+  it('reads the left main enclosure table', () => {
+    const s = find(a, 'KARA II L Main');
+    expect(s.cabinets).toHaveLength(15);
+    expect(s.cabinets[0]).toEqual({ number: 1, type: 'KARA II', angle: 5, site: 3.8, topZ: 9.4, bottomZ: 9.15, panflex: '35/35' });
+    expect(s.cabinets[1]).toEqual({ number: 2, type: 'KARA II', angle: 2, site: 1.8, topZ: 9.15, bottomZ: 8.9, panflex: '35/35' });
+    expect(s.cabinets[2]).toEqual({ number: 3, type: 'KARA II', angle: 2, site: -0.2, topZ: 8.89, bottomZ: 8.64, panflex: '35/35' });
+    expect(s.cabinets[6]).toEqual({ number: 7, type: 'KARA II', angle: 1, site: -7.2, topZ: 7.88, bottomZ: 7.63, panflex: '35/35' });
+    expect(s.cabinets[14]).toEqual({ number: 15, type: 'KARA II', angle: 10, site: -41.2, topZ: 5.94, bottomZ: 5.75, panflex: '55/35' });
+  });
+
+  it('reads an out hang whose table runs onto the next page', () => {
+    const s = find(a, 'KARA II L Out');
+    expect(s.azimuth).toBe(25);
+    expect(s.site).toBe(-0.8);
+    expect(s.weights).toEqual({ total: 184.3, enclosures: 153.3, frontMotorLoad: 184.3, rearMotorLoad: null });
+    expect(s.cabinets.map((c) => c.number)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(s.cabinets[2]).toEqual({ number: 3, type: 'KARA II', angle: 7.5, site: -13.3, topZ: 8.89, bottomZ: 8.65, panflex: '35/55' });
+    expect(s.cabinets[5]).toEqual({ number: 6, type: 'KARA II', angle: 10, site: -43.3, topZ: 8.2, bottomZ: 8.02, panflex: '35/55' });
+  });
+
+  it('keeps the sign of the right out hang azimuth and pickup', () => {
+    const s = find(a, 'KARA II R Out');
+    expect(s.azimuth).toBe(-25);
+    expect(s.pickups[0]?.at).toEqual({ x: -17.36, y: 11.64, z: 9.53 });
+  });
+
+  it('reads a stacked sub with its Soundvision warnings', () => {
+    const s = find(a, 'SB28 L Front');
+    expect(s.configuration).toBe('horizontal, stacked array');
+    expect(s.mounting).toBe('stacked');
+    expect(s.bumper).toBeNull();
+    expect(s.motors).toBeNull();
+    expect(s.pickups).toEqual([]);
+    expect(s.weights).toEqual({ total: 93, enclosures: null, frontMotorLoad: null, rearMotorLoad: null });
+    expect(s.cabinets).toEqual([{ number: 1, type: 'SB28', angle: null, site: 0, topZ: 1.3, bottomZ: 0, panflex: null }]);
+    expect(s.warnings).toEqual([
+      { severity: 'WARNING', title: 'Tipping hazard', message: 'Change the site angle, rigging option, or number of enclosures.' },
+      { severity: 'CAUTION', title: 'Tipping hazard', message: 'L-Acoustics recommends securing the array to the ground.' },
+    ]);
+  });
+
+  it('reads the single-enclosure fills', () => {
+    const x8 = find(a, 'X8 2');
+    expect(x8.mounting).toBe('flown');
+    expect(x8.weights.total).toBe(12);
+    expect(x8.cabinets).toEqual([{ number: 1, type: 'X8', angle: null, site: 0, topZ: 2.13, bottomZ: 1.88, panflex: null }]);
+    expect(find(a, 'X12 A L').weights.total).toBe(20);
+  });
+
+  it('does not take the acoustic settings for array information', () => {
+    expect(JSON.stringify(a.report)).not.toMatch(/FIR|Air compensation|Zoom/);
+  });
+});
+
+describe('report B (flown with two motors, ground stacks, no groups)', () => {
+  it('reads cleanly with nothing to check', () => {
+    expect(b.problems).toEqual([]);
+    expect(b.ok).toBe(true);
+  });
+
+  it('finds 16 sources and no groups, numbered from 8', () => {
+    expect(b.report.sources).toHaveLength(16);
+    expect(b.report.sources[0]?.number).toBe(8);
+    expect(b.report.sources.every((s) => s.groups.length === 0)).toBe(true);
+  });
+
+  it('reads a two-motor array', () => {
+    const s = find(b, 'FL KARA II L');
+    expect(s.bumper).toBe('M-BUMP+MBAR inv Hole A');
+    expect(s.motors).toBe(2);
+    expect(s.pickups).toEqual([
+      { which: 'front', position: 16, at: { x: 7.5, y: 3.91, z: 8.71 } },
+      { which: 'rear', position: 0, at: { x: 7.5, y: 3.08, z: 8.37 } },
+    ]);
+    expect(s.weights).toEqual({ total: 235.4, enclosures: 204.4, frontMotorLoad: 182.7, rearMotorLoad: 52.7 });
+    expect(s.cabinets).toHaveLength(8);
+    expect(s.cabinets[3]).toEqual({ number: 4, type: 'KARA II', angle: 10, site: 9.3, topZ: 7.79, bottomZ: 7.54, panflex: '55/55' });
+    expect(s.cabinets[7]).toEqual({ number: 8, type: 'KARA II', angle: 10, site: -30.7, topZ: 6.79, bottomZ: 6.58, panflex: '55/55' });
+  });
+
+  it('reads a mixed ground stack listed top first, with blank angles on the subs', () => {
+    const s = find(b, 'GS KARA II L');
+    expect(s.mounting).toBe('stacked');
+    expect(s.cabinets.map((c) => c.number)).toEqual([6, 5, 4, 3, 2, 1]);
+    expect(s.cabinets[0]).toEqual({ number: 6, type: 'KARA II', angle: 4, site: 1, topZ: 2.17, bottomZ: 1.92, panflex: '55/55' });
+    expect(s.cabinets[4]).toEqual({ number: 2, type: 'SB18', angle: null, site: 0, topZ: 1.09, bottomZ: 0.54, panflex: null });
+    expect(s.cabinets[5]).toEqual({ number: 1, type: 'SB18', angle: null, site: 0, topZ: 0.54, bottomZ: 0, panflex: null });
+    expect(s.weights.total).toBe(233.2);
+    expect(s.warnings).toEqual([
+      { severity: 'CAUTION', title: 'Tipping hazard', message: 'L-Acoustics recommends securing the array to the ground.' },
+    ]);
+  });
+});

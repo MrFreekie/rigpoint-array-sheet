@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.log
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+# Soundvision reports carry real venue and author names, so they stay on the owner's machine.
+# Tests use the anonymised fixtures in fixtures/ instead.
+reference/*.pdf
+
+# The owner's private build brief.
+RigPoint-Array-starter-brief.md
