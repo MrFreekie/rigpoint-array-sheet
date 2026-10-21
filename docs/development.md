@@ -32,7 +32,7 @@ Notes for anyone changing the code. If you only want to use the app, see the [RE
 | `src/engine/` | Pure parser: lines of positioned text in, a report and a list of problems out |
 | `src/schema/` | Zod schema for the report, with plain-English errors that name the field |
 | `src/engine/sheet.ts` | What each fly sheet card and rigging row shows, including the one height subtraction |
-| `src/files/` | Reading a PDF with pdf.js, size and page limits, and the single import function |
+| `src/files/` | Reading a PDF with pdf.js, the document model, saving and opening files, migrations, revisions, file names and autosave |
 | `src/ui/` | The React interface. It displays engine results and calculates nothing itself |
 | `src/testing/` | A seeded random generator, a report renderer and a tiny PDF builder for tests |
 | `fixtures/` | Anonymised text extracted from the two sample reports |
@@ -80,6 +80,32 @@ When two arrays are exact left-right copies, the fly sheet shows the first one a
 
 A checkbox above the cards shows the mirrored arrays as well. A mirrored array uses its partner's ground offset unless it has its own. The rigging summary always lists every pickup, because mirrored arrays hang from different points.
 
+## Saved files
+
+A saved file is JSON in the format `arraysheet/1`. It holds the report as read from the PDF (not the PDF), the problems found, the show details, one ground offset per array, the status, the revision, the name of the PDF and the time it was saved. The schema is `src/schema/array-file.ts`.
+
+Every opened file is treated as untrusted. In order, it must pass the size limit (8 MB), parse as JSON, say it is an `arraysheet` file, be no newer than this version, and pass the schema. The schema also caps the number of arrays, enclosures, pickups, warnings and the length of text. Anything wrong stops the open with a plain-English message that names the field. Nothing is partly opened.
+
+Each version has a migration to the next in `src/files/migrations.ts`. There are none yet because version 1 is the first. A file from a newer version is refused, not opened and silently trimmed.
+
+Because the file holds the report as read, it reopens exactly as saved, whatever the PDF reader does later.
+
+## Status, revision and the lock
+
+Status is Draft, Issued, Approved or Superseded. The revision is blank for the first issue, then A, B, C, through Z, then AA. `nextRevision` does the counting.
+
+A file opened as approved or superseded is read-only, and so is a file that has just been saved as one. Choosing Approved on a draft does not lock it, so it can still be saved. Create new revision starts a draft with the next letter and no file name, so it saves under a new name such as `Main stage - Rev B.arraysheet.json`. The old file is never changed. Setting the old one to Superseded is left to the person.
+
+## Update from PDF
+
+With a file open, Update from PDF reads a newer PDF and compares it with the saved report (`src/engine/compare.ts`). Arrays are matched by name. The comparison lists every difference in the arrays, the enclosure rows, the pickups, the weights and the warnings, plus the Soundvision version, date and project name. If nothing differs, the app says so. If something does, the person chooses Update from new PDF or Keep as saved. A PDF that reads with an error is refused and the file stays as it was. After an update, ground offsets stay with the array of the same name, and the file counts as having unsaved changes.
+
+## Autosave
+
+While there are unsaved changes, a copy is written to IndexedDB (through idb-keyval) about a second after each edit. On the next visit the app offers to restore it. The offer says it is a safety net and not a save. The copy is checked like any opened file, and one that fails is thrown away. Saving, starting again, opening another file or declining the offer removes it. If the browser refuses IndexedDB (a private window, for example), saving to a file still works.
+
+The `beforeunload` warning also fires while there are unsaved changes.
+
 ## The interface
 
 - The page opens on a screen that explains what the app does and does not do. A PDF can be chosen or dropped anywhere on the page.
@@ -92,7 +118,8 @@ A checkbox above the cards shows the mirrored arrays as well. A mirrored array u
 
 ## Not done yet
 
-- The print view, files, offline use and deploy are later phases.
+- The print view and deploy (phase 4), and save in place, recent files, offline use, the update prompt, file handlers and the share target (phase 5).
+- Save is a download in every browser. Phase 5 adds Save in place for Chrome and Edge.
 - The sample fly sheet's Btm Height + 1 row is deliberately left out.
 - The cabling and folding sheets from other tools are out of scope.
 - pdf.js needs its worker file bundled when the interface exists. Phase 2 decides how.

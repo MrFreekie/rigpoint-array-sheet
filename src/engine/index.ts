@@ -4,3 +4,4 @@ export { parseSoundvision, toLines } from './parse';
 export { panflexLabel, type PanflexLabel } from './panflex';
 export * from './sheet';
 export * from './symmetry';
+export * from './compare';

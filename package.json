@@ -1,7 +1,7 @@
 {
   "name": "rigpoint-array-sheet",
   "version": "0.1.0",
-  "description": "RigPoint Array \u00e2\u20ac\u201c reads a Soundvision report PDF and shows only the rigging and array information from it.",
+  "description": "RigPoint Array â€“ reads a Soundvision report PDF and shows only the rigging and array information from it.",
   "private": true,
   "license": "CC-BY-NC-4.0",
   "type": "module",
@@ -20,6 +20,7 @@
     "ci": "npm run typecheck && npm run lint && npm test && npm run build"
   },
   "dependencies": {
+    "idb-keyval": "6.3.0",
     "pdfjs-dist": "6.4.299",
     "react": "19.3.1",
     "react-dom": "19.3.1",

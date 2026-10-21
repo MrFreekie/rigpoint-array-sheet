@@ -1,33 +1,10 @@
-// What the person types on top of a report: show details and ground offsets.
-// The report itself is never edited. Everything it states is shown as printed.
+// Helpers the interface uses on top of the document model in src/files/doc.ts.
 
 import { parseOffset } from '../engine/sheet';
-import type { ParseResult } from '../engine/types';
+import type { Doc } from '../files/doc';
 
-export interface Job {
-  show: string;
-  engineer: string;
-  company: string;
-  /** Where heights are measured from, e.g. "Arena floor". Text only; the number is the ground offset. */
-  zAxisZero: string;
-  /** Ground offset used by every array that has none of its own, in metres, as typed. */
-  defaultOffset: string;
-}
-
-export interface Doc {
-  result: ParseResult;
-  /** Name of the PDF the report came from. */
-  sourceName: string;
-  job: Job;
-  /** Ground offset typed for one array, by position in the report. Blank means use the default. */
-  offsets: Record<number, string>;
-}
-
-export const EMPTY_JOB: Job = { show: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '' };
-
-export function newDoc(result: ParseResult, sourceName: string): Doc {
-  return { result, sourceName, job: { ...EMPTY_JOB }, offsets: {} };
-}
+export { editKey, EMPTY_JOB, isDirty, isLocked, newDoc, STATUS_LABELS, STATUSES } from '../files/doc';
+export type { Doc, Job, Status } from '../files/doc';
 
 export interface EffectiveOffset {
   /** The offset to use, or null when what was typed is not a number. */
@@ -46,15 +23,6 @@ export function effectiveOffset(doc: Doc, index: number, mirrorIndex?: number): 
   const useOwn = own.trim() !== '';
   const value = parseOffset(useOwn ? own : doc.job.defaultOffset);
   return { value, badField: value === null ? (useOwn ? 'array' : 'default') : null };
-}
-
-/** True when the person has typed anything, so starting again would lose it. */
-export function hasEdits(doc: Doc): boolean {
-  const j = doc.job;
-  return (
-    [j.show, j.engineer, j.company, j.zAxisZero, j.defaultOffset].some((t) => t.trim() !== '') ||
-    Object.values(doc.offsets).some((t) => t.trim() !== '')
-  );
 }
 
 export function showTitle(doc: Doc): string {

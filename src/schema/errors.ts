@@ -3,6 +3,19 @@
 import type { z } from 'zod';
 
 const FIELD_NAMES: Record<string, string> = {
+  format: 'File format',
+  app_version: 'App version',
+  saved_at: 'Saved at',
+  status: 'Status',
+  revision: 'Revision',
+  source_name: 'Source name',
+  job: 'Show details',
+  show: 'Show',
+  engineer: 'System engineer',
+  company: 'Company',
+  z_axis_zero: 'Z-axis zero',
+  default_offset: 'Ground offset for every array',
+  offsets: 'Ground offsets',
   report: 'Report',
   document: 'Document',
   sources: 'Arrays',
@@ -33,7 +46,7 @@ export function describePath(path: readonly PropertyKey[]): string {
     const key = path[i];
     const next = path[i + 1];
     if (key === undefined) continue;
-    if (key === 'report') continue;
+    if (key === 'report' && next !== undefined) continue;
     if (key === 'sources' && typeof next === 'number') {
       parts.push(`Array ${next + 1}`);
       i++;
@@ -46,10 +59,18 @@ export function describePath(path: readonly PropertyKey[]): string {
   return parts.join(', ');
 }
 
+/** Zod's own wording for a missing or wrongly typed value is not for a person. */
+function plainMessage(message: string): string {
+  const m = /^Invalid input: expected (.+), received (.+)$/.exec(message);
+  if (!m) return message;
+  return m[2] === 'undefined' ? 'is missing' : `must be ${m[1]}`;
+}
+
 export function formatIssues(error: z.ZodError, limit = 5): string[] {
   const lines = error.issues.slice(0, limit).map((issue) => {
     const where = describePath(issue.path);
-    return where ? `${where}: ${issue.message}` : issue.message;
+    const message = plainMessage(issue.message);
+    return where ? `${where}: ${message}` : message;
   });
   const more = error.issues.length - limit;
   if (more > 0) lines.push(`…and ${more} more problem${more === 1 ? '' : 's'}.`);

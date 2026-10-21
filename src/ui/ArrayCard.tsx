@@ -9,6 +9,8 @@ interface Props {
   offsetBad: boolean;
   /** True when this array uses the "every array" offset and that is not a number. */
   defaultBad: boolean;
+  /** True for a read-only file: the offset cannot be changed. */
+  locked?: boolean | undefined;
   /** Set when this card stands for a pair: the name of the mirror image that is not shown separately. */
   coversMirror?: string | undefined;
   /** Set when this card is the mirror image of another array that is also shown. */
@@ -18,7 +20,7 @@ interface Props {
   usingDefault: boolean;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked }: Props) {
   const id = useId();
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
@@ -98,6 +100,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
           type="text"
           inputMode="decimal"
           value={offsetText}
+          disabled={locked === true}
           onChange={(e) => onOffset(e.target.value)}
           placeholder={usingDefault ? 'same as all arrays' : '0'}
           aria-invalid={offsetBad}

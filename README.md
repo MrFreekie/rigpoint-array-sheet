@@ -6,7 +6,17 @@ RigPoint Array is the second app in the RigPoint family, after [RigPoint Load Sh
 
 ## Where it is
 
-This is phase 2 of 5. You can open a Soundvision PDF and see a fly sheet card for every array plus a rigging summary. You can type the show details and a ground offset. Saving, printing, offline use and installing come in later phases, so nothing you type is kept yet.
+This is phase 3 of 5. You can open a Soundvision PDF and see a fly sheet card for every array plus a rigging summary. You can type the show details and a ground offset, then save the lot as a file and open it again later. Printing, save in place, recent files, offline use and installing come in later phases.
+
+## Saving and files
+
+Save downloads a file named like `Main stage - Rev B.arraysheet.json`. The file holds what the PDF said, what you typed, the status and the revision, so it reopens exactly as saved, without the PDF. Open takes either a PDF or one of these files.
+
+Each file has a status: Draft, Issued, Approved or Superseded. Approved and superseded files open read-only. To change one, press Create new revision. That starts a draft with the next revision letter (blank, then A, B, C), which you save under its new name.
+
+If you have a saved file open and a newer PDF arrives, press Update from PDF. The app lists exactly what differs, and you choose Update from new PDF or Keep as saved. Your show details and offsets stay.
+
+While you have unsaved changes, this browser also keeps a copy and offers it back after a crash or an accidental close. That copy is a safety net. Save to a file to keep your work.
 
 To try it, run `npm install` and `npm run dev`, then open the address it prints.
 

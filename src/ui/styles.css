@@ -532,3 +532,74 @@ td.n {
     flex: 1 1 auto;
   }
 }
+
+/* Status, dialogs and banners with buttons */
+
+.status-chip {
+  display: inline-block;
+  margin-left: 0.6rem;
+  padding: 0 0.5rem;
+  border: 1.5px solid var(--amber);
+  border-radius: 999px;
+  color: var(--amber);
+  font-size: 0.8rem;
+  font-weight: 700;
+  vertical-align: 0.1em;
+}
+
+select {
+  font: inherit;
+  color: inherit;
+}
+
+.field select {
+  min-height: var(--touch);
+  padding: 0.4rem 0.6rem;
+  border: 2px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.field input:disabled,
+.field select:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.banner-actions,
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dialog {
+  width: min(44rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.dialog h2 {
+  margin-bottom: 0.5rem;
+}
+
+.change-list {
+  margin: 0.75rem 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.dialog-actions {
+  margin-top: 1rem;
+}

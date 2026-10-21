@@ -59,25 +59,27 @@ export const ArraySourceSchema = z.object({
   warnings: z.array(WarningSchema, { error: 'Warnings must be a list' }),
 });
 
-export const ParseResultSchema = z.object({
-  report: z.object({
-    document: z.object({
-      version: text().nullable(),
-      author: text().nullable(),
-      date: text().nullable(),
-      fileName: text().nullable(),
-      distanceUnit: text().nullable(),
-      weightUnit: text().nullable(),
-    }),
-    sources: z.array(ArraySourceSchema, { error: 'Sources must be a list' }),
+export const ReportSchema = z.object({
+  document: z.object({
+    version: text().nullable(),
+    author: text().nullable(),
+    date: text().nullable(),
+    fileName: text().nullable(),
+    distanceUnit: text().nullable(),
+    weightUnit: text().nullable(),
   }),
-  problems: z.array(
-    z.object({
-      level: z.enum(['error', 'check'], { error: 'Problem level must be "error" or "check"' }),
-      source: text().nullable(),
-      message: text(),
-    }),
-  ),
+  sources: z.array(ArraySourceSchema, { error: 'Sources must be a list' }),
+});
+
+export const ProblemSchema = z.object({
+  level: z.enum(['error', 'check'], { error: 'Problem level must be "error" or "check"' }),
+  source: text().nullable(),
+  message: text(),
+});
+
+export const ParseResultSchema = z.object({
+  report: ReportSchema,
+  problems: z.array(ProblemSchema),
   ok: z.boolean({ error: 'ok must be true or false' }),
 });
 
