@@ -6,7 +6,17 @@ RigPoint Array is the second app in the RigPoint family, after [RigPoint Load Sh
 
 ## Where it is
 
-This is phase 3 of 5. You can open a Soundvision PDF and see a fly sheet card for every array plus a rigging summary. You can type the show details and a ground offset, then save the lot as a file and open it again later. Printing, save in place, recent files, offline use and installing come in later phases.
+This is phase 4 of 5. You can open a Soundvision PDF and see a fly sheet card for every array plus a rigging summary. You can type the show details and a ground offset, save the lot as a file, open it again later, print it, save it as a PDF, and save each array as an image. Save in place, recent files, offline use and installing come in the last phase.
+
+## Printing, PDF and images
+
+Print / PDF opens the print window. Choose a printer, or choose Save as PDF as the destination.
+
+Each A4 page holds four arrays in a two by two grid, in the order of the report. Fold the page in half twice and every array is on its own A6 panel, small enough for a pocket. Dashed lines mark the folds. An array too tall for a panel gets a page of its own. The last page is the rigging summary, with a QR code that opens this app.
+
+Every page has a footer with the app version, the Soundvision version, the file name (marked when it is unsaved) and the time it was printed. Drafts carry a DRAFT watermark. The sheet is black on white whatever theme the screen is in.
+
+Save image on a card saves that array as a PNG. Save all as images saves one for every array shown. Your browser may ask whether to allow several downloads.
 
 ## Saving and files
 

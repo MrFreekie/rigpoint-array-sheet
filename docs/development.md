@@ -22,8 +22,12 @@ Notes for anyone changing the code. If you only want to use the app, see the [RE
 | `npm run typecheck` | TypeScript in strict mode |
 | `npm run lint` | ESLint, including the rule that keeps the engine pure |
 | `npm test` | All tests |
-| `npm run ci` | Typecheck, lint, tests and build, as CI runs them |
+| `npm run e2e` | Playwright tests on Chromium, Firefox, iPhone SE (WebKit) and Android, against the production build. Run `npx playwright install` once first |
+| `npm run e2e:chromium` | The same on Chromium only |
+| `npm run ci` | Typecheck, lint, tests and build, as CI runs them (CI also runs the e2e tests) |
 | `npm run extract:fixtures` | Rebuilds the anonymised fixtures from the PDFs in `reference/` |
+
+Playwright's Firefox may not start on Windows. CI on Linux runs it, so use `npm run e2e:chromium` locally if it will not launch.
 
 ## Layout
 
@@ -34,6 +38,8 @@ Notes for anyone changing the code. If you only want to use the app, see the [RE
 | `src/engine/sheet.ts` | What each fly sheet card and rigging row shows, including the one height subtraction |
 | `src/files/` | Reading a PDF with pdf.js, the document model, saving and opening files, migrations, revisions, file names and autosave |
 | `src/ui/` | The React interface. It displays engine results and calculates nothing itself |
+| `src/print/` | The print sheet, the card content shared with the image export, the PNG layout and the QR code |
+| `e2e/` | Playwright tests, with PDFs built from the committed fixtures |
 | `src/testing/` | A seeded random generator, a report renderer and a tiny PDF builder for tests |
 | `fixtures/` | Anonymised text extracted from the two sample reports |
 | `reference/` | The sample PDFs (kept out of git, see below) |
@@ -106,6 +112,31 @@ While there are unsaved changes, a copy is written to IndexedDB (through idb-key
 
 The `beforeunload` warning also fires while there are unsaved changes.
 
+## Printing
+
+`src/print/PrintSheet.tsx` renders the whole printed sheet off-screen at all times, so it can be measured, and `print.css` shows it only when printing. The editing screen is hidden in print.
+
+Every card is laid out at a fixed width (half the page less padding) and measured. `planPages` in `src/print/layout.ts` then fills pages four at a time, in report order. A card that would have to shrink below 72% to fit its panel gets a page of its own, and may shrink to 50% there. Beyond that the page is allowed to run on rather than cut anything off. The rigging summary page always comes last.
+
+While printing, the measuring copy is hidden, so a measurement then would read zero. The measuring code ignores a hidden container and keeps the heights it already has. A Playwright test covers this.
+
+The footer is `printFooter`. It says which version, which Soundvision report, which file and when. A file that has changed since it was saved is marked. The sheet does not print any disclaimer yet, because the wording in `DISCLAIMER.md` is still a draft.
+
+The Playwright PDF tests check three things: the number of PDF pages, that every card sits inside its panel and every footer inside its page, and that the text is what the screen shows. PDF output is a Chromium feature, so those run on Chromium only.
+
+## Images
+
+Card content (`src/print/card-content.ts`) is plain data that both the print card and the image draw from, so they cannot disagree. `array-image.ts` turns it into a list of drawing steps (text, lines, boxes) and draws them on a canvas at twice the size. Canvas text needs no markup, so it works under the strict CSP. The layout is pure and has unit tests. Playwright checks that the download is a real PNG of the right width.
+
+## The QR code
+
+`src/print/qr.ts` makes the code on this device with `qrcode-generator` (MIT, no dependencies, about 20 KB) and draws it as one SVG path. The address is `APP_URL` in `src/app-info.ts`. A test decodes the picture back to the address with `jsqr`, which is a test-only dependency.
+
+## Later ideas
+
+- Print an array to a receipt printer or similar narrow printer.
+- A larger type size on pocket cards that have room to spare.
+
 ## The interface
 
 - The page opens on a screen that explains what the app does and does not do. A PDF can be chosen or dropped anywhere on the page.
@@ -114,11 +145,11 @@ The `beforeunload` warning also fires while there are unsaved changes.
 - Every status has a word as well as a colour: READ OK, CHECK, ERROR, WARNING, CAUTION.
 - Colours for Day and Night are tokens in `src/ui/styles.css`. `src/ui/contrast.test.ts` checks them against WCAG 2.1 AA.
 - pdf.js and its worker load only when a PDF is opened, and run under the strict CSP.
-- Components are tested by rendering them to HTML (`src/ui/render.test.tsx`). Browser tests with Playwright arrive with the print view in phase 4.
+- Components are tested by rendering them to HTML (`src/ui/render.test.tsx`), and the whole flow by Playwright tests.
 
 ## Not done yet
 
-- The print view and deploy (phase 4), and save in place, recent files, offline use, the update prompt, file handlers and the share target (phase 5).
+- Save in place, recent files, offline use, the update prompt, file handlers and the share target (phase 5).
 - Save is a download in every browser. Phase 5 adds Save in place for Chrome and Edge.
 - The sample fly sheet's Btm Height + 1 row is deliberately left out.
 - The cabling and folding sheets from other tools are out of scope.

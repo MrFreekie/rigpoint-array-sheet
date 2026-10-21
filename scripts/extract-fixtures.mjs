@@ -8,6 +8,7 @@ import { readPdfItems } from '../src/files/pdf-items.ts';
 const SAMPLES = [
   { pdf: 'reference/soundvision_report_A.pdf', out: 'fixtures/soundvision-a.items.json', venue: 'Example Arena' },
   { pdf: 'reference/soundvision_report_B.pdf', out: 'fixtures/soundvision-b.items.json', venue: 'Example Theatre' },
+  { pdf: 'reference/soundvision_report_C.pdf', out: 'fixtures/soundvision-c.items.json', venue: 'Example Festival' },
 ];
 
 for (const { pdf, out, venue } of SAMPLES) {

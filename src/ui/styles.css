@@ -603,3 +603,23 @@ select {
 .dialog-actions {
   margin-top: 1rem;
 }
+
+.card-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sheet-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.sheet-tools .check-field {
+  margin-bottom: 0;
+}

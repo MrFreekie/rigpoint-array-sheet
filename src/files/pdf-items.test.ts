@@ -49,7 +49,8 @@ describe('importPdf', () => {
   });
 });
 
-const hasSamples = existsSync('reference/soundvision_report_A.pdf') && existsSync('reference/soundvision_report_B.pdf');
+const SAMPLES = ['A', 'B', 'C'].map((n) => `reference/soundvision_report_${n}.pdf`);
+const hasSamples = SAMPLES.every((p) => existsSync(p));
 
 // The sample PDFs hold real names, so they are not in the repository. When they are on this
 // machine, check the reader still gives exactly the committed (anonymised) fixtures.
@@ -60,13 +61,14 @@ describe.skipIf(!hasSamples)('sample PDFs on this machine', () => {
   it.each([
     ['a', 'reference/soundvision_report_A.pdf'],
     ['b', 'reference/soundvision_report_B.pdf'],
+    ['c', 'reference/soundvision_report_C.pdf'],
   ] as const)('report %s gives the committed fixture', async (name, path) => {
     const items = await readPdfItems(new Uint8Array(readFileSync(path)));
     expect(blank(items)).toEqual(blank(loadItems(name)));
   });
 
   it('imports both without a problem', async () => {
-    for (const path of ['reference/soundvision_report_A.pdf', 'reference/soundvision_report_B.pdf']) {
+    for (const path of SAMPLES) {
       const result = await importPdf(new Uint8Array(readFileSync(path)));
       expect(result.problems).toEqual([]);
     }

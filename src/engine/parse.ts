@@ -33,7 +33,6 @@ const SAME_LINE = 2.5;
 const COLUMN_SLACK = 6;
 /** Soundvision rounds each figure to the nearest 0.1° or 0.01 m, so allow for that. */
 const SITE_TOLERANCE = 0.15;
-const Z_TOLERANCE = 0.0151;
 
 export function toLines(items: readonly TextItem[]): Line[] {
   const byPage = new Map<number, TextItem[]>();
@@ -387,9 +386,10 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
 
 /**
  * Cross-checks that a flown table was read correctly, using figures the PDF prints. In a flown array
- * each row's site angle is the one above minus its angle, and each top height is the bottom of the
- * row above. Stacked arrays follow different rules in the samples (mixed enclosures, tilted tops), so
- * only their numbering and the top and bottom site are checked.
+ * each row's site angle is the one above minus its angle, and the top and bottom site match the first
+ * and last rows. Heights are not compared: with large splays the front edges of enclosures do not
+ * meet, so a gap there is the design and not a reading error. Stacked arrays follow different rules
+ * (mixed enclosures, tilted tops, HF stacks), so only their numbering is checked.
  */
 function checkTable(s: ArraySource, note: (level: Problem['level'], message: string) => void) {
   const numbers = s.cabinets.map((c) => c.number);
@@ -397,21 +397,18 @@ function checkTable(s: ArraySource, note: (level: Problem['level'], message: str
   const descending = numbers.every((n, i) => n === numbers.length - i);
   if (!ascending && !descending) note('check', msg.enclosureNumbering(numbers.map((n) => `#${n}`).join(', ')));
 
+  if (s.mounting !== 'flown') return;
   const first = s.cabinets[0];
   const last = s.cabinets[s.cabinets.length - 1];
   if (first?.site != null && s.topSite !== null && Math.abs(first.site - s.topSite) > SITE_TOLERANCE) note('check', msg.topSiteMismatch());
   if (last?.site != null && s.bottomSite !== null && Math.abs(last.site - s.bottomSite) > SITE_TOLERANCE) note('check', msg.bottomSiteMismatch());
 
-  if (s.mounting !== 'flown') return;
   for (let i = 1; i < s.cabinets.length; i++) {
     const above = s.cabinets[i - 1];
     const here = s.cabinets[i];
     if (!above || !here) continue;
     if (here.angle !== null && above.site !== null && here.site !== null && Math.abs(above.site - here.angle - here.site) > SITE_TOLERANCE) {
       note('check', msg.siteDoesNotFollow(here.number));
-    }
-    if (above.bottomZ !== null && here.topZ !== null && Math.abs(above.bottomZ - here.topZ) > Z_TOLERANCE) {
-      note('check', msg.zDoesNotFollow(here.number));
     }
   }
 }

@@ -1,0 +1,301 @@
+/* RigPoint Array print styles.
+   Each A4 page is a 2 by 2 grid of pocket cards: fold it in half twice and every array is on its own
+   A6 panel, with a rigging summary page at the end. Everything is in mm and pt with fixed black on
+   white colours, so it prints the same whatever the screen theme. The sheet is laid out off-screen at
+   all times so it can be measured and scaled, and only becomes visible when printing.
+   Nothing relies on colour: warnings carry a word and a border. */
+
+@page {
+  size: A4 portrait;
+  margin: 6mm;
+}
+
+.print-root {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  font-family: Arial, Helvetica, 'Liberation Sans', sans-serif;
+  color: #000;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    margin: 0;
+  }
+
+  .app {
+    display: none !important;
+  }
+
+  .print-root {
+    position: static;
+    visibility: visible;
+  }
+
+  .as-measure {
+    display: none !important;
+  }
+}
+
+.as-measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+}
+
+.as-page {
+  position: relative;
+  width: 198mm;
+  height: 284mm;
+  overflow: hidden;
+  background: #fff;
+  color: #000;
+  break-after: page;
+  break-inside: avoid;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.as-page:last-of-type {
+  break-after: auto;
+}
+
+/* Too tall even at the smallest scale: let it run on rather than cut it off. */
+.as-page-overflow {
+  height: auto;
+  min-height: 284mm;
+  overflow: visible;
+}
+
+.as-grid {
+  display: grid;
+  grid-template-columns: 99mm 99mm;
+  grid-template-rows: 139mm 139mm;
+  height: 278mm;
+}
+
+/* Dashed lines along the folds. */
+.as-cell {
+  box-sizing: border-box;
+  padding: 3mm;
+  overflow: hidden;
+}
+
+.as-cell:nth-child(odd) {
+  border-right: 0.25mm dashed #777;
+}
+
+.as-cell:nth-child(-n + 2) {
+  border-bottom: 0.25mm dashed #777;
+}
+
+.as-full {
+  box-sizing: border-box;
+  height: 278mm;
+  padding: 3mm;
+}
+
+.as-fit {
+  transform-origin: top left;
+}
+
+.as-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  height: 6mm;
+  line-height: 6mm;
+  text-align: center;
+  font-size: 6pt;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.as-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 90pt;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: rgb(0 0 0 / 0.07);
+  transform: rotate(-35deg);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* A pocket card */
+
+.pc {
+  font-size: 7pt;
+  line-height: 1.2;
+}
+
+.pc h3,
+.pc p,
+.pc ul,
+.pc dl {
+  margin: 0;
+}
+
+.pc-title {
+  font-size: 11pt;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.pc-sub {
+  font-size: 7pt;
+  margin-bottom: 0.5mm;
+}
+
+.pc-context {
+  font-size: 6.5pt;
+  margin-bottom: 1mm;
+}
+
+.pc-mirror {
+  margin-bottom: 1mm;
+  padding: 0.6mm 1mm;
+  border: 0.25mm solid #000;
+  font-size: 6.5pt;
+}
+
+.pc-warnings {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 1mm;
+}
+
+.pc-warnings li {
+  margin-bottom: 0.6mm;
+  padding: 0.6mm 1mm;
+  border: 0.4mm solid #000;
+  font-size: 6.5pt;
+}
+
+.pc-facts {
+  margin-bottom: 1.5mm;
+}
+
+.pc-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 2mm;
+  padding: 0.25mm 0;
+  border-bottom: 0.15mm solid #bbb;
+}
+
+.pc-facts dt {
+  white-space: nowrap;
+}
+
+.pc-facts dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.pc-table,
+.as-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pc-table th,
+.pc-table td {
+  padding: 0.25mm 0.8mm;
+  border: 0.15mm solid #777;
+  text-align: right;
+  font-size: 7pt;
+}
+
+.pc-table th {
+  background: #e4e4e4;
+  font-weight: 700;
+}
+
+.pc-table th:nth-child(2),
+.pc-table td:nth-child(2) {
+  text-align: left;
+}
+
+.pc-table td.pc-no {
+  font-weight: 700;
+}
+
+/* Rigging summary page */
+
+.as-rigging h2 {
+  margin: 0 0 1mm;
+  font-size: 14pt;
+}
+
+.as-rigging-sub {
+  margin: 0 0 3mm;
+  font-size: 8pt;
+}
+
+.as-rigging-note {
+  margin: 2mm 0 0;
+  font-size: 7pt;
+}
+
+.as-table th,
+.as-table td {
+  padding: 0.6mm 1.2mm;
+  border: 0.15mm solid #777;
+  font-size: 8pt;
+  text-align: left;
+}
+
+.as-table th {
+  background: #e4e4e4;
+}
+
+.as-table td.n {
+  text-align: right;
+}
+
+.as-rigging-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6mm;
+  margin-bottom: 3mm;
+}
+
+.as-rigging-head h2,
+.as-rigging-head .as-rigging-sub {
+  margin-bottom: 0;
+}
+
+.as-qr {
+  flex: none;
+  width: 30mm;
+  font-size: 5.5pt;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.as-qr svg {
+  display: block;
+}
+
+.as-qr p {
+  margin: 0;
+}

@@ -9,6 +9,8 @@ interface Props {
   offsetBad: boolean;
   /** True when this array uses the "every array" offset and that is not a number. */
   defaultBad: boolean;
+  /** Saves this array as a PNG image. Not offered when the heights cannot be shown. */
+  onImage?: (() => void) | undefined;
   /** True for a read-only file: the offset cannot be changed. */
   locked?: boolean | undefined;
   /** Set when this card stands for a pair: the name of the mirror image that is not shown separately. */
@@ -20,7 +22,7 @@ interface Props {
   usingDefault: boolean;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage }: Props) {
   const id = useId();
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
@@ -32,7 +34,14 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
   return (
     <article className="card" aria-labelledby={`${id}-name`}>
       <header className="card-head">
-        <h3 id={`${id}-name`}>{c.name}</h3>
+        <div className="card-title-row">
+          <h3 id={`${id}-name`}>{c.name}</h3>
+          {onImage ? (
+            <button type="button" className="button" onClick={onImage} aria-label={`Save ${c.name} as an image`}>
+              Save image
+            </button>
+          ) : null}
+        </div>
         <p className="card-sub">
           {c.group ? <span className="chip">{c.group}</span> : null} {c.configuration ?? 'configuration not stated'}
         </p>

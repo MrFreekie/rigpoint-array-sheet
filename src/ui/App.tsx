@@ -1,22 +1,27 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { compareReports, matchByName, type Change } from '../engine/compare';
-import { flySheetColumn, riggingRows } from '../engine/sheet';
-import { findMirrors } from '../engine/symmetry';
+import { riggingRows } from '../engine/sheet';
 import type { ParseResult } from '../engine/types';
 import { openFileText, serialiseDoc } from '../files/array-file-io';
 import { browserStore, readAutosave, writeAutosave, type Restorable } from '../files/autosave';
 import { editKey, isDirty, isLocked, statusLocks } from '../files/doc';
-import { downloadText } from '../files/download';
-import { suggestedFileName } from '../files/file-name';
+import { downloadBlob, downloadText } from '../files/download';
+import { suggestedFileName, suggestedImageName } from '../files/file-name';
 import { MAX_FILE_BYTES } from '../files/limits';
 import { nextRevision } from '../files/revision';
+import { cardImageBlob } from '../print/array-image';
+import { cardContent } from '../print/card-content';
+import { printFooter } from '../print/footer';
+import { PrintSheet } from '../print/PrintSheet';
 import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
-import { effectiveOffset, newDoc, showTitle, STATUS_LABELS, type Doc, type Job, type Status } from './document';
+import { newDoc, showTitle, STATUS_LABELS, type Doc, type Job, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
 import { RiggingSummary } from './RiggingSummary';
+import { sheetModel, type SheetEntry, type SheetModel } from './sheet-model';
 import { ThemeButton } from './ThemeButton';
 
 const isPdf = (file: File) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
@@ -36,11 +41,17 @@ export function App() {
   const [dragging, setDragging] = useState(false);
   const [restore, setRestore] = useState<Restorable | null>(null);
   const [compare, setCompare] = useState<PendingCompare | null>(null);
+  const [showMirrors, setShowMirrors] = useState(false);
+  const [printedAt, setPrintedAt] = useState(() => new Date());
+  const [printOverflow, setPrintOverflow] = useState(false);
   const openInput = useRef<HTMLInputElement>(null);
   const updateInput = useRef<HTMLInputElement>(null);
 
   const dirty = doc !== null && isDirty(doc);
   const locked = doc !== null && isLocked(doc);
+  const model = useMemo(() => (doc ? sheetModel(doc, showMirrors) : null), [doc, showMirrors]);
+  const printable = doc !== null && doc.result.ok && model !== null && !model.badOffsets;
+  const checks = doc ? doc.result.problems.filter((p) => p.level === 'check').length : 0;
 
   // Offer back a copy kept from an earlier visit that ended with unsaved changes.
   useEffect(() => {
@@ -62,6 +73,50 @@ export function App() {
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
+
+  // Stamp the time on the sheet just before it prints, however printing was started (button or Ctrl+P).
+  useEffect(() => {
+    const stamp = () => flushSync(() => setPrintedAt(new Date()));
+    window.addEventListener('beforeprint', stamp);
+    return () => window.removeEventListener('beforeprint', stamp);
+  }, []);
+
+  async function saveImages(entries: readonly SheetEntry[]) {
+    if (!doc || entries.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const ctx = { show: doc.job.show, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero };
+      const footer = printFooter({
+        appVersion: __APP_VERSION__,
+        soundvisionVersion: doc.result.report.document.version,
+        fileName: doc.fileName,
+        defaultName: suggestedFileName(showTitle(doc), doc.revision),
+        dirty,
+        printedAt: new Date(),
+        verb: 'Exported',
+      });
+      for (const entry of entries) {
+        const blob = await cardImageBlob(cardContent(entry, ctx), { footer, draft: doc.status === 'draft' });
+        downloadBlob(suggestedImageName(showTitle(doc), entry.column.name), blob);
+        if (entries.length > 1) await new Promise((r) => setTimeout(r, 250));
+      }
+      setNotice(
+        entries.length === 1
+          ? `Saved ${entries[0]?.column.name} as an image.`
+          : `Saved ${entries.length} images. Your browser may ask whether to allow several downloads.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The images could not be made.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onPrint() {
+    flushSync(() => setPrintedAt(new Date()));
+    window.print();
+  }
 
   function confirmDiscard(what: string): boolean {
     return !dirty || window.confirm(`The report you have open has unsaved changes. ${what}`);
@@ -181,6 +236,7 @@ export function App() {
   const setRevision = (revision: string) => setDoc((d) => (d && !d.locked ? { ...d, revision } : d));
 
   return (
+    <>
     <div
       className={`app${dragging ? ' dragging' : ''}`}
       onDragOver={(e) => {
@@ -234,6 +290,15 @@ export function App() {
             title="Compare a newer Soundvision PDF with this file"
           >
             Update from PDF
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={!printable || busy}
+            onClick={onPrint}
+            title={doc && !printable ? 'Fix the problems with the report or the ground offsets first' : 'Print, or save as PDF from the print window'}
+          >
+            Print / PDF
           </button>
           {locked ? (
             <button type="button" className="button" disabled={busy} onClick={createRevision}>
@@ -318,6 +383,12 @@ export function App() {
             {notice}
           </p>
         ) : null}
+        {printOverflow ? (
+          <p className="banner banner-check" role="status">
+            <span className="tag tag-check">CHECK</span> An array is too tall for a pocket card even on a page of its own, so it will run on to a second
+            page when printed.
+          </p>
+        ) : null}
         {doc && locked ? (
           <p className="banner banner-check" role="status">
             <span className="tag tag-check">READ-ONLY</span> This file is {STATUS_LABELS[doc.status].toLowerCase()}, so it cannot be changed.
@@ -340,7 +411,20 @@ export function App() {
             </p>
           </section>
         ) : (
-          <Report doc={doc} locked={locked} onJob={patchJob} onStatus={onStatus} onRevision={setRevision} onOffset={setOffset} />
+          <Report
+            doc={doc}
+            model={model}
+            showMirrors={showMirrors}
+            onShowMirrors={setShowMirrors}
+            locked={locked}
+            busy={busy}
+            onJob={patchJob}
+            onStatus={onStatus}
+            onRevision={setRevision}
+            onOffset={setOffset}
+            onImage={(entry) => void saveImages([entry])}
+            onAllImages={() => model && void saveImages(model.entries)}
+          />
         )}
       </main>
 
@@ -348,77 +432,90 @@ export function App() {
         <CompareDialog changes={compare.changes} sourceName={compare.sourceName} onUpdate={applyUpdate} onKeep={() => setCompare(null)} />
       ) : null}
     </div>
+    {doc && printable && model ? (
+      <PrintSheet
+        doc={doc}
+        model={model}
+        checks={checks}
+        footer={printFooter({
+          appVersion: __APP_VERSION__,
+          soundvisionVersion: doc.result.report.document.version,
+          fileName: doc.fileName,
+          defaultName: suggestedFileName(showTitle(doc), doc.revision),
+          dirty,
+          printedAt,
+        })}
+        onOverflow={setPrintOverflow}
+      />
+    ) : null}
+    </>
   );
 }
 
 interface ReportProps {
   doc: Doc;
+  model: SheetModel | null;
+  showMirrors: boolean;
+  onShowMirrors: (show: boolean) => void;
   locked: boolean;
+  busy: boolean;
   onJob: (p: Partial<Job>) => void;
   onStatus: (s: Status) => void;
   onRevision: (r: string) => void;
   onOffset: (i: number, t: string) => void;
+  onImage: (entry: SheetEntry) => void;
+  onAllImages: () => void;
 }
 
-function Report({ doc, locked, onJob, onStatus, onRevision, onOffset }: ReportProps) {
+function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onImage, onAllImages }: ReportProps) {
   const { report, problems, ok } = doc.result;
-  const [showMirrors, setShowMirrors] = useState(false);
-  const mirrors = useMemo(() => findMirrors(report.sources), [report.sources]);
-  const mirrorToShown = useMemo(() => new Map([...mirrors].map(([shown, mirror]) => [mirror, shown])), [mirrors]);
-  const visible = report.sources.map((_, i) => i).filter((i) => showMirrors || !mirrorToShown.has(i));
   return (
     <>
       <ProblemsPanel problems={problems} ok={ok} />
-      {ok ? (
+      {ok && model ? (
         <>
           <JobForm doc={doc} locked={locked} onJob={onJob} onStatus={onStatus} onRevision={onRevision} />
           <section aria-labelledby="fly-heading">
             <h2 id="fly-heading" className="section-heading">
               Fly sheet
               <span className="count">
-                {visible.length} of {report.sources.length} arrays shown
+                {model.entries.length} of {report.sources.length} arrays shown
               </span>
             </h2>
-            {mirrors.size > 0 ? (
-              <label className="check-field">
-                <input type="checkbox" checked={showMirrors} onChange={(e) => setShowMirrors(e.target.checked)} />
-                <span>
-                  Show the {mirrors.size} mirrored {mirrors.size === 1 ? 'array' : 'arrays'} too (exact left-right copies are hidden)
-                </span>
-              </label>
-            ) : null}
+            <div className="sheet-tools">
+              {model.mirrorPairs > 0 ? (
+                <label className="check-field">
+                  <input type="checkbox" checked={showMirrors} onChange={(e) => onShowMirrors(e.target.checked)} />
+                  <span>
+                    Show the {model.mirrorPairs} mirrored {model.mirrorPairs === 1 ? 'array' : 'arrays'} too (exact left-right copies are hidden)
+                  </span>
+                </label>
+              ) : null}
+              <button type="button" className="button" disabled={busy || model.badOffsets} onClick={onAllImages}>
+                Save all as images
+              </button>
+            </div>
             <p className="muted source-line">
               {report.document.fileName ? `Project: ${report.document.fileName}. ` : ''}
               {report.document.version ? `Soundvision ${report.document.version}. ` : ''}
               {report.document.date ? `Report dated ${report.document.date}.` : ''}
             </p>
             <div className="card-grid">
-              {visible.map((i) => {
-                const s = report.sources[i];
-                if (!s) return null;
-                const mirror = mirrors.get(i);
-                const shown = mirrorToShown.get(i);
-                const off = effectiveOffset(doc, i, mirror ?? shown);
-                const column = flySheetColumn(s, off.value ?? 0);
-                if (off.value === null) {
-                  column.topHeight = null;
-                  column.bottomHeight = null;
-                }
-                return (
-                  <ArrayCard
-                    key={i}
-                    column={column}
-                    locked={locked}
-                    coversMirror={mirror !== undefined && !showMirrors ? report.sources[mirror]?.name : undefined}
-                    mirrorOf={shown !== undefined ? report.sources[shown]?.name : undefined}
-                    offsetText={doc.offsets[i] ?? ''}
-                    offsetBad={off.badField === 'array'}
-                    defaultBad={off.badField === 'default'}
-                    usingDefault={(doc.offsets[i] ?? '').trim() === ''}
-                    onOffset={(t) => onOffset(i, t)}
-                  />
-                );
-              })}
+              {model.entries.map((entry) => (
+                <ArrayCard
+                  key={entry.index}
+                  column={entry.column}
+                  locked={locked}
+                  coversMirror={entry.coversMirror}
+                  mirrorOf={entry.mirrorOf}
+                  offsetText={doc.offsets[entry.index] ?? ''}
+                  offsetBad={entry.offset.badField === 'array'}
+                  defaultBad={entry.offset.badField === 'default'}
+                  usingDefault={(doc.offsets[entry.index] ?? '').trim() === ''}
+                  onOffset={(t) => onOffset(entry.index, t)}
+                  onImage={entry.offset.value === null ? undefined : () => onImage(entry)}
+                />
+              ))}
             </div>
           </section>
           <RiggingSummary rows={riggingRows(report.sources)} />

@@ -14,6 +14,10 @@ export function safeName(text: string): string {
   return cleaned === '' ? 'Array sheet' : cleaned;
 }
 
+export function suggestedImageName(show: string, array: string): string {
+  return `${safeName(show.replace(/\.xmlp$/i, ''))} - ${safeName(array)}.png`;
+}
+
 export function suggestedFileName(title: string, revision: string): string {
   const base = safeName(title.replace(/\.xmlp$/i, ''));
   return `${base}${revision ? ` - Rev ${revision}` : ''}${FILE_SUFFIX}`;

@@ -44,10 +44,6 @@ export function siteDoesNotFollow(row: number): string {
   return `Enclosure #${row}: its site angle does not equal the one above minus its angle, so the table may have been read wrongly, or the report itself is inconsistent. ${CHECK_PDF}`;
 }
 
-export function zDoesNotFollow(row: number): string {
-  return `Enclosure #${row}: its top height does not match the bottom of the one above, so the table may have been read wrongly, or the report itself is inconsistent. ${CHECK_PDF}`;
-}
-
 export function topSiteMismatch(): string {
   return `"Top site" does not match the site angle of enclosure #1. ${CHECK_PDF}`;
 }

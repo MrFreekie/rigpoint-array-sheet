@@ -8,6 +8,7 @@ import type { ArraySource } from './types';
 
 const a = parseFixture('a');
 const b = parseFixture('b');
+const c = parseFixture('c');
 
 function find(result: typeof a, name: string): ArraySource {
   const s = result.report.sources.find((x) => x.name === name);
@@ -158,6 +159,55 @@ describe('report B (flown with two motors, ground stacks, no groups)', () => {
     expect(s.weights.total).toBe(233.2);
     expect(s.warnings).toEqual([
       { severity: 'CAUTION', title: 'Tipping hazard', message: 'L-Acoustics recommends securing the array to the ground.' },
+    ]);
+  });
+});
+
+describe('report C (K1, K2 and A15 arrays, nested groups, an HF stack)', () => {
+  it('reads cleanly with nothing to check', () => {
+    expect(c.problems).toEqual([]);
+    expect(c.ok).toBe(true);
+    expect(c.report.sources).toHaveLength(20);
+  });
+
+  it('follows deeper group nesting', () => {
+    expect(find(c, 'K1 1 Left').groups).toEqual(['ALL', 'MAIN', 'K1']);
+    expect(find(c, 'K2 Left').groups).toEqual(['ALL', 'MAIN', 'DELAY']);
+    expect(find(c, 'KARA II 2').groups).toEqual(['ALL', 'MAIN', 'Fills', 'Sub Fill']);
+    expect(find(c, 'K2 SR').groups).toEqual(['ALL', 'MAIN', 'Fills', 'VIP']);
+  });
+
+  it('reads a two-motor K1 array with large splays and a blank first angle', () => {
+    const s = find(c, 'K1 1 Left');
+    expect(s.bumper).toBe('K2-BUMP + 1xK2-BAR hole A');
+    expect(s.motors).toBe(2);
+    expect(s.pickups).toEqual([
+      { which: 'front', position: 4, at: { x: 11.4, y: 2.16, z: 11.68 } },
+      { which: 'rear', position: 21, at: { x: 11.4, y: 1.15, z: 11.78 } },
+    ]);
+    expect(s.position).toEqual({ x: 11.4, y: 2.2, z: 11.5 });
+    expect(s.bottomElevation).toBe(6.35);
+    expect(s.weights).toEqual({ total: 1332.6, enclosures: 1272, frontMotorLoad: 379.4, rearMotorLoad: 953.2 });
+    expect(s.cabinets).toHaveLength(12);
+    expect(s.cabinets[0]).toEqual({ number: 1, type: 'K1', angle: null, site: -6.5, topZ: 11.5, bottomZ: 11.07, panflex: null });
+    expect(s.cabinets[1]).toEqual({ number: 2, type: 'K1', angle: 0.5, site: -7, topZ: 11.06, bottomZ: 10.63, panflex: null });
+    expect(s.cabinets[11]).toEqual({ number: 12, type: 'K1', angle: 5, site: -41.5, topZ: 6.68, bottomZ: 6.35, panflex: null });
+  });
+
+  it('does not call the gaps between splayed K1 enclosures a reading problem', () => {
+    expect(c.problems.some((p) => p.message.includes('top height'))).toBe(false);
+  });
+
+  it('reads a single-motor flown array and an HF stack with its warnings', () => {
+    expect(find(c, 'K2 SR').motors).toBe(1);
+    expect(find(c, 'K2 SR').weights.total).toBe(396.6);
+    const hf = find(c, 'A15 WIDE Out SR');
+    expect(hf.configuration).toBe('vertical, stacked array with HF right');
+    expect(hf.mounting).toBe('stacked');
+    expect(hf.warnings.map((w) => `${w.severity}: ${w.title}`)).toEqual([
+      'WARNING: L-Acoustics does not allow this configuration.',
+      'WARNING: Tipping hazard',
+      'CAUTION: Tipping hazard',
     ]);
   });
 });
