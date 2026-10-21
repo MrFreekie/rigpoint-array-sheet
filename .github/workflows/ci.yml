@@ -31,3 +31,6 @@ jobs:
       # Everything else runs on the committed, anonymised fixtures.
       - name: Unit and property tests
         run: npm test
+
+      - name: Build
+        run: npm run build

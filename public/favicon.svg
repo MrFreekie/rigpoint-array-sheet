@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>RigPoint Array</title>
+  <rect width="512" height="512" rx="96" fill="#0b2545"/>
+  <rect x="116" y="96" width="280" height="28" rx="6" fill="#f2c230"/>
+  <g fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round">
+    <rect x="240" y="124" width="32" height="52" rx="16"/>
+  </g>
+  <g fill="#ffffff">
+    <rect x="186" y="190" width="140" height="34" rx="6"/>
+    <rect x="186" y="232" width="140" height="34" rx="6" transform="rotate(2 256 249)"/>
+    <rect x="186" y="274" width="140" height="34" rx="6" transform="rotate(5 256 291)"/>
+    <rect x="186" y="316" width="140" height="34" rx="6" transform="rotate(10 256 333)"/>
+    <rect x="186" y="358" width="140" height="34" rx="6" transform="rotate(18 256 375)"/>
+  </g>
+</svg>

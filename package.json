@@ -1,7 +1,7 @@
 {
   "name": "rigpoint-array-sheet",
   "version": "0.1.0",
-  "description": "RigPoint Array – reads a Soundvision report PDF and shows only the rigging and array information from it.",
+  "description": "RigPoint Array \u00e2\u20ac\u201c reads a Soundvision report PDF and shows only the rigging and array information from it.",
   "private": true,
   "license": "CC-BY-NC-4.0",
   "type": "module",
@@ -9,25 +9,34 @@
     "node": ">=24"
   },
   "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "extract:fixtures": "node scripts/extract-fixtures.mjs",
-    "reference": "python3 reference/extract_reference.py",
-    "ci": "npm run typecheck && npm run lint && npm test"
+    "ci": "npm run typecheck && npm run lint && npm test && npm run build"
   },
   "dependencies": {
     "pdfjs-dist": "6.4.299",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "zod": "4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
     "eslint": "10.13.0",
+    "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.13.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.0",
+    "vite": "8.3.5",
     "vitest": "5.0.5"
   }
 }

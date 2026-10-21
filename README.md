@@ -6,7 +6,9 @@ RigPoint Array is the second app in the RigPoint family, after [RigPoint Load Sh
 
 ## Where it is
 
-This is phase 1 of 5. The reading engine, the data schema and the tests exist. There is no interface yet, so there is nothing to open in a browser.
+This is phase 2 of 5. You can open a Soundvision PDF and see a fly sheet card for every array plus a rigging summary. You can type the show details and a ground offset. Saving, printing, offline use and installing come in later phases, so nothing you type is kept yet.
+
+To try it, run `npm install` and `npm run dev`, then open the address it prints.
 
 ## What it reads
 
@@ -28,6 +30,8 @@ It does not calculate anything. Totals, loads and angles come from the PDF and n
 It does not check that a rig is safe. Soundvision's own warnings are passed through, and that is all.
 
 When something cannot be read, the app says so and names the array. It never fills the gap with a guess. A report in pounds or feet is refused, because the app reads kilograms and metres only.
+
+When two arrays are exact left-right mirror images, the fly sheet shows one and says so on its card. A checkbox shows both.
 
 The one value it works out itself is the Panflex label on a fly sheet (for example 90 On). That rule is described in [docs/development.md](docs/development.md).
 

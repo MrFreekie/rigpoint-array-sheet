@@ -16,10 +16,13 @@ Notes for anyone changing the code. If you only want to use the app, see the [RE
 
 | Command | What it does |
 |---|---|
+| `npm run dev` | Development server at http://localhost:5173/rigpoint-array-sheet/ |
+| `npm run build` | Typecheck, then a production build into `dist/` with the strict CSP added |
+| `npm run preview` | Serves the production build at http://localhost:4173/rigpoint-array-sheet/ |
 | `npm run typecheck` | TypeScript in strict mode |
 | `npm run lint` | ESLint, including the rule that keeps the engine pure |
 | `npm test` | All tests |
-| `npm run ci` | Typecheck, lint and tests, as CI runs them |
+| `npm run ci` | Typecheck, lint, tests and build, as CI runs them |
 | `npm run extract:fixtures` | Rebuilds the anonymised fixtures from the PDFs in `reference/` |
 
 ## Layout
@@ -28,7 +31,9 @@ Notes for anyone changing the code. If you only want to use the app, see the [RE
 |---|---|
 | `src/engine/` | Pure parser: lines of positioned text in, a report and a list of problems out |
 | `src/schema/` | Zod schema for the report, with plain-English errors that name the field |
+| `src/engine/sheet.ts` | What each fly sheet card and rigging row shows, including the one height subtraction |
 | `src/files/` | Reading a PDF with pdf.js, size and page limits, and the single import function |
+| `src/ui/` | The React interface. It displays engine results and calculates nothing itself |
 | `src/testing/` | A seeded random generator, a report renderer and a tiny PDF builder for tests |
 | `fixtures/` | Anonymised text extracted from the two sample reports |
 | `reference/` | The sample PDFs (kept out of git, see below) |
@@ -65,13 +70,30 @@ A fly sheet shows a label next to each enclosure: 70, 110, or 90 with On or Off.
 
 The two Panflex figures are added together. When they differ, the wider side is On if it points towards the stage centre and Off if it points away, seen from the box. In the samples the first figure points towards negative X and the second towards positive X, so the answer depends on which side of X = 0 the array sits. Left-hand arrays match the sample output. Right-hand arrays follow by mirroring and are not yet checked against a reference.
 
-## Fields for phase 2
+## Inputs on top of the report
 
-The editing interface needs these inputs, which the PDF does not hold: show name, system engineer, company, Z-axis zero, and a ground offset per array. Heights on the sheet are the report's heights minus the ground offset. The array's Position Z is its top height and its Bottom elevation is its bottom height.
+The PDF does not hold the show name, system engineer, company, Z-axis zero or a ground offset, so the interface asks for them. The offset can be set for every array and overridden per array. Heights on the sheet are the report's heights minus the offset, rounded to 0.01 m. An array's Position Z is its top height and its Bottom elevation is its bottom height. If an offset is not a number, the heights are hidden and the field says why. Nothing is ever shown as 0 because it was missing.
+
+## Mirrored arrays
+
+When two arrays are exact left-right copies, the fly sheet shows the first one and names the other on its card. `findMirrors` in `src/engine/symmetry.ts` decides. The test is strict: group, configuration, bumper, motors, weights, heights, sites, every enclosure row and every warning must match. X and azimuth must be negated, pickup X must be negated, and the two Panflex figures must be swapped. A difference of 0.01 in any figure means no pairing. An array on the centre line is never paired.
+
+A checkbox above the cards shows the mirrored arrays as well. A mirrored array uses its partner's ground offset unless it has its own. The rigging summary always lists every pickup, because mirrored arrays hang from different points.
+
+## The interface
+
+- The page opens on a screen that explains what the app does and does not do. A PDF can be chosen or dropped anywhere on the page.
+- A report with an error-level problem shows only the problem list, not the figures.
+- A report with checks shows the sheet and the list of things to compare with the PDF.
+- Every status has a word as well as a colour: READ OK, CHECK, ERROR, WARNING, CAUTION.
+- Colours for Day and Night are tokens in `src/ui/styles.css`. `src/ui/contrast.test.ts` checks them against WCAG 2.1 AA.
+- pdf.js and its worker load only when a PDF is opened, and run under the strict CSP.
+- Components are tested by rendering them to HTML (`src/ui/render.test.tsx`). Browser tests with Playwright arrive with the print view in phase 4.
 
 ## Not done yet
 
-- The editing interface, print view, files, offline use and deploy are later phases.
+- The print view, files, offline use and deploy are later phases.
+- The sample fly sheet's Btm Height + 1 row is deliberately left out.
 - The cabling and folding sheets from other tools are out of scope.
 - pdf.js needs its worker file bundled when the interface exists. Phase 2 decides how.
 - Only Soundvision is supported. Other tools would need their own reader.

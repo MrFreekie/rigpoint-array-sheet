@@ -1,0 +1,74 @@
+import { describe, expect, it } from 'vitest';
+import { parseFixture } from '../testing/fixtures';
+import { effectiveOffset, hasEdits, newDoc, showTitle } from './document';
+
+const fresh = () => newDoc(parseFixture('a'), 'a.pdf');
+
+describe('effectiveOffset', () => {
+  it('is 0 when nothing is typed', () => {
+    expect(effectiveOffset(fresh(), 0)).toEqual({ value: 0, badField: null });
+  });
+
+  it('uses the default when the array has none of its own', () => {
+    const doc = fresh();
+    doc.job.defaultOffset = '0.3';
+    expect(effectiveOffset(doc, 4).value).toBe(0.3);
+  });
+
+  it('prefers the array own value', () => {
+    const doc = fresh();
+    doc.job.defaultOffset = '0.3';
+    doc.offsets[1] = '1.5';
+    expect(effectiveOffset(doc, 1).value).toBe(1.5);
+    expect(effectiveOffset(doc, 0).value).toBe(0.3);
+  });
+
+  it('says which field is wrong', () => {
+    const doc = fresh();
+    doc.job.defaultOffset = 'x';
+    doc.offsets[2] = 'y';
+    expect(effectiveOffset(doc, 0)).toEqual({ value: null, badField: 'default' });
+    expect(effectiveOffset(doc, 2)).toEqual({ value: null, badField: 'array' });
+  });
+});
+
+describe('hasEdits and showTitle', () => {
+  it('is false for a fresh document and true after typing', () => {
+    const doc = fresh();
+    expect(hasEdits(doc)).toBe(false);
+    doc.offsets[3] = '  ';
+    expect(hasEdits(doc)).toBe(false);
+    doc.job.company = 'Acme';
+    expect(hasEdits(doc)).toBe(true);
+  });
+
+  it('titles the show by name, then by report file name', () => {
+    const doc = fresh();
+    expect(showTitle(doc)).toBe('Example Arena - Example Show.xmlp');
+    doc.job.show = 'Main stage';
+    expect(showTitle(doc)).toBe('Main stage');
+  });
+});
+
+describe('effectiveOffset with a mirrored array', () => {
+  it('uses the mirror offset when the array has none of its own', () => {
+    const doc = fresh();
+    doc.job.defaultOffset = '0.3';
+    doc.offsets[0] = '1.5';
+    expect(effectiveOffset(doc, 1, 0).value).toBe(1.5);
+    expect(effectiveOffset(doc, 1).value).toBe(0.3);
+  });
+
+  it('prefers its own over the mirror', () => {
+    const doc = fresh();
+    doc.offsets[0] = '1.5';
+    doc.offsets[1] = '2';
+    expect(effectiveOffset(doc, 1, 0).value).toBe(2);
+  });
+
+  it('flags a bad mirror offset as the array own field', () => {
+    const doc = fresh();
+    doc.offsets[0] = 'x';
+    expect(effectiveOffset(doc, 1, 0)).toEqual({ value: null, badField: 'array' });
+  });
+});
