@@ -105,13 +105,13 @@ test('Save writes back to the file; Save As picks a new one; recent files reopen
   const name = 'Main stage.arraysheet.json';
   await expect(page.getByText(`Saved to ${name}.`)).toBeVisible();
   expect(await pickerCalls(page)).toEqual([{ kind: 'save', suggestedName: name }]);
-  expect(JSON.parse(await readOpfs(page, name)).job.show).toBe('Main stage');
+  await expect.poll(async () => JSON.parse(await readOpfs(page, name)).job.show).toBe('Main stage');
 
   // Edit and Save again: the same file is updated in place, with no picker and no download.
   await page.getByLabel('Company').fill('Acme Audio');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
-  expect(JSON.parse(await readOpfs(page, name)).job.company).toBe('Acme Audio');
+  await expect.poll(async () => JSON.parse(await readOpfs(page, name)).job.company).toBe('Acme Audio');
   expect((await pickerCalls(page)).filter((c) => c.kind === 'save')).toHaveLength(1);
   expect(downloads).toBe(0);
 
@@ -124,7 +124,7 @@ test('Save writes back to the file; Save As picks a new one; recent files reopen
   await expect(page.getByLabel('Company')).toHaveValue('Acme Audio');
   await page.getByLabel('Company').fill('Other Audio');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  expect(JSON.parse(await readOpfs(page, name)).job.company).toBe('Other Audio');
+  await expect.poll(async () => JSON.parse(await readOpfs(page, name)).job.company).toBe('Other Audio');
   // The picker log starts afresh after the reload: reopening from Recent and saving needed no picker at all.
   expect(await pickerCalls(page)).toEqual([]);
 
@@ -147,7 +147,7 @@ test('Open uses the picker, and Save then writes back to what was opened', async
   await expect(page.getByText(`Saved · ${name}`)).toBeVisible();
   await page.getByLabel('Show', { exact: true }).fill('Second show');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  expect(JSON.parse(await readOpfs(page, name)).job.show).toBe('Second show');
+  await expect.poll(async () => JSON.parse(await readOpfs(page, name)).job.show).toBe('Second show');
 });
 
 test('a new revision of an approved file never overwrites the original', async ({ page }) => {
@@ -163,11 +163,12 @@ test('a new revision of an approved file never overwrites the original', async (
 
   await page.getByRole('button', { name: 'Create new revision' }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved to Main stage - Rev A.arraysheet.json.')).toBeVisible();
 
   // Save asked where to put the revision, suggesting a new name, and the original is untouched.
   expect((await pickerCalls(page)).at(-1)).toEqual({ kind: 'save', suggestedName: 'Main stage - Rev A.arraysheet.json' });
   expect(await readOpfs(page, original)).toBe(before);
-  expect(JSON.parse(await readOpfs(page, 'Main stage - Rev A.arraysheet.json'))).toMatchObject({ status: 'draft', revision: 'A' });
+  await expect.poll(async () => JSON.parse(await readOpfs(page, 'Main stage - Rev A.arraysheet.json'))).toMatchObject({ status: 'draft', revision: 'A' });
 });
 
 test('a saved file shared from another app opens (Android share target)', async ({ page }) => {
