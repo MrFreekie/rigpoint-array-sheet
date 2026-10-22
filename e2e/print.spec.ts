@@ -91,6 +91,8 @@ test('report A: nine arrays print four to a page, then the rigging page', async 
   await expect(last).toContainText('KARA II R Out');
   await expect(last.getByTestId('print-qr').locator('svg path')).toHaveAttribute('d', /^M\d+ \d+h\d+v1h-\d+z/);
   await expect(last.getByTestId('print-qr')).toContainText('https://mrfreekie.github.io/rigpoint-array-sheet/');
+  await expect(last.getByTestId('print-small-print')).toContainText('provided as it is, without warranty');
+  await expect(last.getByTestId('print-small-print')).toContainText('Soundvision and L-Acoustics are trademarks of their owners.');
 });
 
 test('report B: eight arrays make two pages of cards and the rigging page', async ({ page }) => {

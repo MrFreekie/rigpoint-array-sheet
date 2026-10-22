@@ -61,7 +61,7 @@ When two arrays are exact left-right mirror images, the fly sheet shows one and 
 
 The one value it works out itself is the Panflex label on a fly sheet (for example 90 On). That rule is described in [docs/development.md](docs/development.md).
 
-Read the [disclaimer](DISCLAIMER.md) before relying on any sheet.
+Read the [disclaimer](DISCLAIMER.md) before relying on any sheet. It is printed word for word on the last page of every printout.
 
 ## Privacy
 
@@ -80,4 +80,4 @@ See [docs/development.md](docs/development.md) for the layout and how the tests 
 
 ## Licence
 
-Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0). See [LICENCE](LICENCE).
+Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0). See [LICENCE](LICENCE) for the full text.

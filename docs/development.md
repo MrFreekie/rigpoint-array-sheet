@@ -142,7 +142,7 @@ Every card is laid out at a fixed width (half the page less padding) and measure
 
 While printing, the measuring copy is hidden, so a measurement then would read zero. The measuring code ignores a hidden container and keeps the heights it already has. A Playwright test covers this.
 
-The footer is `printFooter`. It says which version, which Soundvision report, which file and when. A file that has changed since it was saved is marked. The sheet does not print any disclaimer yet, because the wording in `DISCLAIMER.md` is still a draft.
+The footer is `printFooter`. It says which version, which Soundvision report, which file and when. A file that has changed since it was saved is marked. The last page carries the small print from `src/print/small-print.ts`. It is the approved wording of `DISCLAIMER.md`, and a test fails if the two differ by a word. Change them together, and only with the owner's approval.
 
 The Playwright PDF tests check three things: the number of PDF pages, that every card sits inside its panel and every footer inside its page, and that the text is what the screen shows. PDF output is a Chromium feature, so those run on Chromium only.
 

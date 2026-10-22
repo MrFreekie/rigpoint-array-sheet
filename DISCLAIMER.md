@@ -1,7 +1,5 @@
 # Disclaimer
 
-DRAFT for the owner to approve. Once approved, this wording is fixed and any print footer should reproduce it exactly.
-
 RigPoint Array is provided as it is, without warranty. It reads a Soundvision report and shows the array and rigging information that report states. It is a reading aid. It does not replace the report, a rigging plan, or assessment by a competent person.
 
 **What it shows.** Every figure comes from the PDF you give it, in kilograms and metres. The app does not calculate loads, check ratings or test whether a rig is safe. Where it cannot read something, it says so.

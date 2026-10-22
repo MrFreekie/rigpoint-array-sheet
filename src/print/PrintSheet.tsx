@@ -10,6 +10,7 @@ import { num } from '../ui/format';
 import type { SheetModel } from '../ui/sheet-model';
 import { cardContent, type CardContent } from './card-content';
 import { qrMatrix, qrPath, qrSize } from './qr';
+import { SMALL_PRINT } from './small-print';
 import { CARD_W_MM, FULL_H_MM, MIN_FULL_SCALE, PAGE_W_MM, fitScale, planPages } from './layout';
 
 function CardView({ content }: { content: CardContent }) {
@@ -185,6 +186,14 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
           <p className="as-rigging-note">Every pickup is listed, including those of mirrored arrays, because their positions differ.</p>
         </>
       )}
+      <div className="as-small-print" data-testid="print-small-print">
+        {SMALL_PRINT.map((p, i) => (
+          <p key={i}>
+            {p.label ? <strong>{p.label} </strong> : null}
+            {p.text}
+          </p>
+        ))}
+      </div>
     </div>
   );
 
