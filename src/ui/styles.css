@@ -658,3 +658,7 @@ select {
   display: flex;
   gap: 0.5rem;
 }
+
+.print-check {
+  margin: 0;
+}

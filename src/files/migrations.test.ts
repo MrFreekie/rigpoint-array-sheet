@@ -2,13 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { FileError, migrate, MIGRATIONS } from './migrations';
 
 describe('migrate', () => {
-  it('has no steps yet, because version 1 is the first', () => {
-    expect(Object.keys(MIGRATIONS)).toEqual([]);
+  it('has one step so far: version 1 to 2', () => {
+    expect(Object.keys(MIGRATIONS)).toEqual(['1']);
   });
 
   it('passes a current file through untouched', () => {
-    const file = { format: 'arraysheet/1', x: 1 };
+    const file = { format: 'arraysheet/2', x: 1 };
     expect(migrate(file)).toEqual(file);
+  });
+
+  it('upgrades a version 1 file by choosing every array for printing', () => {
+    const v1 = { format: 'arraysheet/1', report: { sources: [{}, {}, {}] }, keep: 'me' };
+    expect(migrate(v1)).toEqual({ format: 'arraysheet/2', report: { sources: [{}, {}, {}] }, keep: 'me', print: [true, true, true] });
+  });
+
+  it('upgrades a damaged version 1 file without crashing, leaving the schema to say what is wrong', () => {
+    expect(migrate({ format: 'arraysheet/1' })).toEqual({ format: 'arraysheet/2', print: [] });
+    expect(migrate({ format: 'arraysheet/1', report: null })).toMatchObject({ print: [] });
+    expect(migrate({ format: 'arraysheet/1', report: { sources: 'many' } })).toMatchObject({ print: [] });
   });
 
   it('refuses things that are not files', () => {
@@ -18,7 +29,7 @@ describe('migrate', () => {
   });
 
   it('refuses a file from a newer version and says what to do', () => {
-    expect(() => migrate({ format: 'arraysheet/2' })).toThrow(/newer version of RigPoint Array/);
+    expect(() => migrate({ format: 'arraysheet/3' })).toThrow(/newer version of RigPoint Array/);
   });
 
   it('runs each step in order, one version at a time', () => {

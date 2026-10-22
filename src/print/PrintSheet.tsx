@@ -78,8 +78,8 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
     () => ({ show: doc.job.show, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero }),
     [doc.job.show, doc.status, doc.revision, doc.job.zAxisZero],
   );
-  const contents = useMemo(() => model.entries.map((e) => ({ index: e.index, content: cardContent(e, ctx) })), [model, ctx]);
-  const rigging = useMemo(() => riggingRows(doc.result.report.sources), [doc.result.report.sources]);
+  const contents = useMemo(() => model.entries.filter((e) => e.print).map((e) => ({ index: e.index, content: cardContent(e, ctx) })), [model, ctx]);
+  const rigging = useMemo(() => riggingRows(doc.result.report.sources, model.printedSources), [doc.result.report.sources, model.printedSources]);
   const qr = useMemo(() => {
     const matrix = qrMatrix(APP_URL);
     return { path: qrPath(matrix), size: qrSize(matrix) };
@@ -132,6 +132,12 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
   );
   const watermark = draft ? (
     <div className="as-watermark" aria-hidden="true">
+      DRAFT
+    </div>
+  ) : null;
+  // Folded into pocket cards, a page-wide word would be cut across the panels. Every panel carries its own.
+  const panelWatermark = draft ? (
+    <div className="as-watermark as-watermark-panel" aria-hidden="true">
       DRAFT
     </div>
   ) : null;
@@ -212,11 +218,12 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
 
       {plan.map((p, n) => (
         <section key={n} className={`as-page${p.kind === 'full' && p.overflow ? ' as-page-overflow' : ''}`} data-testid="print-page">
-          {watermark}
+          {p.kind === 'grid' ? null : watermark}
           {p.kind === 'grid' ? (
             <div className="as-grid">
               {p.cards.map((c) => (
                 <div key={c.item.index} className="as-cell" data-testid="print-card">
+                  {panelWatermark}
                   <div className="as-fit" style={{ width: `${CARD_W_MM}mm`, transform: c.scale < 1 ? `scale(${c.scale})` : undefined }}>
                     <CardView content={c.item.content} />
                   </div>

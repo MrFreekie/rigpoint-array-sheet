@@ -47,7 +47,7 @@ async function expectNothingClipped(page: Page) {
 }
 
 const pages = (page: Page) => page.getByTestId('print-page');
-const cards = (page: Page) => page.getByTestId('print-card');
+const cardsOnPaper = (page: Page) => page.getByTestId('print-card');
 
 test('page counting works (sanity check for the tests below)', async ({ page }) => {
   await page.setContent('<style>@page{size:A4;margin:10mm} div{break-after:page}</style><div>1</div><div>2</div><p>3</p>');
@@ -63,7 +63,7 @@ test('report A: nine arrays print four to a page, then the rigging page', async 
   // 9 arrays = 4 + 4 + 1, then the rigging summary.
   expect(pdfPages(pdf)).toBe(4);
   await expect(pages(page)).toHaveCount(4);
-  await expect(cards(page)).toHaveCount(9);
+  await expect(cardsOnPaper(page)).toHaveCount(9);
   await expectNothingClipped(page);
 
   // Only the sheet prints, not the editing screen.
@@ -79,8 +79,11 @@ test('report A: nine arrays print four to a page, then the rigging page', async 
   await expect(first).toContainText('WARNING');
   await expect(first).toContainText('Tipping hazard');
 
-  // Every page of a draft carries the watermark and a footer with its page number.
-  await expect(page.locator('.as-watermark')).toHaveCount(4);
+  // A draft is marked on every pocket panel (nine of them), so each folded card carries it, and once
+  // on the rigging page. The grid pages themselves carry no page-wide word that the folds would cut.
+  await expect(page.locator('.as-cell .as-watermark')).toHaveCount(9);
+  await expect(page.locator('.as-watermark')).toHaveCount(10);
+  await expect(page.locator('[data-testid=print-page] > .as-watermark')).toHaveCount(1);
   await expect(pages(page).nth(2).locator('.as-footer')).toHaveText(
     /^RigPoint Array \d+\.\d+\.\d+ · Soundvision 2026\.3\.1 · .+\.arraysheet\.json \(not saved\) · Printed \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} · Page 3 of 4$/,
   );
@@ -100,7 +103,7 @@ test('report B: eight arrays make two pages of cards and the rigging page', asyn
   await openPdf(page, samplePdf('b'));
   await expect(page.locator('.card')).toHaveCount(8);
   expect(pdfPages(await printToPdf(page, 'report-b.pdf'))).toBe(3);
-  await expect(cards(page)).toHaveCount(8);
+  await expect(cardsOnPaper(page)).toHaveCount(8);
   await expectNothingClipped(page);
   await expect(pages(page).last()).toContainText('Front');
   await expect(pages(page).last()).toContainText('Rear');
@@ -162,4 +165,43 @@ test('the sheet is not printable while the report has an error', async ({ page }
   await openPdf(page, samplePdf('a'));
   await page.getByLabel('Ground offset for every array (m)').fill('x');
   await expect(page.getByRole('button', { name: 'Print / PDF' })).toBeDisabled();
+});
+
+test('only the arrays that are chosen print, and only their pickups are listed', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await expect(page.locator('.card')).toHaveCount(9);
+  await expect(page.getByTestId('print-count')).toHaveText('All 9 arrays shown are chosen for printing and as images.');
+
+  // Leave out the left main (and so the right main it stands for) and four of the small fills.
+  const cards = page.locator('.card');
+  for (const i of [0, 4, 5, 6, 7]) await cards.nth(i).getByLabel('Print this array').uncheck();
+  await expect(page.getByTestId('print-count')).toHaveText('4 of 9 arrays shown are chosen for printing and as images.');
+
+  await page.emulateMedia({ media: 'print' });
+  await expect(cards.nth(0).getByLabel('Print this array')).not.toBeChecked();
+  await expect(cards).toHaveCount(9); // the screen still shows every array
+  expect(pdfPages(await printToPdf(page, 'chosen.pdf'))).toBe(2); // one page of four cards, then the rigging page
+  await expect(cardsOnPaper(page)).toHaveCount(4);
+  await expectNothingClipped(page);
+  const printed = await page.getByTestId('print-card').allInnerTexts();
+  expect(printed.join(' ')).not.toContain('KARA II L Main');
+  expect(printed.join(' ')).toContain('KARA II L Out');
+
+  const last = pages(page).last();
+  await expect(last).toContainText('KARA II L Out');
+  await expect(last).not.toContainText('KARA II L Main');
+  await expect(last).not.toContainText('KARA II R Main');
+});
+
+test('with no array chosen there is nothing to print', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('b'));
+  const cards = page.locator('.card');
+  for (let i = 0; i < 8; i++) await cards.nth(i).getByLabel('Print this array').uncheck();
+  await expect(page.getByRole('button', { name: 'Print / PDF' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Print / PDF' })).toHaveAttribute('title', 'Choose at least one array to print');
+  await expect(page.getByRole('button', { name: 'Save selected as images' })).toBeDisabled();
+  await cards.nth(0).getByLabel('Print this array').check();
+  await expect(page.getByRole('button', { name: 'Print / PDF' })).toBeEnabled();
 });

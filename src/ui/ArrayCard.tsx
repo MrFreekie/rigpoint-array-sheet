@@ -9,6 +9,9 @@ interface Props {
   offsetBad: boolean;
   /** True when this array uses the "every array" offset and that is not a number. */
   defaultBad: boolean;
+  /** Whether this array is chosen for printing, and how to change that. */
+  printed: boolean;
+  onPrinted: (printed: boolean) => void;
   /** Saves this array as a PNG image. Not offered when the heights cannot be shown. */
   onImage?: (() => void) | undefined;
   /** True for a read-only file: the offset cannot be changed. */
@@ -22,7 +25,7 @@ interface Props {
   usingDefault: boolean;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted }: Props) {
   const id = useId();
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
@@ -46,6 +49,11 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
           {c.group ? <span className="chip">{c.group}</span> : null} {c.configuration ?? 'configuration not stated'}
         </p>
       </header>
+
+      <label className="check-field print-check">
+        <input type="checkbox" checked={printed} onChange={(e) => onPrinted(e.target.checked)} />
+        <span>Print this array</span>
+      </label>
 
       {coversMirror ? (
         <p className="mirror-note" data-testid="mirror-note">

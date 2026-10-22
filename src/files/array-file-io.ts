@@ -24,6 +24,7 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
       default_offset: doc.job.defaultOffset,
     },
     offsets: Array.from({ length: count }, (_, i) => doc.offsets[i] ?? ''),
+    print: Array.from({ length: count }, (_, i) => !doc.noPrint[i]),
     report: doc.result.report,
     problems: doc.result.problems,
   };
@@ -60,6 +61,10 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
   f.offsets.forEach((t, i) => {
     if (t.trim() !== '') offsets[i] = t;
   });
+  const noPrint: Record<number, boolean> = {};
+  f.print.forEach((printed, i) => {
+    if (!printed) noPrint[i] = true;
+  });
   const doc: Doc = {
     result: { report: f.report, problems: f.problems, ok: !f.problems.some((p) => p.level === 'error') },
     sourceName: f.source_name,
@@ -76,6 +81,8 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
     fileName,
     savedKey: null,
     locked: statusLocks(f.status),
+    noPrint,
+    printOverride: null,
   };
   doc.savedKey = editKey(doc);
   return { doc, savedAt: f.saved_at };

@@ -16,7 +16,7 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} printed onPrinted={() => {}} {...extra} />,
   );
 
 describe('ArrayCard', () => {
@@ -71,6 +71,13 @@ describe('ArrayCard', () => {
     const mirror = card('KARA II R Main', a, { mirrorOf: 'KARA II L Main' });
     expect(mirror).toContain('An exact left-right mirror of');
     expect(card('KARA II L Main')).not.toContain('MIRRORED');
+  });
+
+  it('has a print checkbox, ticked when the array is chosen', () => {
+    expect(card('X8 2')).toMatch(/<input type="checkbox" checked=""[^>]*\/><span>Print this array<\/span>/);
+    const off = card('X8 2', a, { printed: false });
+    expect(off).toContain('Print this array');
+    expect(off).not.toMatch(/checked=""[^>]*\/><span>Print this array/);
   });
 
   it('labels the offset field', () => {

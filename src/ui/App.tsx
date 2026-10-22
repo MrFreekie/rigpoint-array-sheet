@@ -22,7 +22,7 @@ import { printFooter } from '../print/footer';
 import { PrintSheet } from '../print/PrintSheet';
 import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
-import { newDoc, showTitle, STATUS_LABELS, type Doc, type Job, type Status } from './document';
+import { newDoc, showTitle, STATUS_LABELS, withPrinted, type Doc, type Job, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -63,7 +63,8 @@ export function App() {
   const dirty = doc !== null && isDirty(doc);
   const locked = doc !== null && isLocked(doc);
   const model = useMemo(() => (doc ? sheetModel(doc, showMirrors) : null), [doc, showMirrors]);
-  const printable = doc !== null && doc.result.ok && model !== null && !model.badOffsets;
+  const printCount = model ? model.entries.filter((e) => e.print).length : 0;
+  const printable = doc !== null && doc.result.ok && model !== null && !model.badOffsets && printCount > 0;
   const checks = doc ? doc.result.problems.filter((p) => p.level === 'check').length : 0;
 
   // Offer back a copy kept from an earlier visit that ended with unsaved changes.
@@ -259,7 +260,7 @@ export function App() {
   function createRevision() {
     if (!doc) return;
     const revision = nextRevision(doc.revision);
-    setDoc({ ...doc, status: 'draft', revision, fileName: null, savedKey: null, locked: false });
+    setDoc({ ...doc, status: 'draft', revision, fileName: null, savedKey: null, locked: false, noPrint: doc.printOverride ?? doc.noPrint, printOverride: null });
     // A new revision never writes over the file it came from: Save asks where.
     setHandle(null);
     setNotice(`Revision ${revision} started as a draft. It is not saved yet. Save it to keep it under its new name.`);
@@ -299,7 +300,12 @@ export function App() {
       const j = map.get(Number(i));
       if (j !== undefined) offsets[j] = text;
     }
-    setDoc({ ...doc, result: compare.fresh, sourceName: compare.sourceName, offsets });
+    const noPrint: Record<number, boolean> = {};
+    for (const [i, skip] of Object.entries(doc.noPrint)) {
+      const j = map.get(Number(i));
+      if (skip && j !== undefined) noPrint[j] = true;
+    }
+    setDoc({ ...doc, result: compare.fresh, sourceName: compare.sourceName, offsets, noPrint, printOverride: null });
     setNotice(`Updated from ${compare.sourceName}. The file has unsaved changes.`);
     setCompare(null);
   }
@@ -322,6 +328,7 @@ export function App() {
   const patchJob = (patch: Partial<Job>) => setDoc((d) => (d && !d.locked ? { ...d, job: { ...d.job, ...patch } } : d));
   const setOffset = (index: number, text: string) =>
     setDoc((d) => (d && !d.locked ? { ...d, offsets: { ...d.offsets, [index]: text } } : d));
+  const setPrinted = (index: number, printed: boolean) => setDoc((d) => (d ? withPrinted(d, index, printed) : d));
   const setRevision = (revision: string) => setDoc((d) => (d && !d.locked ? { ...d, revision } : d));
 
   return (
@@ -401,7 +408,13 @@ export function App() {
             className="button"
             disabled={!printable || busy}
             onClick={onPrint}
-            title={doc && !printable ? 'Fix the problems with the report or the ground offsets first' : 'Print, or save as PDF from the print window'}
+            title={
+              doc && !printable
+                ? printCount === 0 && doc.result.ok
+                  ? 'Choose at least one array to print'
+                  : 'Fix the problems with the report or the ground offsets first'
+                : 'Print, or save as PDF from the print window'
+            }
           >
             Print / PDF
           </button>
@@ -528,8 +541,9 @@ export function App() {
             onStatus={onStatus}
             onRevision={setRevision}
             onOffset={setOffset}
+            onPrinted={setPrinted}
             onImage={(entry) => void saveImages([entry])}
-            onAllImages={() => model && void saveImages(model.entries)}
+            onAllImages={() => model && void saveImages(model.entries.filter((e) => e.print))}
           />
         )}
       </main>
@@ -577,12 +591,14 @@ interface ReportProps {
   onStatus: (s: Status) => void;
   onRevision: (r: string) => void;
   onOffset: (i: number, t: string) => void;
+  onPrinted: (i: number, printed: boolean) => void;
   onImage: (entry: SheetEntry) => void;
   onAllImages: () => void;
 }
 
-function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onPrinted, onImage, onAllImages }: ReportProps) {
   const { report, problems, ok } = doc.result;
+  const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
     <>
       <ProblemsPanel problems={problems} ok={ok} />
@@ -605,10 +621,15 @@ function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, o
                   </span>
                 </label>
               ) : null}
-              <button type="button" className="button" disabled={busy || model.badOffsets} onClick={onAllImages}>
-                Save all as images
+              <button type="button" className="button" disabled={busy || model.badOffsets || printCount === 0} onClick={onAllImages}>
+                Save selected as images
               </button>
             </div>
+            <p className="muted source-line" data-testid="print-count">
+              {printCount === model.entries.length
+                ? `All ${printCount} arrays shown are chosen for printing and as images.`
+                : `${printCount} of ${model.entries.length} arrays shown are chosen for printing and as images.`}
+            </p>
             <p className="muted source-line">
               {report.document.fileName ? `Project: ${report.document.fileName}. ` : ''}
               {report.document.version ? `Soundvision ${report.document.version}. ` : ''}
@@ -627,6 +648,8 @@ function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, o
                   defaultBad={entry.offset.badField === 'default'}
                   usingDefault={(doc.offsets[entry.index] ?? '').trim() === ''}
                   onOffset={(t) => onOffset(entry.index, t)}
+                  printed={entry.print}
+                  onPrinted={(p) => onPrinted(entry.index, p)}
                   onImage={entry.offset.value === null ? undefined : () => onImage(entry)}
                 />
               ))}

@@ -42,6 +42,13 @@ export interface Doc {
    * Choosing Approved on a draft does not lock it until it is saved, so it can still be saved.
    */
   locked: boolean;
+  /** Arrays the person chose not to print, by position in the report. Saved in the file. */
+  noPrint: Record<number, boolean>;
+  /**
+   * The same choices while the file is read-only. A read-only file cannot change, but the person may
+   * still pick what to print this time. Never saved. Null when there is nothing to override.
+   */
+  printOverride: Record<number, boolean> | null;
 }
 
 export const EMPTY_JOB: Job = { show: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '' };
@@ -57,6 +64,8 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     fileName: null,
     savedKey: null,
     locked: false,
+    noPrint: {},
+    printOverride: null,
   };
 }
 
@@ -74,7 +83,22 @@ export function editKey(doc: Doc): string {
   const offsets = Object.entries(doc.offsets)
     .filter(([, text]) => text.trim() !== '')
     .sort(([a], [b]) => Number(a) - Number(b));
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result]);
+  const skipped = Object.entries(doc.noPrint)
+    .filter(([, skip]) => skip)
+    .map(([i]) => Number(i))
+    .sort((a, b) => a - b);
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped]);
+}
+
+/** True when the array at this position is chosen for printing. */
+export function isPrinted(doc: Doc, index: number): boolean {
+  return !(doc.printOverride ?? doc.noPrint)[index];
+}
+
+/** Choose, or unchoose, an array for printing. A read-only file keeps the choice for this session only. */
+export function withPrinted(doc: Doc, index: number, printed: boolean): Doc {
+  if (doc.locked) return { ...doc, printOverride: { ...(doc.printOverride ?? doc.noPrint), [index]: !printed } };
+  return { ...doc, noPrint: { ...doc.noPrint, [index]: !printed }, printOverride: null };
 }
 
 /** True when the document has never been saved, or has changed since it was. */

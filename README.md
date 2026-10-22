@@ -12,11 +12,13 @@ You can open a Soundvision PDF and see a fly sheet card for every array plus a r
 
 Print / PDF opens the print window. Choose a printer, or choose Save as PDF as the destination.
 
+Every array card has a Print this array checkbox, ticked to begin with. Only the ticked arrays are printed or saved as images, and the rigging page lists only their pickups. The choice is saved with the file.
+
 Each A4 page holds four arrays in a two by two grid, in the order of the report. Fold the page in half twice and every array is on its own A6 panel, small enough for a pocket. Dashed lines mark the folds. An array too tall for a panel gets a page of its own. The last page is the rigging summary, with a QR code that opens this app.
 
-Every page has a footer with the app version, the Soundvision version, the file name (marked when it is unsaved) and the time it was printed. Drafts carry a DRAFT watermark. The sheet is black on white whatever theme the screen is in.
+Every page has a footer with the app version, the Soundvision version, the file name (marked when it is unsaved) and the time it was printed. Drafts carry a DRAFT watermark on every pocket panel, so each folded card is marked. The sheet is black on white whatever theme the screen is in.
 
-Save image on a card saves that array as a PNG. Save all as images saves one for every array shown. Your browser may ask whether to allow several downloads.
+Save image on a card saves that array as a PNG. Save selected as images saves one for every ticked array. Your browser may ask whether to allow several downloads.
 
 ## Install it, and use it with no signal
 

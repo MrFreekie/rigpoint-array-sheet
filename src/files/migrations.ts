@@ -7,8 +7,15 @@ export class FileError extends Error {}
 
 export type Migration = (file: Record<string, unknown>) => Record<string, unknown>;
 
-/** Key is the version a step upgrades from. Version 1 is the first, so there are none yet. */
-export const MIGRATIONS: Record<number, Migration> = {};
+/** Key is the version a step upgrades from. */
+export const MIGRATIONS: Record<number, Migration> = {
+  // Version 2 added the choice of which arrays to print. A version 1 file printed them all.
+  1: (file) => {
+    const report = file['report'];
+    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
+    return { ...file, print: Array.isArray(sources) ? sources.map(() => true) : [] };
+  },
+};
 
 export function migrate(
   raw: unknown,

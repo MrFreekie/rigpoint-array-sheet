@@ -19,6 +19,38 @@ function sample(name: 'a' | 'b' = 'a'): Doc {
 
 const roundTrip = (doc: Doc) => openFileText(serialiseDoc(doc, '0.1.0', NOW), 'name.arraysheet.json');
 
+describe('print choices', () => {
+  it('are saved with the file and come back', () => {
+    const doc = sample();
+    doc.noPrint = { 1: true, 5: true };
+    const file = docToFile(doc, '0.1.0', NOW);
+    expect(file.print).toHaveLength(18);
+    expect(file.print.map((p, i) => (p ? null : i)).filter((i) => i !== null)).toEqual([1, 5]);
+    expect(roundTrip(doc).doc.noPrint).toEqual({ 1: true, 5: true });
+  });
+
+  it('are all on for a new document', () => {
+    expect(docToFile(sample(), '0.1.0', NOW).print.every(Boolean)).toBe(true);
+  });
+
+  it('a read-only override is not saved', () => {
+    const doc = sample();
+    doc.locked = true;
+    doc.printOverride = { 2: true };
+    expect(docToFile(doc, '0.1.0', NOW).print.every(Boolean)).toBe(true);
+  });
+
+  it('an older (version 1) file opens with every array chosen for printing', () => {
+    const v1 = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as Record<string, unknown>;
+    delete v1['print'];
+    v1['format'] = 'arraysheet/1';
+    const { doc } = openFileText(JSON.stringify(v1), 'old.arraysheet.json');
+    expect(doc.noPrint).toEqual({});
+    expect(doc.job.show).toBe('Main stage');
+    expect(doc.result.report.sources).toHaveLength(18);
+  });
+});
+
 describe('saving and opening', () => {
   it.each(['a', 'b'] as const)('report %s comes back exactly as saved', (name) => {
     const doc = sample(name);
@@ -49,7 +81,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/1');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/2');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -109,6 +141,8 @@ describe('opening a bad file', () => {
     ['show', (f) => (f.job.show = 5), /Show details, Show: Show must be text/],
     ['show length', (f) => (f.job.show = 'x'.repeat(501)), /Show is too long/],
     ['offsets length', (f) => f.offsets.pop(), /Ground offsets: There must be one ground offset for each array/],
+    ['print count', (f) => f.print.pop(), /Print choices: There must be one print choice for each array/],
+    ['print type', (f) => (f.print[0] = 'yes'), /Print choices, entry 1: Print must be true or false/],
     ['offset type', (f) => (f.offsets[0] = 1), /Ground offsets, entry 1: Ground offset must be text/],
     ['report missing', (f) => delete f.report, /Report: is missing/],
     ['job missing', (f) => delete f.job, /Show details: is missing/],
@@ -138,7 +172,7 @@ describe('opening a bad file', () => {
   });
 
   it('never throws anything but a FileError, even for hostile input', () => {
-    const hostile = ['{}', '{"format":"arraysheet/1"}', '{"format":"arraysheet/1","report":null}', '{"__proto__":{"x":1}}', 'null', '12', '"text"'];
+    const hostile = ['{}', '{"format":"arraysheet/2"}', '{"format":"arraysheet/2","report":null}', '{"__proto__":{"x":1}}', 'null', '12', '"text"'];
     for (const text of hostile) {
       let error: unknown;
       try {

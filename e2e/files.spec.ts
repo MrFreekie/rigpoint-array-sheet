@@ -48,7 +48,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/1', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/2', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -157,7 +157,7 @@ test('each array can be saved as an image, one at a time or all together', async
 
   const names: string[] = [];
   page.on('download', (d) => names.push(savedName(d)));
-  await page.getByRole('button', { name: 'Save all as images' }).click();
+  await page.getByRole('button', { name: 'Save selected as images' }).click();
   await expect.poll(() => names.length, { timeout: 15_000 }).toBe(9);
   expect(new Set(names).size).toBe(9);
   expect(names).toContain('Example Arena - Example Show - SB28 L Front.png');
@@ -168,6 +168,54 @@ test('images are not offered while an offset is not a number', async ({ page }) 
   await start(page);
   await openPdf(page, samplePdf('a'));
   await page.getByLabel('Ground offset for every array (m)').fill('x');
-  await expect(page.getByRole('button', { name: 'Save all as images' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Save selected as images' })).toBeDisabled();
   await expect(page.getByRole('button', { name: /as an image$/ })).toHaveCount(0);
+});
+
+test('the choice of arrays to print is saved with the file, and a read-only file can still choose', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const cards = page.locator('.card');
+  await cards.nth(2).getByLabel('Print this array').uncheck();
+  await expect(page.getByTestId('print-count')).toContainText('8 of 9 arrays');
+  await expect(page.getByText('● Unsaved changes')).toBeVisible();
+  const draft = await save(page);
+  expect((draft.json['print'] as boolean[]).filter((p) => !p)).toHaveLength(1);
+  expect((draft.json['print'] as boolean[])[4]).toBe(false); // array 4 is the third card: the first two stand for mirrors 1 and 3
+
+  // It comes back after reopening.
+  await page.getByRole('button', { name: 'New' }).click();
+  await openJson(page, 'chosen.arraysheet.json', draft.text);
+  await expect(page.getByTestId('print-count')).toContainText('8 of 9 arrays');
+  await expect(cards.nth(2).getByLabel('Print this array')).not.toBeChecked();
+
+  // An approved file is read-only, yet the choice can still be made. It is not saved and not a change.
+  await page.getByLabel('Status').selectOption('approved');
+  const approved = await save(page);
+  await openJson(page, 'approved.arraysheet.json', approved.text);
+  await expect(page.locator('.tag-check', { hasText: 'READ-ONLY' })).toBeVisible();
+  await expect(cards.nth(2).getByLabel('Print this array')).toBeEnabled();
+  await cards.nth(2).getByLabel('Print this array').check();
+  await cards.nth(0).getByLabel('Print this array').uncheck();
+  await expect(page.getByTestId('print-count')).toContainText('8 of 9 arrays');
+  await expect(page.getByText('Read-only · approved.arraysheet.json')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+
+  // A new revision starts from the choices in force, and is a draft that can be saved.
+  await page.getByRole('button', { name: 'Create new revision' }).click();
+  await expect(page.getByTestId('print-count')).toContainText('8 of 9 arrays');
+  const next = await save(page);
+  expect((next.json['print'] as boolean[])[0]).toBe(false);
+});
+
+test('images follow the choice of arrays', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const cards = page.locator('.card');
+  for (let i = 1; i < 9; i++) await cards.nth(i).getByLabel('Print this array').uncheck();
+  const names: string[] = [];
+  page.on('download', (d) => names.push(savedName(d)));
+  await page.getByRole('button', { name: 'Save selected as images' }).click();
+  await expect.poll(() => names.length).toBe(1);
+  expect(names[0]).toBe('Example Arena - Example Show - KARA II L Main.png');
 });

@@ -1,4 +1,4 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/1").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/2").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
@@ -15,7 +15,7 @@ import { REVISION_PATTERN } from '../files/revision';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 1;
+export const FORMAT_VERSION = 2;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 const text = (what: string, max = 500) => z.string({ error: `${what} must be text` }).max(max, { error: `${what} is too long` });
@@ -38,6 +38,7 @@ export const ArrayFileSchema = z
       default_offset: text('Ground offset', 20),
     }),
     offsets: z.array(text('Ground offset', 20), { error: 'Offsets must be a list' }),
+    print: z.array(z.boolean({ error: 'Print must be true or false' }), { error: 'Print choices must be a list' }),
     report: ReportSchema,
     problems: z.array(ProblemSchema, { error: 'Problems must be a list' }).max(MAX_PROBLEMS, { error: 'There are too many problems listed' }),
   })
@@ -49,6 +50,9 @@ export const ArrayFileSchema = z
     }
     if (file.offsets.length !== sources.length) {
       ctx.addIssue({ code: 'custom', path: ['offsets'], message: 'There must be one ground offset for each array' });
+    }
+    if (file.print.length !== sources.length) {
+      ctx.addIssue({ code: 'custom', path: ['print'], message: 'There must be one print choice for each array' });
     }
     sources.forEach((s, i) => {
       const at = ['report', 'sources', i] as const;

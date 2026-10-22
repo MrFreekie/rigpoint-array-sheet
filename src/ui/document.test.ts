@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { editKey, isDirty, isLocked, STATUSES, statusLocks } from '../files/doc';
+import { editKey, isDirty, isLocked, isPrinted, STATUSES, statusLocks, withPrinted } from '../files/doc';
 import { parseFixture } from '../testing/fixtures';
 import { effectiveOffset, newDoc, showTitle } from './document';
 
@@ -107,5 +107,40 @@ describe('showTitle', () => {
     expect(showTitle(doc)).toBe('Example Arena - Example Show.xmlp');
     doc.job.show = 'Main stage';
     expect(showTitle(doc)).toBe('Main stage');
+  });
+});
+
+describe('which arrays are chosen for printing', () => {
+  it('every array is chosen to begin with', () => {
+    const doc = fresh();
+    expect(isPrinted(doc, 0)).toBe(true);
+    expect(isPrinted(doc, 17)).toBe(true);
+  });
+
+  it('unchoosing one array leaves the others, and the choice can be undone', () => {
+    const doc = withPrinted(fresh(), 3, false);
+    expect(isPrinted(doc, 3)).toBe(false);
+    expect(isPrinted(doc, 2)).toBe(true);
+    expect(isPrinted(withPrinted(doc, 3, true), 3)).toBe(true);
+  });
+
+  it('counts as a change to save', () => {
+    const doc = fresh();
+    doc.savedKey = editKey(doc);
+    const changed = withPrinted(doc, 1, false);
+    expect(isDirty(changed)).toBe(true);
+    expect(isDirty(withPrinted(changed, 1, true))).toBe(false);
+  });
+
+  it('a read-only file keeps the choice for this session only: nothing to save', () => {
+    const doc = fresh();
+    doc.locked = true;
+    doc.savedKey = editKey(doc);
+    const changed = withPrinted(doc, 1, false);
+    expect(isPrinted(changed, 1)).toBe(false);
+    expect(changed.noPrint).toEqual({});
+    expect(isDirty(changed)).toBe(false);
+    // Later changes build on the choices already made.
+    expect(isPrinted(withPrinted(changed, 2, false), 1)).toBe(false);
   });
 });

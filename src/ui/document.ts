@@ -3,7 +3,7 @@
 import { parseOffset } from '../engine/sheet';
 import type { Doc } from '../files/doc';
 
-export { editKey, EMPTY_JOB, isDirty, isLocked, newDoc, STATUS_LABELS, STATUSES } from '../files/doc';
+export { editKey, EMPTY_JOB, isDirty, isLocked, isPrinted, newDoc, STATUS_LABELS, STATUSES, withPrinted } from '../files/doc';
 export type { Doc, Job, Status } from '../files/doc';
 
 export interface EffectiveOffset {

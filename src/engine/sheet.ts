@@ -91,10 +91,14 @@ export interface RiggingRow {
   load: number | null;
 }
 
-/** One row per pickup of every flown array, in report order. */
-export function riggingRows(sources: readonly ArraySource[]): RiggingRow[] {
+/**
+ * One row per pickup of every flown array, in report order. Give `include` (positions in the report)
+ * to list only some of the arrays.
+ */
+export function riggingRows(sources: readonly ArraySource[], include?: ReadonlySet<number>): RiggingRow[] {
   const rows: RiggingRow[] = [];
-  for (const s of sources) {
+  for (const [index, s] of sources.entries()) {
+    if (include && !include.has(index)) continue;
     for (const p of s.pickups) {
       rows.push({
         source: s.name,

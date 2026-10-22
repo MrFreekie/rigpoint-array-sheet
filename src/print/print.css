@@ -311,3 +311,14 @@
 .as-small-print p {
   margin: 0 0 1mm;
 }
+
+/* A DRAFT word on each pocket panel, so every folded card is marked. */
+.as-cell {
+  position: relative;
+}
+
+.as-watermark-panel {
+  font-size: 44pt;
+  letter-spacing: 0.06em;
+  z-index: 0;
+}

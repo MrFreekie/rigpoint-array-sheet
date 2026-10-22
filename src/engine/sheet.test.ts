@@ -78,6 +78,21 @@ describe('riggingRows', () => {
   });
 });
 
+describe('riggingRows for some arrays only', () => {
+  it('lists only the pickups of the arrays given', () => {
+    expect(riggingRows(a, new Set([0, 3])).map((r) => r.source)).toEqual(['KARA II L Main', 'KARA II R Out']);
+  });
+
+  it('lists nothing when no array is given, and everything when none is asked for', () => {
+    expect(riggingRows(a, new Set())).toEqual([]);
+    expect(riggingRows(a)).toHaveLength(4);
+  });
+
+  it('ignores arrays with no pickups', () => {
+    expect(riggingRows(a, new Set([4, 8]))).toEqual([]);
+  });
+});
+
 describe('minus', () => {
   it('keeps the report precision, with no floating point tails', () => {
     expect(minus(8.5, 0.3)).toBe(8.2);

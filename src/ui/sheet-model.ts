@@ -3,7 +3,7 @@
 
 import { flySheetColumn, type FlySheetColumn } from '../engine/sheet';
 import { findMirrors } from '../engine/symmetry';
-import { effectiveOffset, type Doc, type EffectiveOffset } from './document';
+import { effectiveOffset, isPrinted, type Doc, type EffectiveOffset } from './document';
 
 export interface SheetEntry {
   /** Position of the array in the report. */
@@ -12,6 +12,10 @@ export interface SheetEntry {
   offset: EffectiveOffset;
   /** Set when this card stands for a pair: the mirror image that is not shown separately. */
   coversMirror?: string | undefined;
+  /** Position in the report of that mirror image. */
+  mirrorIndex?: number | undefined;
+  /** True when the person chose this array for printing. */
+  print: boolean;
   /** Set when this card is the mirror image of another array that is also shown. */
   mirrorOf?: string | undefined;
 }
@@ -24,6 +28,8 @@ export interface SheetModel {
   hidden: { name: string; mirrorOf: string }[];
   /** True when any offset in use is not a number, so heights cannot be shown. */
   badOffsets: boolean;
+  /** Arrays chosen for printing, and the mirror images they stand for. Positions in the report. */
+  printedSources: Set<number>;
 }
 
 export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
@@ -51,9 +57,17 @@ export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
       column,
       offset,
       coversMirror: mirror !== undefined && !showMirrors ? sources[mirror]?.name : undefined,
+      mirrorIndex: mirror !== undefined && !showMirrors ? mirror : undefined,
+      print: isPrinted(doc, i),
       mirrorOf: shown !== undefined ? sources[shown]?.name : undefined,
     });
   });
 
-  return { entries, mirrorPairs: mirrors.size, hidden, badOffsets: entries.some((e) => e.offset.value === null) };
+  const printedSources = new Set<number>();
+  for (const e of entries) {
+    if (!e.print) continue;
+    printedSources.add(e.index);
+    if (e.mirrorIndex !== undefined) printedSources.add(e.mirrorIndex);
+  }
+  return { entries, mirrorPairs: mirrors.size, hidden, badOffsets: entries.some((e) => e.offset.value === null), printedSources };
 }

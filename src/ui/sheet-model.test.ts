@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
-import { newDoc } from './document';
+import { newDoc, withPrinted } from './document';
 import { sheetModel } from './sheet-model';
 
 const docA = () => newDoc(parseFixture('a'), 'a.pdf');
@@ -43,5 +43,33 @@ describe('sheetModel', () => {
 
   it('is fine with no offsets typed', () => {
     expect(sheetModel(docA(), false).badOffsets).toBe(false);
+  });
+});
+
+describe('sheetModel print choices', () => {
+  it('marks every entry as printed to begin with, and lists every source', () => {
+    const m = sheetModel(docA(), false);
+    expect(m.entries.every((e) => e.print)).toBe(true);
+    expect(m.printedSources.size).toBe(18);
+  });
+
+  it('an unchosen array drops out, and takes the mirror it stands for with it', () => {
+    const m = sheetModel(withPrinted(docA(), 0, false), false);
+    expect(m.entries[0]?.print).toBe(false);
+    expect(m.entries[1]?.print).toBe(true);
+    expect(m.printedSources.has(0)).toBe(false);
+    expect(m.printedSources.has(1)).toBe(false); // KARA II R Main is covered by the unchosen L Main
+    expect(m.printedSources.size).toBe(16);
+  });
+
+  it('with the mirrors shown, each array is chosen on its own', () => {
+    const m = sheetModel(withPrinted(docA(), 0, false), true);
+    expect(m.entries.find((e) => e.index === 0)?.print).toBe(false);
+    expect(m.entries.find((e) => e.index === 1)?.print).toBe(true);
+    expect(m.printedSources.has(1)).toBe(true);
+  });
+
+  it('a chosen card that covers a mirror prints both pickups sets', () => {
+    expect(sheetModel(docA(), false).entries[0]?.mirrorIndex).toBe(1);
   });
 });

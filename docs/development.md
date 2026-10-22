@@ -88,11 +88,11 @@ A checkbox above the cards shows the mirrored arrays as well. A mirrored array u
 
 ## Saved files
 
-A saved file is JSON in the format `arraysheet/1`. It holds the report as read from the PDF (not the PDF), the problems found, the show details, one ground offset per array, the status, the revision, the name of the PDF and the time it was saved. The schema is `src/schema/array-file.ts`.
+A saved file is JSON in the format `arraysheet/2`. It holds the report as read from the PDF (not the PDF), the problems found, the show details, one ground offset and one print choice per array, the status, the revision, the name of the PDF and the time it was saved. The schema is `src/schema/array-file.ts`.
 
 Every opened file is treated as untrusted. In order, it must pass the size limit (8 MB), parse as JSON, say it is an `arraysheet` file, be no newer than this version, and pass the schema. The schema also caps the number of arrays, enclosures, pickups, warnings and the length of text. Anything wrong stops the open with a plain-English message that names the field. Nothing is partly opened.
 
-Each version has a migration to the next in `src/files/migrations.ts`. There are none yet because version 1 is the first. A file from a newer version is refused, not opened and silently trimmed.
+Each version has a migration to the next in `src/files/migrations.ts`. Version 2 added the print choices, so the one step so far turns a version 1 file into version 2 by choosing every array for printing, which is what a version 1 file did. A file from a newer version is refused, not opened and silently trimmed.
 
 Because the file holds the report as read, it reopens exactly as saved, whatever the PDF reader does later.
 
@@ -136,7 +136,7 @@ The `beforeunload` warning also fires while there are unsaved changes.
 
 ## Printing
 
-`src/print/PrintSheet.tsx` renders the whole printed sheet off-screen at all times, so it can be measured, and `print.css` shows it only when printing. The editing screen is hidden in print.
+`src/print/PrintSheet.tsx` renders the whole printed sheet off-screen at all times, so it can be measured, and `print.css` shows it only when printing. The editing screen is hidden in print. A draft is marked with DRAFT on every pocket panel, because a word across the whole A4 page would be cut up by the folds. The rigging page carries one.
 
 Every card is laid out at a fixed width (half the page less padding) and measured. `planPages` in `src/print/layout.ts` then fills pages four at a time, in report order. A card that would have to shrink below 72% to fit its panel gets a page of its own, and may shrink to 50% there. Beyond that the page is allowed to run on rather than cut anything off. The rigging summary page always comes last.
 
@@ -145,6 +145,12 @@ While printing, the measuring copy is hidden, so a measurement then would read z
 The footer is `printFooter`. It says which version, which Soundvision report, which file and when. A file that has changed since it was saved is marked. The last page carries the small print from `src/print/small-print.ts`. It is the approved wording of `DISCLAIMER.md`, and a test fails if the two differ by a word. Change them together, and only with the owner's approval.
 
 The Playwright PDF tests check three things: the number of PDF pages, that every card sits inside its panel and every footer inside its page, and that the text is what the screen shows. PDF output is a Chromium feature, so those run on Chromium only.
+
+## Choosing what to print
+
+Each array has a Print this array checkbox. The choices are saved in the file as one true or false per array (`print`). Unticked arrays leave the print sheet and the image export, and the rigging page lists only the pickups of the printed arrays. A card that stands for a mirror image carries that mirror's pickups with it. With the mirrored arrays shown, each array is chosen on its own. The screen always shows every array.
+
+An approved or superseded file cannot change, but it can still be printed in part. Its choices are held for the session only (`printOverride` in `src/files/doc.ts`), are never saved and do not count as a change. Create new revision starts from the choices in force. Update from PDF keeps a choice with the array of the same name. Print is off while no array is ticked.
 
 ## Images
 

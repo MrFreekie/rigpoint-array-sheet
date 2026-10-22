@@ -49,7 +49,7 @@ describe('autosave', () => {
 
   it('checks a kept copy like any opened file, and throws away one that fails', async () => {
     const store = memoryStore();
-    store.record = { text: '{"format":"arraysheet/1","status":"nope"}', fileName: null };
+    store.record = { text: '{"format":"arraysheet/2","status":"nope"}', fileName: null };
     expect(await readAutosave(store)).toBeNull();
     expect(store.record).toBeUndefined();
   });
