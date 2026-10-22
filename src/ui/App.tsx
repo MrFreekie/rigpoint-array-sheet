@@ -465,8 +465,8 @@ export function App() {
                 type="button"
                 className="button"
                 onClick={() => {
-                  void browserStore.clear();
-                  setRestore(null);
+                  // Only hide the offer once the copy is really gone, so a quick reload cannot find it again.
+                  void browserStore.clear().then(() => setRestore(null));
                 }}
               >
                 Discard

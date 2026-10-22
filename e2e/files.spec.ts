@@ -109,6 +109,7 @@ test('unsaved work is offered back after a reload, and a discarded copy is gone'
   await page.waitForTimeout(1500);
   await page.reload();
   await page.getByRole('button', { name: 'Discard' }).click();
+  await expect(page.getByRole('heading', { name: /Restore unsaved changes to/ })).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('heading', { name: /Restore unsaved changes to/ })).toHaveCount(0);
 });
