@@ -7,7 +7,7 @@ import { openFileText, serialiseDoc } from '../files/array-file-io';
 import { browserStore, readAutosave, writeAutosave, type Restorable } from '../files/autosave';
 import { editKey, isDirty, isLocked, statusLocks } from '../files/doc';
 import { downloadBlob } from '../files/download';
-import { suggestedFileName, suggestedImageName } from '../files/file-name';
+import { suggestedFileName, suggestedImageName, suggestedPdfName } from '../files/file-name';
 import { ensurePermission, fsAccessSupported, pickFileToOpen } from '../files/fs-access';
 import { idbStore } from '../files/kv';
 import { onLaunchFile } from '../files/launch';
@@ -115,7 +115,7 @@ export function App() {
     setBusy(true);
     setError(null);
     try {
-      const ctx = { show: doc.job.show, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero };
+      const ctx = { show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero };
       const footer = printFooter({
         appVersion: __APP_VERSION__,
         soundvisionVersion: doc.result.report.document.version,
@@ -137,6 +137,37 @@ export function App() {
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The images could not be made.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** The PDF in one click: made on this device and downloaded, with no print window. */
+  async function onDownloadPdf() {
+    if (!doc || !model || !printable) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { renderPdf } = await import('../print/pdf-export');
+      const bytes = await renderPdf({
+        doc,
+        model,
+        checks,
+        footer: printFooter({
+          appVersion: __APP_VERSION__,
+          soundvisionVersion: doc.result.report.document.version,
+          fileName: doc.fileName,
+          defaultName: suggestedFileName(showTitle(doc), doc.revision),
+          dirty,
+          printedAt: new Date(),
+          verb: 'Exported',
+        }),
+      });
+      const name = suggestedPdfName(showTitle(doc), doc.revision);
+      downloadBlob(name, new Blob([bytes as BlobPart], { type: 'application/pdf' }));
+      setNotice(`Saved ${name}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The PDF could not be made.');
     } finally {
       setBusy(false);
     }
@@ -417,6 +448,15 @@ export function App() {
             }
           >
             Print / PDF
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={!printable || busy}
+            onClick={() => void onDownloadPdf()}
+            title={doc && !printable ? 'Fix the problems with the report or the ground offsets, and choose at least one array' : 'Download the PDF without opening the print window'}
+          >
+            Download PDF
           </button>
           {locked ? (
             <button type="button" className="button" disabled={busy} onClick={createRevision}>

@@ -7,6 +7,7 @@ import type { SheetEntry } from '../ui/sheet-model';
 
 export interface CardContext {
   show: string;
+  venue: string;
   status: Status;
   revision: string;
   zAxisZero: string;
@@ -63,7 +64,7 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
   return {
     title: c.name,
     subtitle: [c.group, c.configuration ?? 'configuration not stated'].filter(Boolean).join(' · '),
-    context: [ctx.show.trim(), status, ctx.zAxisZero.trim() ? `Z-axis zero: ${ctx.zAxisZero.trim()}` : ''].filter(Boolean).join(' · '),
+    context: [ctx.show.trim(), ctx.venue.trim(), status, ctx.zAxisZero.trim() ? `Z-axis zero: ${ctx.zAxisZero.trim()}` : ''].filter(Boolean).join(' · '),
     mirrorNote: entry.coversMirror ? `MIRRORED: ${entry.coversMirror}` : entry.mirrorOf ? `MIRRORED: ${entry.mirrorOf}` : null,
     facts,
     warnings: c.warnings.map((w) => ({ ...w })),

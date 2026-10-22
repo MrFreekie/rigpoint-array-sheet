@@ -154,6 +154,18 @@ Each array has a Print this array checkbox. The choices are saved in the file as
 
 An approved or superseded file cannot change, but it can still be printed in part. Its choices are held for the session only (`printOverride` in `src/files/doc.ts`), are never saved and do not count as a change. Create new revision starts from the choices in force. Update from PDF keeps a choice with the array of the same name. Print is off while no array is ticked.
 
+## The one-click PDF
+
+Download PDF builds the same sheet as the print view without opening the print window. `src/print/pdf-layout.ts` lays out one pocket card and the rigging page as drawing steps in points, and is pure, so it has ordinary unit tests. `src/print/pdf-export.ts` draws those steps with `pdf-lib` on A4 pages: four panels to a page with dashed fold lines, a header and footer on every panel, a DRAFT word on every panel of a draft, and the rigging page with the QR code and the small print last. The page planner (`planPages`) is the same one the print view uses, so both put the same arrays on the same pages.
+
+Text uses the PDF's built-in Helvetica, so nothing is fetched or embedded. Helvetica holds Western European characters only. Anything else, such as Greek or Japanese in a show name, is replaced with a question mark so the file can still be made.
+
+`pdf-lib` is MIT licensed and has no network code. It is loaded only when the button is pressed, so it adds nothing to the first load. The tests build the PDF and read it back with the app's own PDF reader.
+
+## Card size
+
+A pocket panel has about 117 mm for a card once its header and footer are taken out. Cards of 12 and 16 enclosure rows print at full size. A 24-row card prints at about 83% and stays in its panel. Taller than about 28 rows it would drop below 72%, so it takes a page to itself. Tests cover 12, 16 and 24 rows in both the print view and the PDF.
+
 ## Images
 
 Card content (`src/print/card-content.ts`) is plain data that both the print card and the image draw from, so they cannot disagree. `array-image.ts` turns it into a list of drawing steps (text, lines, boxes) and draws them on a canvas at twice the size. Canvas text needs no markup, so it works under the strict CSP. The layout is pure and has unit tests. Playwright checks that the download is a real PNG of the right width.

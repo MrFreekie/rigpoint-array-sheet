@@ -3,6 +3,7 @@
 
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { readPdfItems } from '../src/files/pdf-items';
 import { openJson, openPdf, samplePdf, save, savedName, start } from './helpers';
 
 test('opens a Soundvision PDF and shows one card per array without sideways scrolling', async ({ page }) => {
@@ -48,7 +49,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/2', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/3', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -218,4 +219,37 @@ test('images follow the choice of arrays', async ({ page }) => {
   await page.getByRole('button', { name: 'Save selected as images' }).click();
   await expect.poll(() => names.length).toBe(1);
   expect(names[0]).toBe('Example Arena - Example Show - KARA II L Main.png');
+});
+
+test('Download PDF makes the sheet in one click, with no print window', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await page.getByLabel('Show', { exact: true }).fill('Main stage');
+  await page.getByLabel('Venue').fill('Grand Hall');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+  expect(savedName(download)).toBe('Main stage.pdf');
+  const bytes = readFileSync(await download.path());
+  expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+
+  // Read it back: four arrays to a page, the show and venue on every panel, the rigging page last.
+  const items = await readPdfItems(new Uint8Array(bytes));
+  expect(Math.max(...items.map((i) => i.page))).toBe(4);
+  const text = (n: number) => items.filter((i) => i.page === n).map((i) => i.text).join(' ');
+  expect(text(1)).toContain('KARA II L Main');
+  expect(text(1).match(/Main stage · Grand Hall/g)).toHaveLength(4);
+  expect(text(4)).toContain('Rigging summary');
+  await expect(page.getByText('Saved Main stage.pdf.')).toBeVisible();
+});
+
+test('Download PDF follows the choice of arrays and is off when none is chosen', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('b'));
+  const cards = page.locator('.card');
+  for (let i = 1; i < 8; i++) await cards.nth(i).getByLabel('Print this array').uncheck();
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+  expect(Math.max(...items.map((i) => i.page))).toBe(2); // one card, then the rigging page
+
+  await cards.nth(0).getByLabel('Print this array').uncheck();
+  await expect(page.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
 });

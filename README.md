@@ -10,9 +10,9 @@ You can open a Soundvision PDF and see a fly sheet card for every array plus a r
 
 ## Printing, PDF and images
 
-Print / PDF opens the print window. Choose a printer, or choose Save as PDF as the destination.
+Download PDF makes the PDF in one click, with no print window. Print / PDF opens the print window instead, for printing on paper straight away.
 
-Every array card has a Print this array checkbox, ticked to begin with. Only the ticked arrays are printed or saved as images, and the rigging page lists only their pickups. The choice is saved with the file.
+Type the show, the venue, the engineer and the company once, and they go on every pocket card. Every array card has a Print this array checkbox, ticked to begin with. Only the ticked arrays are printed or saved as images, and the rigging page lists only their pickups. The choice is saved with the file.
 
 Each A4 page holds four arrays in a two by two grid, in the order of the report. Fold the page in half twice and every array is on its own A6 panel, small enough for a pocket. Dashed lines mark the folds. An array too tall for a panel gets a page of its own. The last page is the rigging summary, with a QR code that opens this app.
 
@@ -25,6 +25,8 @@ Save image on a card saves that array as a PNG. Save selected as images saves on
 In Chrome or Edge, click the install icon at the end of the address bar and choose Install. On Android, use Add to home screen. On iPhone, use Share, then Add to Home Screen.
 
 Once you have opened the app once, it works offline, installed or not, including opening a Soundvision PDF. When there is a new version, the app shows "Update available – reload". Press Reload when it suits you. The app never updates in the middle of an edit, and unsaved changes are offered back after the reload.
+
+See the [user guide](docs/user-guide.md) for a short walk through. A plan for printing one array on a small battery receipt printer is in [docs/receipt-printer-plan.md](docs/receipt-printer-plan.md).
 
 ## Saving and files
 

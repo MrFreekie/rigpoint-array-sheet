@@ -10,7 +10,7 @@ const NOW = new Date('2026-10-22T10:30:00.000Z');
 
 function sample(name: 'a' | 'b' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `report-${name}.pdf`);
-  doc.job = { show: 'Main stage', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3' };
+  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3' };
   doc.offsets = { 0: '1.5', 4: '-0.2' };
   doc.revision = 'B';
   doc.status = 'issued';
@@ -40,9 +40,19 @@ describe('print choices', () => {
     expect(docToFile(doc, '0.1.0', NOW).print.every(Boolean)).toBe(true);
   });
 
+  it('an older (version 2) file opens with no venue, and the rest as saved', () => {
+    const v2 = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { format: string; job: Record<string, unknown> };
+    delete v2.job['venue'];
+    v2.format = 'arraysheet/2';
+    const { doc } = openFileText(JSON.stringify(v2), 'old.arraysheet.json');
+    expect(doc.job.venue).toBe('');
+    expect(doc.job.show).toBe('Main stage');
+  });
+
   it('an older (version 1) file opens with every array chosen for printing', () => {
     const v1 = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as Record<string, unknown>;
     delete v1['print'];
+    delete (v1['job'] as Record<string, unknown>)['venue'];
     v1['format'] = 'arraysheet/1';
     const { doc } = openFileText(JSON.stringify(v1), 'old.arraysheet.json');
     expect(doc.noPrint).toEqual({});
@@ -58,6 +68,7 @@ describe('saving and opening', () => {
     expect(savedAt).toBe(NOW.toISOString());
     expect(back.result).toEqual(doc.result);
     expect(back.job).toEqual(doc.job);
+    expect(back.job.venue).toBe('Grand Hall');
     expect(back.offsets).toEqual(doc.offsets);
     expect(back.status).toBe('issued');
     expect(back.revision).toBe('B');
@@ -81,7 +92,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/2');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/3');
   });
 
   it('writes one offset per array, blank where none was typed', () => {

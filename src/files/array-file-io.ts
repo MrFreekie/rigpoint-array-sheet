@@ -18,6 +18,7 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
     source_name: doc.sourceName,
     job: {
       show: doc.job.show,
+      venue: doc.job.venue,
       engineer: doc.job.engineer,
       company: doc.job.company,
       z_axis_zero: doc.job.zAxisZero,
@@ -70,6 +71,7 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
     sourceName: f.source_name,
     job: {
       show: f.job.show,
+      venue: f.job.venue,
       engineer: f.job.engineer,
       company: f.job.company,
       zAxisZero: f.job.z_axis_zero,

@@ -113,7 +113,7 @@ describe('printFooter', () => {
 });
 
 describe('cardContent', () => {
-  const ctx: CardContext = { show: 'Main stage', status: 'issued', revision: 'B', zAxisZero: 'Arena floor' };
+  const ctx: CardContext = { show: 'Main stage', venue: 'Grand Hall', status: 'issued', revision: 'B', zAxisZero: 'Arena floor' };
   const docA = newDoc(parseFixture('a'), 'a.pdf');
   const docB = newDoc(parseFixture('b'), 'b.pdf');
   const card = (doc: typeof docA, name: string, mirrors = false) => {
@@ -126,7 +126,7 @@ describe('cardContent', () => {
     const c = card(docA, 'KARA II L Main');
     expect(c.title).toBe('KARA II L Main');
     expect(c.subtitle).toBe('MAINS · vertical, flown array');
-    expect(c.context).toBe('Main stage · Issued Rev B · Z-axis zero: Arena floor');
+    expect(c.context).toBe('Main stage · Grand Hall · Issued Rev B · Z-axis zero: Arena floor');
     expect(c.facts).toEqual([
       ['Total mass', '414.2 kg'], ['Front motor load', '414.2 kg'], ['Ground offset', '0 m'], ['Top height', '9.4 m'],
       ['Bottom height', '5.75 m'], ['Top site', '3.8°'], ['Bottom site', '-41.2°'], ['Azimuth', '0°'],
@@ -166,7 +166,7 @@ describe('cardContent', () => {
 
   it('drops empty context parts', () => {
     const entry = sheetModel(docA, false).entries[0]!;
-    expect(cardContent(entry, { show: '', status: 'draft', revision: '', zAxisZero: '' }).context).toBe('Draft');
+    expect(cardContent(entry, { show: '', venue: '', status: 'draft', revision: '', zAxisZero: '' }).context).toBe('Draft');
   });
 
   it('a bad offset shows dashes, not zero', () => {

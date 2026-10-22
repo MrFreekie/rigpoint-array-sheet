@@ -1,4 +1,4 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/2").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/3").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
@@ -15,7 +15,7 @@ import { REVISION_PATTERN } from '../files/revision';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 2;
+export const FORMAT_VERSION = 3;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 const text = (what: string, max = 500) => z.string({ error: `${what} must be text` }).max(max, { error: `${what} is too long` });
@@ -32,6 +32,7 @@ export const ArrayFileSchema = z
     source_name: text('Source name', 300),
     job: z.object({
       show: text('Show'),
+      venue: text('Venue'),
       engineer: text('Engineer'),
       company: text('Company'),
       z_axis_zero: text('Z-axis zero'),

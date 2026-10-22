@@ -9,6 +9,7 @@ import type { Doc } from '../files/doc';
 import { num } from '../ui/format';
 import type { SheetModel } from '../ui/sheet-model';
 import { cardContent, type CardContent } from './card-content';
+import { pageFooterText } from './footer';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { qrMatrix, qrPath, qrSize } from './qr';
 import { SMALL_PRINT } from './small-print';
@@ -89,8 +90,8 @@ interface Props {
 
 export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
   const ctx = useMemo(
-    () => ({ show: doc.job.show, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero }),
-    [doc.job.show, doc.status, doc.revision, doc.job.zAxisZero],
+    () => ({ show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero }),
+    [doc.job.show, doc.job.venue, doc.status, doc.revision, doc.job.zAxisZero],
   );
   const contents = useMemo(() => model.entries.filter((e) => e.print).map((e) => ({ index: e.index, content: cardContent(e, ctx) })), [model, ctx]);
   const rigging = useMemo(() => riggingRows(doc.result.report.sources, model.printedSources), [doc.result.report.sources, model.printedSources]);
@@ -138,7 +139,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
 
   const total = plan.length + 1;
   const draft = doc.status === 'draft';
-  const footerText = (n: number) => `${footer}${checks > 0 ? ` · ${checks} to check against the PDF` : ''} · Page ${n} of ${total}`;
+  const footerText = (n: number) => pageFooterText(footer, checks, n, total);
   const pageFooter = (n: number) => <p className="as-footer">{footerText(n)}</p>;
   const header = useMemo(() => panelHeader(doc), [doc]);
   const watermark = draft ? (

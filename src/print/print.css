@@ -342,7 +342,7 @@
   height: 11mm;
   overflow: hidden;
   border-bottom: 0.3mm solid #000;
-  margin-bottom: 1mm;
+  padding-bottom: 0.8mm;
   line-height: 1.15;
 }
 

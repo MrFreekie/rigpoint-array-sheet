@@ -138,6 +138,7 @@ test('approved: no watermark; ground offsets show in the printed heights', async
   await page.getByLabel('Ground offset for every array (m)').fill('0.4');
   await page.getByLabel('Status').selectOption('approved');
   await page.getByLabel('Show', { exact: true }).fill('Main stage');
+  await page.getByLabel('Venue').fill('Grand Hall');
   await page.getByLabel('Z-axis zero').fill('Arena floor');
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('.as-watermark')).toHaveCount(0);
@@ -145,7 +146,7 @@ test('approved: no watermark; ground offsets show in the printed heights', async
   // The identity now sits in each panel's header.
   const head = first.locator('.as-panel-head').first();
   await expect(head).toContainText('Approved');
-  await expect(head).toContainText('Main stage');
+  await expect(head).toContainText('Main stage · Grand Hall');
   await expect(head).toContainText('Z-axis zero: Arena floor');
   await expect(first).toContainText('Ground offset0.4 m');
   await expect(first).toContainText('Top height9 m'); // 9.4 - 0.4
@@ -220,4 +221,45 @@ test('with no array chosen there is nothing to print', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Save selected as images' })).toBeDisabled();
   await cards.nth(0).getByLabel('Print this array').check();
   await expect(page.getByRole('button', { name: 'Print / PDF' })).toBeEnabled();
+});
+
+/** A report A array with this many enclosure rows, first in the report. */
+const withRows = (rows: number) =>
+  changedPdf((sources) => {
+    const first = sources[0]!;
+    const base = first.cabinets[0]!;
+    first.cabinets = Array.from({ length: rows }, (_, i) => ({ ...base, number: i + 1, angle: 0, site: 3.8, topZ: 9.4 - i * 0.25, bottomZ: 9.15 - i * 0.25 }));
+    return sources.slice(0, 5);
+  });
+
+/** The scale a card was printed at (1 when it was not shrunk), and whether it sits in a pocket panel. */
+const firstCard = (page: Page) =>
+  page.evaluate(() => {
+    const p = document.querySelector('[data-testid=print-page]');
+    const fit = p?.querySelector('.as-fit') as HTMLElement | null | undefined;
+    if (!p || !fit) return { panel: false, scale: -1 }; // not on the page yet
+    const m = /scale\(([\d.]+)\)/.exec(fit.style.transform);
+    return { panel: p.querySelector('.as-grid') !== null, scale: m ? Number(m[1]) : 1 };
+  });
+
+for (const rows of [12, 16]) {
+  test(`a ${rows}-row array prints at full size in its pocket panel`, async ({ page }) => {
+    await start(page);
+    await openPdf(page, withRows(rows));
+    await expect.poll(() => firstCard(page)).toEqual({ panel: true, scale: 1 });
+    await page.emulateMedia({ media: 'print' });
+    await expectNothingClipped(page);
+  });
+}
+
+test('a 24-row array still fits its pocket panel, a little smaller', async ({ page }) => {
+  await start(page);
+  await openPdf(page, withRows(24));
+  await expect.poll(async () => (await firstCard(page)).panel).toBe(true);
+  const { scale } = await firstCard(page);
+  expect(scale).toBeGreaterThanOrEqual(0.78); // 24 rows is rare; it prints at about 80% and stays readable
+  expect(scale).toBeLessThan(1);
+  await page.emulateMedia({ media: 'print' });
+  await expectNothingClipped(page);
+  expect(pdfPages(await printToPdf(page, 'rows-24.pdf'))).toBe(2); // one page of cards, then the rigging page
 });

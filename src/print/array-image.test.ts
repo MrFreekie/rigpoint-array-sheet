@@ -6,7 +6,7 @@ import { sheetModel } from '../ui/sheet-model';
 import { estimateWidth, IMAGE_W, layoutCardImage, wrap, type DrawOp } from './array-image';
 import { cardContent } from './card-content';
 
-const ctx = { show: 'Main stage', status: 'issued' as const, revision: 'B', zAxisZero: 'Arena floor' };
+const ctx = { show: 'Main stage', venue: 'Grand Hall', status: 'issued' as const, revision: 'B', zAxisZero: 'Arena floor' };
 const docA = newDoc(parseFixture('a'), 'a.pdf');
 const docB = newDoc(parseFixture('b'), 'b.pdf');
 const content = (doc: typeof docA, name: string) => cardContent(sheetModel(doc, true).entries.find((e) => e.column.name === name)!, ctx);
@@ -47,7 +47,7 @@ describe('layoutCardImage', () => {
     expect(layout.width).toBe(IMAGE_W);
     expect(t).toContain('KARA II L Main');
     expect(t).toContain('MAINS · vertical, flown array');
-    expect(t).toContain('Main stage · Issued Rev B · Z-axis zero: Arena floor');
+    expect(t).toContain('Main stage · Grand Hall · Issued Rev B · Z-axis zero: Arena floor');
     for (const [label, value] of c.facts) {
       expect(t).toContain(label);
       expect(t).toContain(value);

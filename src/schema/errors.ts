@@ -11,6 +11,7 @@ const FIELD_NAMES: Record<string, string> = {
   source_name: 'Source name',
   job: 'Show details',
   show: 'Show',
+  venue: 'Venue',
   engineer: 'System engineer',
   company: 'Company',
   z_axis_zero: 'Z-axis zero',

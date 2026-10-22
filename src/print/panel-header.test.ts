@@ -17,15 +17,24 @@ describe('panelHeader', () => {
 
   it('puts the show first and keeps the project, engineer, company and Z-axis zero beneath it', () => {
     const d = doc();
-    d.job = { show: 'Main stage', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '' };
+    d.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '' };
     d.status = 'issued';
     d.revision = 'B';
     expect(panelHeader(d)).toEqual({
       brand: 'RigPoint Array',
       status: 'Issued Rev B',
-      title: 'Main stage',
+      title: 'Main stage · Grand Hall',
       details: 'Example Arena - Example Show · Sam · Acme Audio · Z-axis zero: Arena floor',
     });
+  });
+
+  it('uses the venue alone when there is no show, and the show alone when there is no venue', () => {
+    const d = doc();
+    d.job.venue = 'Grand Hall';
+    expect(panelHeader(d).title).toBe('Grand Hall');
+    d.job.show = 'Main stage';
+    d.job.venue = '';
+    expect(panelHeader(d).title).toBe('Main stage');
   });
 
   it('leaves out anything not typed, and does not repeat the project as the show', () => {

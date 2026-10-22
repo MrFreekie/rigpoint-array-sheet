@@ -16,8 +16,10 @@ export const CARDS_PER_PAGE = 4;
 
 /** Width the card content is laid out at: half the page, less the padding. */
 export const CARD_W_MM = PAGE_W_MM / 2 - 2 * CELL_PAD_MM;
-/** Height available to a card in a panel: half the page, less the padding, the header and the footer. */
-export const CELL_H_MM = PAGE_H_MM / 2 - 2 * CELL_PAD_MM - PANEL_HEADER_MM - PANEL_FOOTER_MM;
+/** A little room kept between a card and the footer under it, so rounding never lets them touch. */
+const PANEL_GAP_MM = 1;
+/** Height available to a card in a panel: half the page, less the padding, the header, the footer and a gap. */
+export const CELL_H_MM = PAGE_H_MM / 2 - 2 * CELL_PAD_MM - PANEL_HEADER_MM - PANEL_FOOTER_MM - PANEL_GAP_MM;
 /** Height available to a card that has a whole page, under its own header. */
 export const FULL_H_MM = PAGE_H_MM - FOOTER_MM - 2 * CELL_PAD_MM - PANEL_HEADER_MM;
 

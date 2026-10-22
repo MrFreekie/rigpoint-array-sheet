@@ -8,6 +8,11 @@ export function formatStamp(d: Date): string {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** A footer with its page number, and how many items still need checking against the Soundvision report. */
+export function pageFooterText(footer: string, checks: number, page: number, total: number): string {
+  return `${footer}${checks > 0 ? ` · ${checks} to check against the PDF` : ''} · Page ${page} of ${total}`;
+}
+
 export function printFooter(opts: {
   appVersion: string;
   /** The Soundvision version the report states, or null. */

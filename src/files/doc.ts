@@ -15,6 +15,8 @@ export const STATUS_LABELS: Record<Status, string> = {
 
 export interface Job {
   show: string;
+  /** Where the show is. Soundvision reports do not state it, so it is typed. */
+  venue: string;
   engineer: string;
   company: string;
   /** Where heights are measured from, e.g. "Arena floor". Text only; the number is the ground offset. */
@@ -51,7 +53,7 @@ export interface Doc {
   printOverride: Record<number, boolean> | null;
 }
 
-export const EMPTY_JOB: Job = { show: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '' };
+export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '' };
 
 export function newDoc(result: ParseResult, sourceName: string): Doc {
   return {

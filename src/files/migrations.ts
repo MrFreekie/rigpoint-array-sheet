@@ -15,6 +15,11 @@ export const MIGRATIONS: Record<number, Migration> = {
     const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
     return { ...file, print: Array.isArray(sources) ? sources.map(() => true) : [] };
   },
+  // Version 3 added the venue. Earlier files had none.
+  2: (file) => {
+    const job = file['job'];
+    return typeof job === 'object' && job !== null && !Array.isArray(job) ? { ...file, job: { ...job, venue: '' } } : file;
+  },
 };
 
 export function migrate(

@@ -20,7 +20,7 @@ describe('JobForm status and revision', () => {
 
   it('disables every field of a locked file', () => {
     const html = renderToStaticMarkup(<JobForm doc={doc()} locked onJob={noop} onStatus={noop} onRevision={noop} />);
-    expect(html.match(/disabled=""/g)).toHaveLength(7);
+    expect(html.match(/disabled=""/g)).toHaveLength(8);
   });
 
   it('shows the revision that was typed', () => {

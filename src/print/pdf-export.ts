@@ -1,0 +1,229 @@
+// One-click PDF: the same sheet as the print view, made on this device with pdf-lib and downloaded.
+// Four pocket cards to an A4 page (fold it twice for A6 panels), then the rigging summary page.
+// Text uses the PDF's built-in Helvetica, so nothing is fetched and no font is embedded.
+
+import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { APP_URL } from '../app-info';
+import { riggingRows } from '../engine/sheet';
+import type { Doc } from '../files/doc';
+import type { SheetModel } from '../ui/sheet-model';
+import type { DrawOp, Measure } from './array-image';
+import { cardContent } from './card-content';
+import { pageFooterText } from './footer';
+import {
+  CELL_PAD_MM,
+  FOOTER_MM,
+  fitScale,
+  FULL_H_MM,
+  MIN_FULL_SCALE,
+  PAGE_H_MM,
+  PAGE_W_MM,
+  PANEL_FOOTER_MM,
+  PANEL_HEADER_MM,
+  planPages,
+  PX_PER_MM,
+} from './layout';
+import { panelHeader, type PanelHeader } from './panel-header';
+import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, type Laid } from './pdf-layout';
+import { qrMatrix } from './qr';
+import { wrap } from './array-image';
+
+const MARGIN_MM = 6;
+const A4 = { w: 595.28, h: 841.89 };
+const mm = (n: number) => n * PT_PER_MM;
+/** Points to the CSS pixels the page planner works in. */
+const ptToPx = (pt: number) => (pt / PT_PER_MM) * PX_PER_MM;
+
+export interface PdfInput {
+  doc: Doc;
+  model: SheetModel;
+  /** Footer text without the page number, e.g. from printFooter. */
+  footer: string;
+  /** Number of items to check against the source PDF, added to each footer when above zero. */
+  checks: number;
+}
+
+interface Fonts {
+  regular: PDFFont;
+  bold: PDFFont;
+}
+
+function hex(color: string) {
+  const m = /^#([0-9a-f]{6})$/i.exec(color);
+  if (!m) return rgb(0, 0, 0);
+  const n = parseInt(m[1] as string, 16);
+  return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+}
+
+/** Helvetica holds the Western European characters. Anything else would stop the file being made, so it becomes "?". */
+function encodable(font: PDFFont): (text: string) => string {
+  const known = new Set(font.getCharacterSet());
+  return (text) =>
+    Array.from(text)
+      .map((ch) => (known.has(ch.codePointAt(0) ?? -1) ? ch : '?'))
+      .join('');
+}
+
+/**
+ * Draws laid-out steps on a page. `left` and `top` are the card's top left corner in points from the top
+ * left of the page; `scale` shrinks the whole card.
+ */
+function drawOps(page: PDFPage, fonts: Fonts, safe: (t: string) => string, ops: readonly DrawOp[], left: number, top: number, scale: number) {
+  const X = (x: number) => left + x * scale;
+  const Y = (y: number) => A4.h - (top + y * scale);
+  for (const o of ops) {
+    if (o.op === 'rect') {
+      page.drawRectangle({
+        x: X(o.x),
+        y: Y(o.y + o.h),
+        width: o.w * scale,
+        height: o.h * scale,
+        ...(o.fill ? { color: hex(o.fill) } : {}),
+        ...(o.stroke ? { borderColor: hex(o.stroke), borderWidth: o.lineWidth * scale } : {}),
+      });
+    } else if (o.op === 'line') {
+      page.drawLine({ start: { x: X(o.x1), y: Y(o.y1) }, end: { x: X(o.x2), y: Y(o.y2) }, thickness: o.width * scale, color: hex(o.color) });
+    } else {
+      const font = o.bold ? fonts.bold : fonts.regular;
+      const text = safe(o.text);
+      const size = o.size * scale;
+      const w = font.widthOfTextAtSize(text, size);
+      const x = o.align === 'left' ? X(o.x) : o.align === 'right' ? X(o.x) - w : X(o.x) - w / 2;
+      // Text is placed by its top edge; PDF places it by its baseline.
+      page.drawText(text, { x, y: Y(o.y) - size * 0.8, size, font, color: hex(o.color) });
+    }
+  }
+}
+
+/** A light word set at an angle across a box. Marks a draft. */
+function drawWatermark(page: PDFPage, font: PDFFont, left: number, top: number, w: number, h: number, size: number) {
+  const text = 'DRAFT';
+  const angle = (35 * Math.PI) / 180;
+  const tw = font.widthOfTextAtSize(text, size);
+  // Rotating about the start point, so place that point where the centred, rotated word will land.
+  const cx = left + w / 2;
+  const cy = A4.h - (top + h / 2);
+  const hx = tw / 2;
+  const hy = size * 0.35;
+  page.drawText(text, {
+    x: cx - (hx * Math.cos(angle) - hy * Math.sin(angle)),
+    y: cy - (hx * Math.sin(angle) + hy * Math.cos(angle)),
+    size,
+    font,
+    color: rgb(0.92, 0.92, 0.92),
+    rotate: degrees(35),
+  });
+}
+
+function drawPanelHead(page: PDFPage, fonts: Fonts, safe: (t: string) => string, header: PanelHeader, left: number, top: number, width: number) {
+  const ops: DrawOp[] = [
+    { op: 'text', x: 0, y: 0, text: header.brand.toUpperCase(), size: 6, bold: true, align: 'left', color: '#000000' },
+    { op: 'text', x: width, y: 0, text: header.status.toUpperCase(), size: 6, bold: true, align: 'right', color: '#000000' },
+    { op: 'text', x: 0, y: 7.4, text: clip(header.title, fonts.bold, safe, 8.5, width), size: 8.5, bold: true, align: 'left', color: '#000000' },
+  ];
+  if (header.details) ops.push({ op: 'text', x: 0, y: 18, text: clip(header.details, fonts.regular, safe, 6, width), size: 6, bold: false, align: 'left', color: '#000000' });
+  ops.push({ op: 'line', x1: 0, y1: mm(PANEL_HEADER_MM) - 1, x2: width, y2: mm(PANEL_HEADER_MM) - 1, width: 0.85, color: '#000000' });
+  drawOps(page, fonts, safe, ops, left, top, 1);
+}
+
+/** One line only: cut with an ellipsis if it is too wide. */
+function clip(text: string, font: PDFFont, safe: (t: string) => string, size: number, max: number): string {
+  let t = text;
+  while (t.length > 1 && font.widthOfTextAtSize(safe(t), size) > max) t = `${t.slice(0, -2).trimEnd()}…`;
+  return t;
+}
+
+function drawPanelFooter(page: PDFPage, fonts: Fonts, safe: (t: string) => string, measure: Measure, text: string, left: number, top: number, width: number) {
+  const ops: DrawOp[] = [{ op: 'line', x1: 0, y1: 0, x2: width, y2: 0, width: 0.55, color: '#777777' }];
+  wrap(text, 5, false, width, measure)
+    .slice(0, 2)
+    .forEach((line, i) => ops.push({ op: 'text', x: width / 2, y: 2 + i * 6, text: line, size: 5, bold: false, align: 'center', color: '#000000' }));
+  drawOps(page, fonts, safe, ops, left, top, 1);
+}
+
+function dashedCross(page: PDFPage) {
+  const style = { thickness: 0.7, color: rgb(0.47, 0.47, 0.47), dashArray: [4, 3] };
+  const left = mm(MARGIN_MM);
+  const top = mm(MARGIN_MM);
+  const w = mm(PAGE_W_MM);
+  const h = mm(PAGE_H_MM);
+  page.drawLine({ start: { x: left + w / 2, y: A4.h - top }, end: { x: left + w / 2, y: A4.h - top - h }, ...style });
+  page.drawLine({ start: { x: left, y: A4.h - top - h / 2 }, end: { x: left + w, y: A4.h - top - h / 2 }, ...style });
+}
+
+export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
+  const { doc, model, footer, checks } = input;
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(panelHeader(doc).title);
+  pdf.setCreator('RigPoint Array');
+  pdf.setProducer('RigPoint Array');
+  pdf.setSubject('Soundvision array sheet');
+  const fonts: Fonts = { regular: await pdf.embedFont(StandardFonts.Helvetica), bold: await pdf.embedFont(StandardFonts.HelveticaBold) };
+  const safe = encodable(fonts.regular);
+  const measure: Measure = (t, size, bold) => (bold ? fonts.bold : fonts.regular).widthOfTextAtSize(safe(t), size);
+
+  const header = panelHeader(doc);
+  const ctx = { show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero };
+  const cards = model.entries
+    .filter((e) => e.print)
+    .map((e) => ({ item: layoutPocketCard(cardContent(e, ctx), measure) }))
+    .map((c) => ({ item: c.item, heightPx: ptToPx(c.item.height) }));
+  const plan = planPages(cards);
+  const total = plan.length + 1;
+  const draft = doc.status === 'draft';
+  const footerFor = (n: number) => pageFooterText(footer, checks, n, total);
+
+  const margin = mm(MARGIN_MM);
+  const pageW = mm(PAGE_W_MM);
+  const cellW = pageW / 2;
+  const cellH = mm(PAGE_H_MM) / 2;
+  const pad = mm(CELL_PAD_MM);
+
+  plan.forEach((p, n) => {
+    const page = pdf.addPage([A4.w, A4.h]);
+    if (p.kind === 'grid') {
+      dashedCross(page);
+      p.cards.forEach((c, i) => {
+        const left = margin + (i % 2) * cellW;
+        const top = margin + Math.floor(i / 2) * cellH;
+        if (draft) drawWatermark(page, fonts.bold, left, top, cellW, cellH, 44);
+        drawPanelHead(page, fonts, safe, header, left + pad, top + pad, cellW - 2 * pad);
+        drawOps(page, fonts, safe, (c.item as Laid).ops, left + pad, top + pad + mm(PANEL_HEADER_MM) + 1, c.scale);
+        drawPanelFooter(page, fonts, safe, measure, footerFor(n + 1), left + pad, top + cellH - pad - mm(PANEL_FOOTER_MM), cellW - 2 * pad);
+      });
+    } else {
+      if (draft) drawWatermark(page, fonts.bold, margin, margin, pageW, mm(PAGE_H_MM), 90);
+      drawPanelHead(page, fonts, safe, header, margin + pad, margin + pad, pageW - 2 * pad);
+      drawOps(page, fonts, safe, (p.item as Laid).ops, margin + pad, margin + pad + mm(PANEL_HEADER_MM) + 1, p.scale);
+      drawPageFooter(page, fonts, safe, footerFor(n + 1));
+    }
+  });
+
+  // The rigging summary page, last.
+  const rigging = layoutRiggingPage(
+    {
+      rows: riggingRows(doc.result.report.sources, model.printedSources),
+      subtitle: [doc.job.show.trim(), doc.job.venue.trim(), doc.job.zAxisZero.trim() ? `Z-axis zero: ${doc.job.zAxisZero.trim()}` : ''].filter(Boolean).join(' · '),
+      qr: qrMatrix(APP_URL),
+      qrUrl: APP_URL,
+    },
+    measure,
+  );
+  const last = pdf.addPage([A4.w, A4.h]);
+  if (draft) drawWatermark(last, fonts.bold, margin, margin, pageW, mm(PAGE_H_MM), 90);
+  const fit = fitScale(ptToPx(rigging.height), FULL_H_MM, MIN_FULL_SCALE);
+  drawOps(last, fonts, safe, rigging.ops, margin + pad, margin + pad, fit.scale);
+  drawPageFooter(last, fonts, safe, footerFor(total));
+
+  return pdf.save();
+}
+
+/** The footer along the foot of a full page or the rigging page, centred, on one line. */
+function drawPageFooter(page: PDFPage, f: Fonts, s: (t: string) => string, text: string) {
+  const size = 6;
+  const width = mm(PAGE_W_MM);
+  const clipped = s(clip(text, f.regular, s, size, width));
+  const w = f.regular.widthOfTextAtSize(clipped, size);
+  // A few points above the bottom edge of the printable area, inside the strip kept for it.
+  page.drawText(clipped, { x: mm(MARGIN_MM) + (width - w) / 2, y: A4.h - mm(MARGIN_MM) - mm(PAGE_H_MM) + mm(FOOTER_MM) / 2 - size / 2 + 2, size, font: f.regular, color: rgb(0, 0, 0) });
+}

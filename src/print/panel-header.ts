@@ -7,7 +7,7 @@ export interface PanelHeader {
   brand: string;
   /** e.g. "Draft Rev B". */
   status: string;
-  /** The show, or the Soundvision project when no show was typed. */
+  /** The show and venue, or the Soundvision project when neither was typed. */
   title: string;
   /** Project (if it is not already the title), engineer, company and Z-axis zero, with the empty ones left out. */
   details: string;
@@ -19,7 +19,7 @@ export function projectName(doc: Doc): string {
 
 export function panelHeader(doc: Doc): PanelHeader {
   const project = projectName(doc);
-  const title = doc.job.show.trim() || project || doc.sourceName;
+  const title = [doc.job.show.trim(), doc.job.venue.trim()].filter(Boolean).join(' · ') || project || doc.sourceName;
   const zero = doc.job.zAxisZero.trim();
   return {
     brand: 'RigPoint Array',
