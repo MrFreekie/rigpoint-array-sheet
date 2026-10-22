@@ -6,7 +6,7 @@ RigPoint Array is the second app in the RigPoint family, after [RigPoint Load Sh
 
 ## Where it is
 
-This is phase 4 of 5. You can open a Soundvision PDF and see a fly sheet card for every array plus a rigging summary. You can type the show details and a ground offset, save the lot as a file, open it again later, print it, save it as a PDF, and save each array as an image. Save in place, recent files, offline use and installing come in the last phase.
+You can open a Soundvision PDF and see a fly sheet card for every array plus a rigging summary. You can type the show details and a ground offset, save the lot as a file, open it again later, print it, save it as a PDF, and save each array as an image. The app installs on a computer or phone and works with no signal once it has been opened once.
 
 ## Printing, PDF and images
 
@@ -18,9 +18,15 @@ Every page has a footer with the app version, the Soundvision version, the file 
 
 Save image on a card saves that array as a PNG. Save all as images saves one for every array shown. Your browser may ask whether to allow several downloads.
 
+## Install it, and use it with no signal
+
+In Chrome or Edge, click the install icon at the end of the address bar and choose Install. On Android, use Add to home screen. On iPhone, use Share, then Add to Home Screen.
+
+Once you have opened the app once, it works offline, installed or not, including opening a Soundvision PDF. When there is a new version, the app shows "Update available – reload". Press Reload when it suits you. The app never updates in the middle of an edit, and unsaved changes are offered back after the reload.
+
 ## Saving and files
 
-Save downloads a file named like `Main stage - Rev B.arraysheet.json`. The file holds what the PDF said, what you typed, the status and the revision, so it reopens exactly as saved, without the PDF. Open takes either a PDF or one of these files.
+Save writes a file named like `Main stage - Rev B.arraysheet.json`. In every browser it arrives as a download. In Chrome and Edge on a computer, Open and Save use the browser's own file picker, so Save writes back to the same file each time, Save As picks a new one, and Recent lists the files you used last. A new revision never writes over the file it came from. The file holds what the PDF said, what you typed, the status and the revision, so it reopens exactly as saved, without the PDF. Open takes either a PDF or one of these files. In the installed app on a computer, double-clicking one of these files opens it. On Android you can share one of these files, or a Soundvision PDF, straight into the app.
 
 Each file has a status: Draft, Issued, Approved or Superseded. Approved and superseded files open read-only. To change one, press Create new revision. That starts a draft with the next revision letter (blank, then A, B, C), which you save under its new name.
 

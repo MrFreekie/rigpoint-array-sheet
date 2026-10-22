@@ -9,6 +9,8 @@ export default defineConfig({
   testDir: 'e2e',
   timeout: 45_000,
   fullyParallel: true,
+  // The tests are heavy (PDF reading, printing, three browser engines): too many at once makes them time out.
+  workers: process.env.CI ? 2 : 3,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',

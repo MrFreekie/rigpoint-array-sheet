@@ -106,6 +106,28 @@ A file opened as approved or superseded is read-only, and so is a file that has 
 
 With a file open, Update from PDF reads a newer PDF and compares it with the saved report (`src/engine/compare.ts`). Arrays are matched by name. The comparison lists every difference in the arrays, the enclosure rows, the pickups, the weights and the warnings, plus the Soundvision version, date and project name. If nothing differs, the app says so. If something does, the person chooses Update from new PDF or Keep as saved. A PDF that reads with an error is refused and the file stays as it was. After an update, ground offsets stay with the array of the same name, and the file counts as having unsaved changes.
 
+## Three layers of saving
+
+1. Every browser: a file input to open and a download to save.
+2. Chrome and Edge on a computer, found by feature and never by browser name: the File System Access API. `src/files/fs-access.ts` holds the pickers, `src/files/save-flow.ts` decides what Save and Save As do, and `src/files/recent.ts` keeps file handles in IndexedDB for the Recent list. Permission is asked for again when a file is reused.
+3. Autosave to IndexedDB, described below.
+
+`saveText` takes a request and returns what happened: cancelled, denied, saved to a handle, or downloaded. Save writes back to the handle when there is one and asks where when there is not. Save As always asks. Nothing is reported as saved unless the write succeeded. Anything typed while a picker was open stays unsaved, because only the text that was written counts as saved. Create new revision forgets the handle, so Save asks where and the original file is never touched.
+
+The Playwright tests cannot drive a native picker, so they replace the two picker functions with ones that return real handles from the browser's private file system. Everything after the picker is the real code.
+
+## Install, offline and updates
+
+`vite-plugin-pwa` builds the manifest and precaches the app with Workbox, using our own service worker in `src/sw.ts` (strategy `injectManifest`). The precache includes the PDF reader's worker, so a PDF opens with no network. The icons in `public/` are rendered from `favicon.svg` by `npm run icons` and committed, so builds need no browser.
+
+The service worker waits. A new version is used only after the person presses Reload in the update prompt (`src/ui/UpdatePrompt.tsx`), and the prompt mentions that unsaved changes are kept by autosave. The app checks for a new version every hour while it is open.
+
+## File handler and share target
+
+The manifest registers the app as a handler for `.json` files, so a saved file opens on double-click in the installed app (Chrome and Edge on a computer). It does not register for PDFs, because the app should not take over every PDF on the computer. `src/files/launch.ts` receives the file through `launchQueue`.
+
+The manifest also declares a share target. On Android a saved file or a Soundvision PDF can be shared into the app. The service worker receives the POST, keeps the file in a cache, and sends the app to `?shared=1`, where `src/files/share-target.ts` takes it out and opens it. Playwright tests simulate the Android POST with `fetch`, because the app's strict CSP blocks form submissions.
+
 ## Autosave
 
 While there are unsaved changes, a copy is written to IndexedDB (through idb-keyval) about a second after each edit. On the next visit the app offers to restore it. The offer says it is a safety net and not a save. The copy is checked like any opened file, and one that fails is thrown away. Saving, starting again, opening another file or declining the offer removes it. If the browser refuses IndexedDB (a private window, for example), saving to a file still works.
@@ -149,8 +171,7 @@ Card content (`src/print/card-content.ts`) is plain data that both the print car
 
 ## Not done yet
 
-- Save in place, recent files, offline use, the update prompt, file handlers and the share target (phase 5).
-- Save is a download in every browser. Phase 5 adds Save in place for Chrome and Edge.
+- The update prompt is not covered by an automated test, because it needs two deployed versions. It is covered by hand before a release.
 - The sample fly sheet's Btm Height + 1 row is deliberately left out.
 - The cabling and folding sheets from other tools are out of scope.
 - pdf.js needs its worker file bundled when the interface exists. Phase 2 decides how.

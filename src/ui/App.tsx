@@ -6,10 +6,16 @@ import type { ParseResult } from '../engine/types';
 import { openFileText, serialiseDoc } from '../files/array-file-io';
 import { browserStore, readAutosave, writeAutosave, type Restorable } from '../files/autosave';
 import { editKey, isDirty, isLocked, statusLocks } from '../files/doc';
-import { downloadBlob, downloadText } from '../files/download';
+import { downloadBlob } from '../files/download';
 import { suggestedFileName, suggestedImageName } from '../files/file-name';
+import { ensurePermission, fsAccessSupported, pickFileToOpen } from '../files/fs-access';
+import { idbStore } from '../files/kv';
+import { onLaunchFile } from '../files/launch';
 import { MAX_FILE_BYTES } from '../files/limits';
+import { addRecent, listRecent, removeRecent, sameHandle, type RecentFile } from '../files/recent';
 import { nextRevision } from '../files/revision';
+import { saveText } from '../files/save-flow';
+import { takeSharedFile } from '../files/share-target';
 import { cardImageBlob } from '../print/array-image';
 import { cardContent } from '../print/card-content';
 import { printFooter } from '../print/footer';
@@ -20,9 +26,11 @@ import { newDoc, showTitle, STATUS_LABELS, type Doc, type Job, type Status } fro
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
+import { RecentFilesDialog } from './RecentFilesDialog';
 import { RiggingSummary } from './RiggingSummary';
 import { sheetModel, type SheetEntry, type SheetModel } from './sheet-model';
 import { ThemeButton } from './ThemeButton';
+import { UpdatePrompt } from './UpdatePrompt';
 
 const isPdf = (file: File) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 const isJson = (file: File) => file.type === 'application/json' || /\.json$/i.test(file.name);
@@ -44,7 +52,12 @@ export function App() {
   const [showMirrors, setShowMirrors] = useState(false);
   const [printedAt, setPrintedAt] = useState(() => new Date());
   const [printOverflow, setPrintOverflow] = useState(false);
+  const [handle, setHandle] = useState<FileSystemFileHandle | null>(null);
+  const [recent, setRecent] = useState<RecentFile[]>([]);
+  const [recentOpen, setRecentOpen] = useState(false);
+  const fsAccess = useMemo(fsAccessSupported, []);
   const openInput = useRef<HTMLInputElement>(null);
+  const openRef = useRef<(file: File, handle: FileSystemFileHandle | null) => void>(() => undefined);
   const updateInput = useRef<HTMLInputElement>(null);
 
   const dirty = doc !== null && isDirty(doc);
@@ -57,6 +70,21 @@ export function App() {
   useEffect(() => {
     void readAutosave(browserStore).then((r) => {
       if (r) setRestore(r);
+    });
+  }, []);
+
+  // Recent files, when the browser can keep file handles.
+  useEffect(() => {
+    if (fsAccess) void listRecent(idbStore).then(setRecent);
+  }, [fsAccess]);
+
+  // A file double-clicked in the installed app (Chrome and Edge), or shared from Android.
+  useEffect(() => {
+    onLaunchFile((h) => void h.getFile().then((f) => openRef.current(f, h)));
+    void takeSharedFile().then((shared) => {
+      if (!shared) return;
+      if ('error' in shared) setError(shared.error);
+      else openRef.current(shared.file, null);
     });
   }, []);
 
@@ -122,7 +150,7 @@ export function App() {
     return !dirty || window.confirm(`The report you have open has unsaved changes. ${what}`);
   }
 
-  async function openFile(file: File | undefined) {
+  async function openFile(file: File | undefined, fileHandle: FileSystemFileHandle | null = null) {
     if (!file) return;
     if (!isPdf(file) && !isJson(file)) {
       setError('That is not a PDF or a RigPoint Array file. Choose a Soundvision report, or a file you saved from this app.');
@@ -136,8 +164,11 @@ export function App() {
       if (isJson(file)) {
         if (file.size > MAX_FILE_BYTES) throw new Error(`That file is larger than ${MAX_FILE_BYTES / 1024 / 1024} MB, which is too big for a RigPoint Array file.`);
         setDoc(openFileText(await file.text(), file.name).doc);
+        setHandle(fileHandle);
+        if (fileHandle) void remember(fileHandle);
       } else {
         setDoc(newDoc(await reportFromFile(file), file.name));
+        setHandle(null);
       }
       setCompare(null);
       void browserStore.clear();
@@ -148,20 +179,75 @@ export function App() {
     }
   }
 
-  function onSave() {
+  function remember(h: FileSystemFileHandle) {
+    return addRecent(idbStore, h, sameHandle).then(setRecent);
+  }
+
+  openRef.current = (file, h) => void openFile(file, h);
+
+  /** Open: the browser's own picker where it has one (so Save can write back), a file input elsewhere. */
+  async function chooseFile() {
+    if (!fsAccess) {
+      openInput.current?.click();
+      return;
+    }
+    try {
+      const h = await pickFileToOpen();
+      if (h) await openFile(await h.getFile(), h);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That file could not be opened.');
+    }
+  }
+
+  /** Save writes back to the file it came from; Save As (asNew) always asks where. Without the browser feature it downloads. */
+  async function onSave(asNew: boolean) {
     if (!doc || locked) return;
-    const name = suggestedFileName(showTitle(doc), doc.revision);
-    downloadText(name, serialiseDoc(doc, __APP_VERSION__));
-    const saved: Doc = { ...doc, fileName: name, locked: statusLocks(doc.status) };
-    saved.savedKey = editKey(saved);
-    setDoc(saved);
-    void browserStore.clear();
+    const snapshot = doc;
+    const suggested = suggestedFileName(showTitle(snapshot), snapshot.revision);
     setError(null);
-    setNotice(
-      saved.locked
-        ? `Saved as ${name}. It is ${STATUS_LABELS[doc.status].toLowerCase()}, so it is now read-only.`
-        : `Saved as ${name}. Your browser puts it in its downloads folder unless it asks where.`,
-    );
+    try {
+      const outcome = await saveText({ text: serialiseDoc(snapshot, __APP_VERSION__), suggestedName: suggested, handle, asNew });
+      if (outcome.kind === 'cancelled') return;
+      if (outcome.kind === 'denied') {
+        setError(`The browser did not allow the app to write to ${outcome.name}. Nothing was saved. Try Save As.`);
+        return;
+      }
+      const lockNow = statusLocks(snapshot.status);
+      const key = editKey(snapshot);
+      // Anything typed while a picker was open stays unsaved: only what was written counts as saved.
+      setDoc((cur) => (cur ? { ...cur, fileName: outcome.name, savedKey: key, locked: cur === snapshot ? lockNow : cur.locked } : cur));
+      void browserStore.clear();
+      if (outcome.kind === 'handle') {
+        setHandle(outcome.handle);
+        void remember(outcome.handle);
+      } else {
+        setHandle(null);
+      }
+      setNotice(
+        lockNow
+          ? `Saved ${outcome.kind === 'handle' ? 'to' : 'as'} ${outcome.name}. It is ${STATUS_LABELS[snapshot.status].toLowerCase()}, so it is now read-only.`
+          : outcome.kind === 'handle'
+            ? `Saved to ${outcome.name}.`
+            : `Saved as ${outcome.name}. Your browser puts it in its downloads folder unless it asks where.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The file could not be saved.');
+    }
+  }
+
+  async function openRecent(file: RecentFile) {
+    try {
+      if (!(await ensurePermission(file.handle, 'read'))) {
+        setError('The browser did not allow the app to read that file.');
+        return;
+      }
+      const f = await file.handle.getFile();
+      setRecentOpen(false);
+      await openFile(f, file.handle);
+    } catch {
+      setError(`${file.name} could not be found any more. It may have been moved or deleted.`);
+      setRecent(await removeRecent(idbStore, file.handle, sameHandle));
+    }
   }
 
   function onStatus(status: Status) {
@@ -174,6 +260,8 @@ export function App() {
     if (!doc) return;
     const revision = nextRevision(doc.revision);
     setDoc({ ...doc, status: 'draft', revision, fileName: null, savedKey: null, locked: false });
+    // A new revision never writes over the file it came from: Save asks where.
+    setHandle(null);
     setNotice(`Revision ${revision} started as a draft. It is not saved yet. Save it to keep it under its new name.`);
   }
 
@@ -219,6 +307,7 @@ export function App() {
   function startAgain() {
     if (!confirmDiscard('Start again anyway?')) return;
     setDoc(null);
+    setHandle(null);
     setError(null);
     setNotice(null);
     void browserStore.clear();
@@ -276,12 +365,28 @@ export function App() {
           <button type="button" className="button" disabled={!doc || busy} onClick={startAgain}>
             New
           </button>
-          <button type="button" className="button" disabled={busy} onClick={() => openInput.current?.click()}>
+          <button type="button" className="button" disabled={busy} onClick={() => void chooseFile()}>
             Open
           </button>
-          <button type="button" className="button primary" disabled={!doc || locked || busy} onClick={onSave}>
+          {fsAccess && recent.length > 0 ? (
+            <button type="button" className="button" disabled={busy} onClick={() => setRecentOpen(true)}>
+              Recent
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="button primary"
+            disabled={!doc || locked || busy}
+            onClick={() => void onSave(false)}
+            title={handle ? `Save to ${handle.name}` : undefined}
+          >
             Save
           </button>
+          {fsAccess ? (
+            <button type="button" className="button" disabled={!doc || locked || busy} onClick={() => void onSave(true)}>
+              Save As
+            </button>
+          ) : null}
           <button
             type="button"
             className="button"
@@ -337,6 +442,7 @@ export function App() {
       </header>
 
       <main className="main">
+        <UpdatePrompt dirty={dirty} />
         {restore ? (
           <section className="banner banner-check" aria-labelledby="restore-heading" role="status">
             <h2 id="restore-heading">Restore unsaved changes to {showTitle(restore.doc)}?</h2>
@@ -405,7 +511,7 @@ export function App() {
             </p>
             <p>You can also open a file you saved from this app. Files are read on this device only. Nothing is uploaded.</p>
             <p>
-              <button type="button" className="button primary large" disabled={busy} onClick={() => openInput.current?.click()}>
+              <button type="button" className="button primary large" disabled={busy} onClick={() => void chooseFile()}>
                 Open
               </button>
             </p>
@@ -428,6 +534,14 @@ export function App() {
         )}
       </main>
 
+      {recentOpen ? (
+        <RecentFilesDialog
+          files={recent}
+          onOpen={(f) => void openRecent(f)}
+          onRemove={(f) => void removeRecent(idbStore, f.handle, sameHandle).then(setRecent)}
+          onClose={() => setRecentOpen(false)}
+        />
+      ) : null}
       {compare ? (
         <CompareDialog changes={compare.changes} sourceName={compare.sourceName} onUpdate={applyUpdate} onKeep={() => setCompare(null)} />
       ) : null}
