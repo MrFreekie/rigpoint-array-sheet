@@ -4,6 +4,22 @@ This is a plan, not a feature. Nothing here is built yet.
 
 The idea is to print one array on a small thermal printer, as a narrow strip you can tape inside a case lid or keep on a clipboard. It sits next to the A4 pocket sheet and the PNG images and does not replace them.
 
+## The printer to start with
+
+The owner has an Able Systems printer, probably the AP1300BT, a Windows computer as the main machine, no phone, and wants Bluetooth with a low cost. Buying nothing is the lowest cost, so the plan starts from this printer.
+
+What the published datasheet and distributor listings say about the AP1300BT:
+
+- It is a portable thermal printer with a 48 mm print width and 384 dots per line (8 dots per mm). That is exactly the width this plan already assumes.
+- It takes 57 mm paper rolls and runs on a rechargeable battery.
+- Its Bluetooth is version 2.1, which is Bluetooth Classic with the serial port profile. It is not Bluetooth Low Energy, so Web Bluetooth cannot reach it. Web Serial can: Chrome 117 and later on desktop can talk to paired Bluetooth Classic serial devices.
+- It also has a serial port on an RJ12 socket.
+- Able offers free Windows and Linux drivers and an SDK.
+- Its command language is not stated anywhere I could find. It may or may not understand ESC/POS. Able's programmer's guide settles it, and Able lists a contact address on the datasheet.
+- A distributor lists the model as discontinued, so a replacement may be needed one day. Any 58 mm ESC/POS printer with Bluetooth Classic would do the same job.
+
+Sources: the [Able AP1300 datasheet on Farnell](https://www.farnell.com/datasheets/3925195.pdf), the [RS listing](https://uk.rs-online.com/web/p/portable-printers/4804193), and Chrome's note on [serial over Bluetooth](https://developer.chrome.com/blog/serial-over-bluetooth).
+
 ## Short answer
 
 - Printer: a 58 mm thermal receipt printer with a built-in rechargeable battery, USB-C and Bluetooth.
@@ -53,19 +69,24 @@ The strip has the same content as a pocket card: the header with show, venue and
 
 ## Steps
 
-1. A 58 mm layout and a Print strip button that uses the print dialog (`@page { size: 58mm auto }`). This works with any printer that has a driver and needs the least new code.
-2. The ESC/POS bitmap builder, with unit tests that check the exact bytes.
-3. Direct sending over Web Serial, with the port remembered between visits.
-4. Direct sending over Web Bluetooth, with chunking and a pause between chunks.
-5. Fall back to the PNG where none of this exists.
+1. A 58 mm layout and a Print strip button that uses the print dialog (`@page { size: 58mm auto }`). With the Able Windows driver installed, this works with the AP1300BT and needs no knowledge of its command language. It is the first thing to build and the first thing to try.
+2. Find out what the printer understands. Get Able's programmer's guide, or try an ESC/POS test: initialise, one raster image, feed. If it understands ESC/POS, build the bitmap builder with unit tests that check the exact bytes. If it speaks Able's own language, build a small writer for that instead. The picture stays the same either way.
+3. Direct sending over Web Serial to the paired Bluetooth printer, with the port remembered between visits. This is the main route for the AP1300BT on Windows with Chrome or Edge.
+4. Fall back to the PNG where none of this exists.
+5. Web Bluetooth only if a Bluetooth Low Energy printer is bought later.
 
 ## Testing
 
 The ESC/POS builder is pure, so unit tests can check exact bytes: the initialise command, the raster header, band sizes and the cut. A mock port checks the sending code. There is no printer in CI, so the connection steps need a hand test on real hardware, with a short checklist: pair, print a draft, print a tall array, print with the battery low, unplug mid-print and check the app says so.
 
-## What I need from you
+## Decided
 
-- Windows or macOS as the main computer, and whether a phone is involved.
-- Whether you already own a printer, and which.
-- Bluetooth or USB as the main connection.
-- A rough budget.
+- Windows is the main computer, with no phone involved.
+- Bluetooth is the preferred connection.
+- Low cost, so the printer already owned is used.
+
+## What is still open
+
+- The exact model. It is usually on the sticker under the printer. The AP1300BT is a guess.
+- Whether the Able driver is installed in Windows, and whether the printer is paired. A paired printer shows under Bluetooth settings. Device Manager may also show a Standard Serial over Bluetooth link with a COM number.
+- Able's programmer's guide, or a test of ESC/POS on the printer, to learn its command language.
