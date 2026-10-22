@@ -4,8 +4,11 @@
 /** Printable area of an A4 page with 6 mm margins, less 1 mm so rounding never spills a blank page. */
 export const PAGE_W_MM = 198;
 export const PAGE_H_MM = 284;
-/** The strip at the foot of each page that holds the footer. */
+/** The strip at the foot of a full page or the rigging page that holds the footer. */
 export const FOOTER_MM = 6;
+/** Every pocket panel has its own header (who it is for) and footer (which version and file). */
+export const PANEL_HEADER_MM = 11;
+export const PANEL_FOOTER_MM = 8;
 export const PX_PER_MM = 96 / 25.4;
 /** Space kept clear inside each panel, on every side. */
 export const CELL_PAD_MM = 3;
@@ -13,10 +16,10 @@ export const CARDS_PER_PAGE = 4;
 
 /** Width the card content is laid out at: half the page, less the padding. */
 export const CARD_W_MM = PAGE_W_MM / 2 - 2 * CELL_PAD_MM;
-/** Height available to a card in a panel. */
-export const CELL_H_MM = (PAGE_H_MM - FOOTER_MM) / 2 - 2 * CELL_PAD_MM;
-/** Height available to a card that has a whole page. */
-export const FULL_H_MM = PAGE_H_MM - FOOTER_MM - 2 * CELL_PAD_MM;
+/** Height available to a card in a panel: half the page, less the padding, the header and the footer. */
+export const CELL_H_MM = PAGE_H_MM / 2 - 2 * CELL_PAD_MM - PANEL_HEADER_MM - PANEL_FOOTER_MM;
+/** Height available to a card that has a whole page, under its own header. */
+export const FULL_H_MM = PAGE_H_MM - FOOTER_MM - 2 * CELL_PAD_MM - PANEL_HEADER_MM;
 
 /** Below this the text is too small to read, so the card is moved to a page of its own. */
 export const MIN_SCALE = 0.72;

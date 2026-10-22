@@ -31,14 +31,20 @@ async function expectNothingClipped(page: Page) {
     const pages = [...document.querySelectorAll<HTMLElement>('[data-testid=print-page]')];
     pages.forEach((p, n) => {
       const pr = p.getBoundingClientRect();
-      const footer = p.querySelector('.as-footer')!.getBoundingClientRect();
-      if (footer.bottom > pr.bottom + 0.5) out.push(`page ${n + 1}: footer outside the page`);
+      const pageFooter = p.querySelector('.as-footer')?.getBoundingClientRect();
+      if (pageFooter && pageFooter.bottom > pr.bottom + 0.5) out.push(`page ${n + 1}: footer outside the page`);
       for (const panel of p.querySelectorAll<HTMLElement>('.as-cell, .as-full')) {
         const r = panel.getBoundingClientRect();
         const fit = panel.querySelector('.as-fit')!.getBoundingClientRect();
-        if (fit.bottom > r.bottom + 0.5) out.push(`page ${n + 1}: content runs below its panel by ${(fit.bottom - r.bottom).toFixed(1)}px`);
+        // A pocket panel keeps its content between its own header and footer.
+        const body = panel.querySelector('.as-cell-body')?.getBoundingClientRect();
+        const limit = body ? body.bottom : r.bottom;
+        if (fit.bottom > limit + 0.5) out.push(`page ${n + 1}: content runs below its panel by ${(fit.bottom - limit).toFixed(1)}px`);
         if (fit.right > r.right + 0.5) out.push(`page ${n + 1}: content runs past its panel`);
-        if (fit.bottom > footer.top + 0.5) out.push(`page ${n + 1}: content overlaps the footer`);
+        if (pageFooter && fit.bottom > pageFooter.top + 0.5) out.push(`page ${n + 1}: content overlaps the footer`);
+        const panelFooter = panel.querySelector('.as-panel-footer')?.getBoundingClientRect();
+        if (panelFooter && panelFooter.bottom > r.bottom + 0.5) out.push(`page ${n + 1}: a panel footer runs out of its panel`);
+        if (panelFooter && fit.bottom > panelFooter.top + 0.5) out.push(`page ${n + 1}: content overlaps a panel footer`);
       }
     });
     return out;
@@ -73,7 +79,7 @@ test('report A: nine arrays print four to a page, then the rigging page', async 
   await expect(first.getByTestId('print-card')).toHaveCount(4);
   await expect(first).toContainText('KARA II L Main');
   await expect(first).toContainText('414.2 kg');
-  await expect(first).toContainText('Also KARA II R Main: an exact left-right mirror of this array.');
+  await expect(first).toContainText('MIRRORED: KARA II R Main');
   await expect(first).toContainText('90 On');
   // Soundvision's warnings are printed with their words.
   await expect(first).toContainText('WARNING');
@@ -84,9 +90,15 @@ test('report A: nine arrays print four to a page, then the rigging page', async 
   await expect(page.locator('.as-cell .as-watermark')).toHaveCount(9);
   await expect(page.locator('.as-watermark')).toHaveCount(10);
   await expect(page.locator('[data-testid=print-page] > .as-watermark')).toHaveCount(1);
-  await expect(pages(page).nth(2).locator('.as-footer')).toHaveText(
+  await expect(pages(page).nth(2).locator('.as-panel-footer')).toHaveText(
     /^RigPoint Array \d+\.\d+\.\d+ · Soundvision 2026\.3\.1 · .+\.arraysheet\.json \(not saved\) · Printed \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} · Page 3 of 4$/,
   );
+  // Every pocket panel says whose it is and which file it came from, so a folded card still has an identity.
+  await expect(page.locator('.as-cell .as-panel-head')).toHaveCount(9);
+  await expect(page.locator('.as-cell .as-panel-footer')).toHaveCount(9);
+  await expect(first.locator('.as-panel-head').first()).toContainText('RigPoint Array');
+  await expect(first.locator('.as-panel-head').first()).toContainText('Draft');
+  await expect(first.locator('.as-panel-head').first()).toContainText('Example Arena - Example Show');
 
   // The last page: the rigging summary and the QR code.
   const last = pages(page).last();
@@ -130,7 +142,11 @@ test('approved: no watermark; ground offsets show in the printed heights', async
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('.as-watermark')).toHaveCount(0);
   const first = pages(page).first();
-  await expect(first).toContainText('Main stage · Approved · Z-axis zero: Arena floor');
+  // The identity now sits in each panel's header.
+  const head = first.locator('.as-panel-head').first();
+  await expect(head).toContainText('Approved');
+  await expect(head).toContainText('Main stage');
+  await expect(head).toContainText('Z-axis zero: Arena floor');
   await expect(first).toContainText('Ground offset0.4 m');
   await expect(first).toContainText('Top height9 m'); // 9.4 - 0.4
   await expect(first).toContainText('Bottom height5.35 m'); // 5.75 - 0.4

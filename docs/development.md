@@ -84,7 +84,7 @@ The PDF does not hold the show name, system engineer, company, Z-axis zero or a 
 
 When two arrays are exact left-right copies, the fly sheet shows the first one and names the other on its card. `findMirrors` in `src/engine/symmetry.ts` decides. The test is strict: group, configuration, bumper, motors, weights, heights, sites, every enclosure row and every warning must match. X and azimuth must be negated, pickup X must be negated, and the two Panflex figures must be swapped. A difference of 0.01 in any figure means no pairing. An array on the centre line is never paired.
 
-A checkbox above the cards shows the mirrored arrays as well. A mirrored array uses its partner's ground offset unless it has its own. The rigging summary always lists every pickup, because mirrored arrays hang from different points.
+A card that stands for a pair says only `MIRRORED` and the name of the other array, on screen, on the printed pocket card and in the image. A checkbox above the cards shows the mirrored arrays as well. A mirrored array uses its partner's ground offset unless it has its own. The rigging summary always lists every pickup, because mirrored arrays hang from different points.
 
 ## Saved files
 
@@ -141,6 +141,8 @@ The `beforeunload` warning also fires while there are unsaved changes.
 Every card is laid out at a fixed width (half the page less padding) and measured. `planPages` in `src/print/layout.ts` then fills pages four at a time, in report order. A card that would have to shrink below 72% to fit its panel gets a page of its own, and may shrink to 50% there. Beyond that the page is allowed to run on rather than cut anything off. The rigging summary page always comes last.
 
 While printing, the measuring copy is hidden, so a measurement then would read zero. The measuring code ignores a hidden container and keeps the heights it already has. A Playwright test covers this.
+
+Each pocket panel has a header (`panelHeader` in `src/print/panel-header.ts`) and a footer of its own, because folded to A6 it is all you hold. The header names the app, the status, the show (or the Soundvision project if no show was typed) and the details that are filled in. Grid pages therefore have no page footer. A full-page card and the rigging page keep the page footer. The page planner takes the header and footer out of the height a card may use.
 
 The footer is `printFooter`. It says which version, which Soundvision report, which file and when. A file that has changed since it was saved is marked. The last page carries the small print from `src/print/small-print.ts`. It is the approved wording of `DISCLAIMER.md`, and a test fails if the two differ by a word. Change them together, and only with the owner's approval.
 

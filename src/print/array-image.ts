@@ -91,7 +91,7 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
     y += h + 8;
   };
 
-  if (content.mirrorNote) box([{ text: content.mirrorNote, bold: false }], 1);
+  if (content.mirrorNote) box([{ text: content.mirrorNote, bold: true }], 1);
   for (const w of content.warnings) {
     box(
       [{ text: `${w.severity} ${w.title}`, bold: true }, ...(w.message ? [{ text: w.message, bold: false }] : [])],

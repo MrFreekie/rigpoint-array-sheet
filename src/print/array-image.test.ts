@@ -76,7 +76,7 @@ describe('layoutCardImage', () => {
 
   it('says when it stands for a mirror image', () => {
     const t = texts(layoutCardImage(content(docA, 'KARA II R Main'), options).ops).join(' ');
-    expect(t).toContain('An exact left-right mirror of KARA II L Main.');
+    expect(t).toContain('MIRRORED: KARA II L Main');
   });
 
   it('watermarks drafts only', () => {

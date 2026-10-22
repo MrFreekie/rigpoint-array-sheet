@@ -75,14 +75,22 @@
 .as-grid {
   display: grid;
   grid-template-columns: 99mm 99mm;
-  grid-template-rows: 139mm 139mm;
-  height: 278mm;
+  grid-template-rows: 142mm 142mm;
+  height: 284mm;
 }
 
 /* Dashed lines along the folds. */
 .as-cell {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   padding: 3mm;
+  overflow: hidden;
+}
+
+.as-cell-body {
+  flex: 1 1 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -98,6 +106,10 @@
   box-sizing: border-box;
   height: 278mm;
   padding: 3mm;
+}
+
+.as-rigging-page .as-panel-head {
+  display: none;
 }
 
 .as-fit {
@@ -167,6 +179,7 @@
 }
 
 .pc-mirror {
+  font-weight: 700;
   margin-bottom: 1mm;
   padding: 0.6mm 1mm;
   border: 0.25mm solid #000;
@@ -321,4 +334,53 @@
   font-size: 44pt;
   letter-spacing: 0.06em;
   z-index: 0;
+}
+
+/* Who a panel is for: app, status, show and project. Repeated on every pocket panel. */
+.as-panel-head {
+  flex: none;
+  height: 11mm;
+  overflow: hidden;
+  border-bottom: 0.3mm solid #000;
+  margin-bottom: 1mm;
+  line-height: 1.15;
+}
+
+.as-panel-head p {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.as-panel-brand {
+  display: flex;
+  justify-content: space-between;
+  font-size: 6pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.as-panel-title {
+  font-size: 8.5pt;
+  font-weight: 700;
+}
+
+.as-panel-details {
+  font-size: 6pt;
+}
+
+/* Which version, which file and when: on every pocket panel as well as on the page. */
+.as-panel-footer {
+  flex: none;
+  height: 8mm;
+  margin: 0;
+  padding-top: 0.6mm;
+  border-top: 0.2mm solid #777;
+  overflow: hidden;
+  text-align: center;
+  font-size: 5pt;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }

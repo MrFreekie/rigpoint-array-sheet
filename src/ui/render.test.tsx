@@ -63,13 +63,15 @@ describe('ArrayCard', () => {
     expect(card('X8 2')).not.toContain('field-error');
   });
 
-  it('says which array it also covers, and which array it mirrors', () => {
+  it('says MIRRORED and the name of the other array, and nothing else', () => {
     const covers = card('KARA II L Main', a, { coversMirror: 'KARA II R Main' });
     expect(covers).toContain('MIRRORED');
-    expect(covers).toContain('KARA II R Main');
-    expect(covers).toContain('not shown separately');
+    expect(covers).toContain('<strong>KARA II R Main</strong>');
+    expect(covers).not.toContain('exact left-right');
+    expect(covers).not.toContain('not shown separately');
     const mirror = card('KARA II R Main', a, { mirrorOf: 'KARA II L Main' });
-    expect(mirror).toContain('An exact left-right mirror of');
+    expect(mirror).toContain('<strong>KARA II L Main</strong>');
+    expect(mirror).not.toContain('exact left-right');
     expect(card('KARA II L Main')).not.toContain('MIRRORED');
   });
 

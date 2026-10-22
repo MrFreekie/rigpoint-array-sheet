@@ -9,6 +9,7 @@ import type { Doc } from '../files/doc';
 import { num } from '../ui/format';
 import type { SheetModel } from '../ui/sheet-model';
 import { cardContent, type CardContent } from './card-content';
+import { panelHeader, type PanelHeader } from './panel-header';
 import { qrMatrix, qrPath, qrSize } from './qr';
 import { SMALL_PRINT } from './small-print';
 import { CARD_W_MM, FULL_H_MM, MIN_FULL_SCALE, PAGE_W_MM, fitScale, planPages } from './layout';
@@ -18,7 +19,6 @@ function CardView({ content }: { content: CardContent }) {
     <div className="pc">
       <h3 className="pc-title">{content.title}</h3>
       <p className="pc-sub">{content.subtitle}</p>
-      {content.context ? <p className="pc-context">{content.context}</p> : null}
       {content.mirrorNote ? <p className="pc-mirror">{content.mirrorNote}</p> : null}
       {content.warnings.length > 0 ? (
         <ul className="pc-warnings">
@@ -58,6 +58,20 @@ function CardView({ content }: { content: CardContent }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Who this panel is for. On every pocket panel, so a folded card still says whose it is. */
+function PanelHead({ header }: { header: PanelHeader }) {
+  return (
+    <div className="as-panel-head">
+      <p className="as-panel-brand">
+        <span>{header.brand}</span>
+        <span>{header.status}</span>
+      </p>
+      <p className="as-panel-title">{header.title}</p>
+      {header.details ? <p className="as-panel-details">{header.details}</p> : null}
     </div>
   );
 }
@@ -124,12 +138,9 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
 
   const total = plan.length + 1;
   const draft = doc.status === 'draft';
-  const pageFooter = (n: number) => (
-    <p className="as-footer">
-      {footer}
-      {checks > 0 ? ` · ${checks} to check against the PDF` : ''} · Page {n} of {total}
-    </p>
-  );
+  const footerText = (n: number) => `${footer}${checks > 0 ? ` · ${checks} to check against the PDF` : ''} · Page ${n} of ${total}`;
+  const pageFooter = (n: number) => <p className="as-footer">{footerText(n)}</p>;
+  const header = useMemo(() => panelHeader(doc), [doc]);
   const watermark = draft ? (
     <div className="as-watermark" aria-hidden="true">
       DRAFT
@@ -224,20 +235,25 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
               {p.cards.map((c) => (
                 <div key={c.item.index} className="as-cell" data-testid="print-card">
                   {panelWatermark}
-                  <div className="as-fit" style={{ width: `${CARD_W_MM}mm`, transform: c.scale < 1 ? `scale(${c.scale})` : undefined }}>
-                    <CardView content={c.item.content} />
+                  <PanelHead header={header} />
+                  <div className="as-cell-body">
+                    <div className="as-fit" style={{ width: `${CARD_W_MM}mm`, transform: c.scale < 1 ? `scale(${c.scale})` : undefined }}>
+                      <CardView content={c.item.content} />
+                    </div>
                   </div>
+                  <p className="as-panel-footer">{footerText(n + 1)}</p>
                 </div>
               ))}
             </div>
           ) : (
             <div className="as-full" data-testid="print-card">
+              <PanelHead header={header} />
               <div className="as-fit" style={{ width: `${CARD_W_MM}mm`, transform: p.scale < 1 ? `scale(${p.scale})` : undefined }}>
                 <CardView content={p.item.content} />
               </div>
             </div>
           )}
-          {pageFooter(n + 1)}
+          {p.kind === 'grid' ? null : pageFooter(n + 1)}
         </section>
       ))}
 

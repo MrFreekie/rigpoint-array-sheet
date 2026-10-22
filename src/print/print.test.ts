@@ -139,8 +139,8 @@ describe('cardContent', () => {
   });
 
   it('says it covers a mirror, and which array a shown mirror belongs to', () => {
-    expect(card(docA, 'KARA II L Main').mirrorNote).toBe('Also KARA II R Main: an exact left-right mirror of this array.');
-    expect(card(docA, 'KARA II R Main', true).mirrorNote).toBe('An exact left-right mirror of KARA II L Main.');
+    expect(card(docA, 'KARA II L Main').mirrorNote).toBe('MIRRORED: KARA II R Main');
+    expect(card(docA, 'KARA II R Main', true).mirrorNote).toBe('MIRRORED: KARA II L Main');
     expect(card(docA, 'KARA II L Out', true).mirrorNote).toBeNull();
   });
 

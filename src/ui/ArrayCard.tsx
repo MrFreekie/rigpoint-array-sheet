@@ -55,15 +55,9 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         <span>Print this array</span>
       </label>
 
-      {coversMirror ? (
+      {coversMirror || mirrorOf ? (
         <p className="mirror-note" data-testid="mirror-note">
-          <span className="tag tag-mirror">MIRRORED</span> Also <strong>{coversMirror}</strong>, an exact left-right mirror of this array. It is
-          not shown separately.
-        </p>
-      ) : null}
-      {mirrorOf ? (
-        <p className="mirror-note" data-testid="mirror-note">
-          <span className="tag tag-mirror">MIRRORED</span> An exact left-right mirror of <strong>{mirrorOf}</strong>.
+          <span className="tag tag-mirror">MIRRORED</span> <strong>{coversMirror ?? mirrorOf}</strong>
         </p>
       ) : null}
 

@@ -18,7 +18,7 @@ export interface CardContent {
   subtitle: string;
   /** Show, status and Z-axis zero, so a card on its own is still traceable. */
   context: string;
-  /** Says that the card also stands for a mirror image, or is one. */
+  /** "MIRRORED: " and the name of the other array, when this card stands for a mirror image or is one. */
   mirrorNote: string | null;
   facts: [label: string, value: string][];
   warnings: { severity: string; title: string; message: string }[];
@@ -64,11 +64,7 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
     title: c.name,
     subtitle: [c.group, c.configuration ?? 'configuration not stated'].filter(Boolean).join(' · '),
     context: [ctx.show.trim(), status, ctx.zAxisZero.trim() ? `Z-axis zero: ${ctx.zAxisZero.trim()}` : ''].filter(Boolean).join(' · '),
-    mirrorNote: entry.coversMirror
-      ? `Also ${entry.coversMirror}: an exact left-right mirror of this array.`
-      : entry.mirrorOf
-        ? `An exact left-right mirror of ${entry.mirrorOf}.`
-        : null,
+    mirrorNote: entry.coversMirror ? `MIRRORED: ${entry.coversMirror}` : entry.mirrorOf ? `MIRRORED: ${entry.mirrorOf}` : null,
     facts,
     warnings: c.warnings.map((w) => ({ ...w })),
     columns,
