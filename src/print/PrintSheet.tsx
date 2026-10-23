@@ -305,8 +305,6 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
           ) : (
             <div className="as-long">
               {p.cards.map((c) => panel(c, n + 1))}
-              <span className="as-fold-tick as-fold-tick-top" aria-hidden="true" />
-              <span className="as-fold-tick as-fold-tick-bottom" aria-hidden="true" />
             </div>
           )}
         </section>

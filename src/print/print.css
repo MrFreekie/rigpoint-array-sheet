@@ -104,7 +104,7 @@
   border-bottom: 0.25mm dashed #777;
 }
 
-/* A long column: the full height of the page, two to a page. Only tick marks show the fold. */
+/* A long column: the full height of the page, two to a page. One dashed line down the centre shows the fold. */
 .as-long {
   position: relative;
   display: grid;
@@ -113,19 +113,13 @@
   height: 284mm;
 }
 
-.as-fold-tick {
+.as-long::after {
+  content: '';
   position: absolute;
-  left: 99mm;
-  height: 5mm;
-  border-left: 0.25mm solid #777;
-}
-
-.as-fold-tick-top {
   top: 0;
-}
-
-.as-fold-tick-bottom {
   bottom: 0;
+  left: 98.875mm;
+  border-left: 0.25mm dashed #777;
 }
 
 .as-page-overflow .as-long {

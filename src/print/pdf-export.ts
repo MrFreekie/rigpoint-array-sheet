@@ -148,18 +148,17 @@ function drawPanelFooter(page: PDFPage, fonts: Fonts, safe: (t: string) => strin
   drawOps(page, fonts, safe, ops, left, top, 1);
 }
 
-/** Short marks at the top and bottom edge of the printable area, where a long page folds. */
-function foldTicks(page: PDFPage) {
-  const style = { thickness: 0.7, color: rgb(0.47, 0.47, 0.47) };
+const FOLD_STYLE = { thickness: 0.7, color: rgb(0.47, 0.47, 0.47), dashArray: [4, 3] };
+
+/** One dashed line down the centre of the printable area, where a long page folds. */
+function dashedCentre(page: PDFPage) {
   const x = mm(MARGIN_MM) + mm(PAGE_W_MM) / 2;
   const top = A4.h - mm(MARGIN_MM);
-  const bottom = top - mm(PAGE_H_MM);
-  page.drawLine({ start: { x, y: top }, end: { x, y: top - mm(5) }, ...style });
-  page.drawLine({ start: { x, y: bottom }, end: { x, y: bottom + mm(5) }, ...style });
+  page.drawLine({ start: { x, y: top }, end: { x, y: top - mm(PAGE_H_MM) }, ...FOLD_STYLE });
 }
 
 function dashedCross(page: PDFPage) {
-  const style = { thickness: 0.7, color: rgb(0.47, 0.47, 0.47), dashArray: [4, 3] };
+  const style = FOLD_STYLE;
   const left = mm(MARGIN_MM);
   const top = mm(MARGIN_MM);
   const w = mm(PAGE_W_MM);
@@ -215,7 +214,7 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
         drawPanel(page, panelCtx, margin + (i % 2) * cellW, margin + Math.floor(i / 2) * cellH, cellW, cellH, c.item as Laid, c.scale, footerFor(n + 1));
       });
     } else {
-      foldTicks(page);
+      dashedCentre(page);
       p.cards.forEach((c, i) => {
         drawPanel(page, panelCtx, margin + i * cellW, margin, cellW, mm(PAGE_H_MM), c.item as Laid, c.scale, footerFor(n + 1));
       });

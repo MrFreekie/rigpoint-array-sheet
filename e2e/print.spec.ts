@@ -180,7 +180,7 @@ test('an array too tall for a pocket card goes in a long column, on a page befor
   await expectNothingClipped(page);
 });
 
-test('two tall arrays share one long page: two columns, fold ticks, no dashed line, a mark and footer on each', async ({ page }) => {
+test('two tall arrays share one long page: two columns, a dashed centre line, a mark and footer on each', async ({ page }) => {
   await start(page);
   // Two different tall arrays (the second at another angle, so it is not a mirror of the first).
   const pdf = changedPdf((sources) => {
@@ -197,7 +197,7 @@ test('two tall arrays share one long page: two columns, fold ticks, no dashed li
 
   const long = pages(page).first();
   await expect(long.locator('.as-cell')).toHaveCount(2);
-  await expect(long.locator('.as-fold-tick')).toHaveCount(2);
+  await expect(page.locator('.as-fold-tick')).toHaveCount(0);
   await expect(long.locator('.as-cell .as-watermark')).toHaveCount(2);
   await expect(long.locator('.as-cell .as-panel-head')).toHaveCount(2);
   await expect(long.locator('.as-cell .as-panel-footer')).toHaveCount(2);
@@ -212,6 +212,16 @@ test('two tall arrays share one long page: two columns, fold ticks, no dashed li
     ['none', 'none', 'none', 'none'],
     ['none', 'none', 'none', 'none'],
   ]);
+  // One dashed line down the centre, between the two 99 mm columns, the full height of the page.
+  const fold = await long.locator('.as-long').evaluate((el) => {
+    const st = getComputedStyle(el, '::after');
+    const px = (mm: number) => (mm * 96) / 25.4;
+    return { style: st.borderLeftStyle, colour: st.borderLeftColor, width: parseFloat(st.borderLeftWidth), height: parseFloat(st.height), pageHeight: el.getBoundingClientRect().height, x: parseFloat(st.left) + parseFloat(st.borderLeftWidth) / 2, centre: px(99) };
+  });
+  expect(fold.style).toBe('dashed');
+  expect(fold.colour).toBe('rgb(119, 119, 119)');
+  expect(Math.abs(fold.height - fold.pageHeight)).toBeLessThan(1);
+  expect(Math.abs(fold.x - fold.centre)).toBeLessThan(0.5);
 
   expect(pdfPages(await printToPdf(page, 'two-long.pdf'))).toBe(3);
   await expectNothingClipped(page);

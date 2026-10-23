@@ -34,7 +34,7 @@ async function make(doc: Doc, showMirrors = false, checks = 0) {
   return { bytes, items, pages, text, all: items.map((i) => i.text).join(' ') };
 }
 
-/** Per page, the grey fold marks drawn: short solid ticks (long pages) and dashed lines (grid pages). */
+/** Per page, the grey fold marks drawn: dashed lines (one on a long page, two on a grid page) and any solid ones. */
 async function foldMarks(bytes: Uint8Array) {
   const pdf = await PDFDocument.load(bytes);
   return pdf.getPages().map((page) => {
@@ -202,13 +202,13 @@ describe('renderPdf', () => {
     expect(text(2).match(/RIGPOINT ARRAY/g)).toHaveLength(4);
   });
 
-  it('marks a long page with a DRAFT word per column and two fold ticks, and a grid page with the dashed cross', async () => {
+  it('marks a long page with a DRAFT word per column and a dashed centre line, and a grid page with the dashed cross', async () => {
     const { bytes, items, pages } = await make(tallDoc({ 'KARA II L Main': 24, 'KARA II R Main': 24, 'KARA II L Out': 24, 'KARA II R Out': 24 }, false));
     // The header of each column also says DRAFT, at the top of the page; the watermark sits lower, mid-column.
     expect(items.filter((i) => i.page === 1 && i.text === 'DRAFT' && i.y < 700)).toHaveLength(2);
     const marks = await foldMarks(bytes);
     expect(marks).toHaveLength(pages);
-    expect(marks[0]).toEqual({ ticks: 2, dashed: 0 });
+    expect(marks[0]).toEqual({ ticks: 0, dashed: 1 }); // the vertical centre line only, no horizontal fold
     expect(marks[1]).toEqual({ ticks: 0, dashed: 2 });
     expect(marks[2]).toEqual({ ticks: 0, dashed: 2 });
     expect(marks[pages - 1]).toEqual({ ticks: 0, dashed: 0 }); // the rigging page has no fold marks
