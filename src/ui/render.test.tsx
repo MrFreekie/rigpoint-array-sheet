@@ -62,7 +62,8 @@ describe('ArrayCard', () => {
     expect(html).toContain('MAINS');
     expect(html).toContain('414.2 kg');
     expect(html).toContain('M-BUMP+MBAR hole A');
-    expect(html).toContain('Front 6');
+    expect(html).toContain('Frame/Bar Hole');
+    expect(html).not.toContain('Front 6');
     expect(html).toContain('90 On');
     expect(html).not.toContain('Rear motor load');
   });
@@ -99,16 +100,16 @@ describe('ArrayCard', () => {
     expect(card('X8 2')).not.toContain('field-error');
   });
 
-  it('says MIRRORED and the name of the other array, and nothing else', () => {
+  it('says Also mirrored with and the name of the other array, and nothing else', () => {
     const covers = card('KARA II L Main', a, { coversMirror: 'KARA II R Main' });
-    expect(covers).toContain('MIRRORED');
-    expect(covers).toContain('<strong>KARA II R Main</strong>');
+    expect(covers).toContain('Also mirrored with: KARA II R Main');
     expect(covers).not.toContain('exact left-right');
     expect(covers).not.toContain('not shown separately');
     const mirror = card('KARA II R Main', a, { mirrorOf: 'KARA II L Main' });
-    expect(mirror).toContain('<strong>KARA II L Main</strong>');
+    expect(mirror).toContain('Also mirrored with: KARA II L Main');
+    expect(mirror).not.toContain('tag-mirror');
     expect(mirror).not.toContain('exact left-right');
-    expect(card('KARA II L Main')).not.toContain('MIRRORED');
+    expect(card('KARA II L Main')).not.toContain('Also mirrored');
   });
 
   it('has a print checkbox, ticked when the array is chosen', () => {

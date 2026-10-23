@@ -197,6 +197,13 @@
   overflow-wrap: anywhere;
 }
 
+/* The credit line under the footer: same size and weight, on a line of its own. */
+.as-panel-credit {
+  display: block;
+  margin-top: 1mm;
+  white-space: nowrap;
+}
+
 .pc-sub {
   font-size: 7pt;
   margin-bottom: 0.5mm;
@@ -208,10 +215,7 @@
 }
 
 .pc-mirror {
-  font-weight: 700;
   margin-bottom: 1mm;
-  padding: 0.6mm 1mm;
-  border: 0.25mm solid #000;
   font-size: 6.5pt;
 }
 
@@ -416,7 +420,7 @@
 /* Who a panel is for: app, status, show and project. Repeated on every pocket panel. */
 .as-panel-head {
   flex: none;
-  height: 10mm;
+  height: 8mm;
   overflow: hidden;
   border-bottom: 0.3mm solid #000;
   padding-bottom: 0.8mm;
@@ -430,18 +434,27 @@
   text-overflow: ellipsis;
 }
 
-.as-panel-brand {
+.as-panel-top {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 2mm;
+}
+
+.as-panel-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 8.5pt;
+  font-weight: 700;
+}
+
+.as-panel-status {
+  flex: none;
   font-size: 6pt;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-.as-panel-title {
-  font-size: 8.5pt;
-  font-weight: 700;
 }
 
 .as-panel-details {
@@ -451,7 +464,7 @@
 /* Which version, which file and when: on every pocket panel as well as on the page. */
 .as-panel-footer {
   flex: none;
-  height: 8mm;
+  height: 10mm;
   margin: 0;
   padding-top: 0.6mm;
   border-top: 0.2mm solid #777;

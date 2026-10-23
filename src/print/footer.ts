@@ -1,5 +1,10 @@
 // The footer on every printout and image: ties the paper back to the app version, the report and the file.
 
+import { APP_URL } from '../app-info';
+
+/** The line under the footer on pocket cards and card images. Plain text, no dash. */
+export const CREDIT_TEXT = `Created with RigPoint Array Sheet. Find it at ${APP_URL}`;
+
 function pad(n: number): string {
   return String(n).padStart(2, '0');
 }

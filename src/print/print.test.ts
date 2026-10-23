@@ -166,7 +166,7 @@ describe('cardContent', () => {
     expect(c.facts).toEqual([
       ['Total mass', '414.2 kg'], ['Front motor load', '414.2 kg'], ['Ground offset', '0 m'], ['Top height', '9.4 m'],
       ['Bottom height', '5.75 m'], ['Top site', '3.8°'], ['Bottom site', '-41.2°'], ['Azimuth', '0°'],
-      ['Frame', 'M-BUMP+MBAR hole A'], ['Pickups', 'Front 6'], ['Position X, Y, Z', '10, 13.01, 9.4 m'],
+      ['Frame', 'M-BUMP+MBAR hole A'], ['Frame/Bar Hole', '6'], ['Position X, Y, Z', '10, 13.01, 9.4 m'],
     ]);
     expect(c.columns).toEqual(['#', 'Type', 'Panflex', 'Angle', 'Site']);
     expect(c.rows).toHaveLength(15);
@@ -175,8 +175,8 @@ describe('cardContent', () => {
   });
 
   it('says it covers a mirror, and which array a shown mirror belongs to', () => {
-    expect(card(docA, 'KARA II L Main').mirrorNote).toBe('MIRRORED: KARA II R Main');
-    expect(card(docA, 'KARA II R Main', true).mirrorNote).toBe('MIRRORED: KARA II L Main');
+    expect(card(docA, 'KARA II L Main').mirrorNote).toBe('Also mirrored with: KARA II R Main');
+    expect(card(docA, 'KARA II R Main', true).mirrorNote).toBe('Also mirrored with: KARA II L Main');
     expect(card(docA, 'KARA II L Out', true).mirrorNote).toBeNull();
   });
 

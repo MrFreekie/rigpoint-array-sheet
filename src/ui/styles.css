@@ -465,12 +465,9 @@ input {
 }
 
 .mirror-note {
-  margin: 0;
-  padding: 0.5rem 0.65rem;
-  border: 2px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface-2);
-  font-size: 0.92rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .check-field {

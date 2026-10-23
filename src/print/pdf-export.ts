@@ -10,7 +10,7 @@ import type { Doc } from '../files/doc';
 import type { SheetModel } from '../ui/sheet-model';
 import type { DrawOp, Measure } from './array-image';
 import { cardContent } from './card-content';
-import { pageFooterText } from './footer';
+import { CREDIT_TEXT, pageFooterText } from './footer';
 import {
   CELL_PAD_MM,
   CELL_PAD_Y_MM,
@@ -126,12 +126,13 @@ function drawWatermark(page: PDFPage, font: PDFFont, left: number, top: number, 
 }
 
 function drawPanelHead(page: PDFPage, fonts: Fonts, safe: (t: string) => string, header: PanelHeader, left: number, top: number, width: number) {
+  const status = header.status.toUpperCase();
+  const statusW = fonts.bold.widthOfTextAtSize(safe(status), 6);
   const ops: DrawOp[] = [
-    { op: 'text', x: 0, y: 0, text: header.brand.toUpperCase(), size: 6, bold: true, align: 'left', color: '#000000' },
-    { op: 'text', x: width, y: 0, text: header.status.toUpperCase(), size: 6, bold: true, align: 'right', color: '#000000' },
-    { op: 'text', x: 0, y: 7.4, text: clip(header.title, fonts.bold, safe, 8.5, width), size: 8.5, bold: true, align: 'left', color: '#000000' },
+    { op: 'text', x: width, y: 2, text: status, size: 6, bold: true, align: 'right', color: '#000000' },
+    { op: 'text', x: 0, y: 0, text: clip(header.title, fonts.bold, safe, 8.5, width - statusW - 6), size: 8.5, bold: true, align: 'left', color: '#000000' },
   ];
-  if (header.details) ops.push({ op: 'text', x: 0, y: 18, text: clip(header.details, fonts.regular, safe, 6, width), size: 6, bold: false, align: 'left', color: '#000000' });
+  if (header.details) ops.push({ op: 'text', x: 0, y: 11.5, text: clip(header.details, fonts.regular, safe, 6, width), size: 6, bold: false, align: 'left', color: '#000000' });
   ops.push({ op: 'line', x1: 0, y1: mm(PANEL_HEADER_MM) - 1, x2: width, y2: mm(PANEL_HEADER_MM) - 1, width: 0.85, color: '#000000' });
   drawOps(page, fonts, safe, ops, left, top, 1);
 }
@@ -145,9 +146,9 @@ function clip(text: string, font: PDFFont, safe: (t: string) => string, size: nu
 
 function drawPanelFooter(page: PDFPage, fonts: Fonts, safe: (t: string) => string, measure: Measure, text: string, left: number, top: number, width: number) {
   const ops: DrawOp[] = [{ op: 'line', x1: 0, y1: 0, x2: width, y2: 0, width: 0.55, color: '#777777' }];
-  wrap(text, 5, false, width, measure)
-    .slice(0, 2)
-    .forEach((line, i) => ops.push({ op: 'text', x: width / 2, y: 2 + i * 6, text: line, size: 5, bold: false, align: 'center', color: '#000000' }));
+  const lines = wrap(text, 5, false, width, measure).slice(0, 2);
+  lines.forEach((line, i) => ops.push({ op: 'text', x: width / 2, y: 2 + i * 6, text: line, size: 5, bold: false, align: 'center', color: '#000000' }));
+  ops.push({ op: 'text', x: width / 2, y: 4 + lines.length * 6, text: CREDIT_TEXT, size: 5, bold: false, align: 'center', color: '#000000' });
   drawOps(page, fonts, safe, ops, left, top, 1);
 }
 

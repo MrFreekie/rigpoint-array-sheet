@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
 import { rng } from '../testing/random';
-import { flySheetColumn, minus, parseOffset, riggingFixations, riggingNote, riggingRows } from './sheet';
+import { edgeText, flySheetColumn, minus, parseOffset, riggingEdgeNote, riggingFixations, riggingNote, riggingRows } from './sheet';
 import type { ArraySource } from './types';
 
 const a = parseFixture('a').report.sources;
@@ -61,10 +61,10 @@ describe('flySheetColumn, report B', () => {
 describe('riggingRows', () => {
   it('matches the sample rigging sheet for report B', () => {
     expect(riggingRows(b).filter((r) => r.source.startsWith('FL'))).toEqual([
-      { source: 'FL KARA II L', location: 'Front', pickupPosition: 16, x: 7.5, y: 3.91, z: 8.71, load: 182.7 },
-      { source: 'FL KARA II L', location: 'Rear', pickupPosition: 0, x: 7.5, y: 3.08, z: 8.37, load: 52.7 },
-      { source: 'FL KARA II R', location: 'Front', pickupPosition: 16, x: -7.5, y: 3.91, z: 8.71, load: 182.7 },
-      { source: 'FL KARA II R', location: 'Rear', pickupPosition: 0, x: -7.5, y: 3.08, z: 8.37, load: 52.7 },
+      { source: 'FL KARA II L', location: 'Front', pickupPosition: 16, x: 7.5, y: 3.91, z: 8.71, load: 182.7, edge: { toFront: -0.17, toRear: null } },
+      { source: 'FL KARA II L', location: 'Rear', pickupPosition: 0, x: 7.5, y: 3.08, z: 8.37, load: 52.7, edge: { toFront: null, toRear: 0.34 } },
+      { source: 'FL KARA II R', location: 'Front', pickupPosition: 16, x: -7.5, y: 3.91, z: 8.71, load: 182.7, edge: { toFront: -0.17, toRear: null } },
+      { source: 'FL KARA II R', location: 'Rear', pickupPosition: 0, x: -7.5, y: 3.08, z: 8.37, load: 52.7, edge: { toFront: null, toRear: 0.34 } },
     ]);
   });
 
@@ -76,6 +76,73 @@ describe('riggingRows', () => {
       ['KARA II L Out', 17.36, 11.64, 9.53, 184.3],
       ['KARA II R Out', -17.36, 11.64, 9.53, 184.3],
     ]);
+  });
+});
+
+describe('riggingRows edge distances', () => {
+  const src = (over: Partial<ArraySource>): ArraySource => ({
+    ...(b[0] as ArraySource),
+    mounting: 'flown',
+    position: { x: 0, y: 10, z: 9 },
+    dimensions: { x: 0.5, y: 1, z: 2 },
+    azimuth: 0,
+    pickups: [],
+    ...over,
+  });
+  const front = { which: 'front' as const, position: 1, at: { x: 0, y: 10.3, z: 9 } };
+  const rear = { which: 'rear' as const, position: 2, at: { x: 0, y: 8.5, z: 9 } };
+
+  it('is negative for a front pickup ahead of the front edge and for a rear pickup behind the rear edge', () => {
+    const rows = riggingRows([src({ pickups: [front, rear] })]);
+    expect(rows[0]?.edge).toEqual({ toFront: -0.3, toRear: null });
+    expect(rows[1]?.edge).toEqual({ toFront: null, toRear: -0.5 });
+  });
+
+  it('is positive for a pickup inside the box', () => {
+    const inside = { which: 'front' as const, position: 1, at: { x: 0, y: 9.6, z: 9 } };
+    expect(riggingRows([src({ pickups: [inside, rear] })])[0]?.edge).toEqual({ toFront: 0.4, toRear: null });
+  });
+
+  it('gives a single pickup both distances, whichever pickup it is', () => {
+    expect(riggingRows([src({ pickups: [rear] })])[0]?.edge).toEqual({ toFront: 1.5, toRear: -0.5 });
+    expect(riggingRows([src({ pickups: [front] })])[0]?.edge).toEqual({ toFront: -0.3, toRear: 1.3 });
+    // An array with one pickup says Single, whichever side the report calls it, and a pair keeps Front and Rear.
+    expect(riggingRows([src({ pickups: [rear] })])[0]?.location).toBe('Single');
+    expect(riggingRows([src({ pickups: [front] })])[0]?.location).toBe('Single');
+    expect(riggingRows([src({ pickups: [front, rear] })]).map((r) => r.location)).toEqual(['Front', 'Rear']);
+  });
+
+  it('measures along the array axis, so a turned array gives the same figures', () => {
+    const turned = src({ azimuth: 90, pickups: [{ which: 'front', position: 1, at: { x: -0.3, y: 10, z: 9 } }] });
+    expect(riggingRows([turned])[0]?.edge).toEqual({ toFront: 0.3, toRear: 0.7 });
+  });
+
+  it('ignores the height of the pickup', () => {
+    const high = { ...front, at: { ...front.at, z: 90 } };
+    expect(riggingRows([src({ pickups: [high] })])[0]?.edge).toEqual(riggingRows([src({ pickups: [front] })])[0]?.edge);
+  });
+
+  it('is null when the report lacks a position, a size or an azimuth', () => {
+    for (const over of [{ position: null }, { dimensions: null }, { azimuth: null }]) {
+      expect(riggingRows([src({ ...over, pickups: [front, rear] })]).map((r) => r.edge)).toEqual([null, null]);
+    }
+  });
+
+  it('is worked out for an array whose mounting the report does not say, as for a flown one', () => {
+    expect(riggingRows([src({ mounting: null, pickups: [front] })])[0]?.edge).toEqual({ toFront: -0.3, toRear: 1.3 });
+  });
+
+  it('shows the figure to 2 decimals, blank where it does not apply and the dash where it cannot be worked out', () => {
+    const [f] = riggingRows([src({ pickups: [front, rear] })]);
+    const [missing] = riggingRows([src({ azimuth: null, pickups: [front] })]);
+    expect(f && edgeText(f, 'toFront', '-')).toBe('-0.30');
+    expect(f && edgeText(f, 'toRear', '-')).toBe('');
+    expect(missing && edgeText(missing, 'toFront', '-')).toBe('-');
+  });
+
+  it('has a note to explain the columns only when pickups are listed', () => {
+    expect(riggingEdgeNote(true)).toContain('calculated from the report');
+    expect(riggingEdgeNote(false)).toBeNull();
   });
 });
 

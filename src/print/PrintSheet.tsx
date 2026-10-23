@@ -4,12 +4,12 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { APP_URL } from '../app-info';
-import { riggingFixations, riggingNote, riggingRows } from '../engine/sheet';
+import { edgeText, riggingEdgeNote, riggingFixations, riggingNote, riggingRows } from '../engine/sheet';
 import type { Doc } from '../files/doc';
-import { num } from '../ui/format';
+import { NOT_STATED, num } from '../ui/format';
 import type { SheetModel } from '../ui/sheet-model';
 import { cardContent, FIXATION_COLUMNS, warningText, type CardContent } from './card-content';
-import { pageFooterText } from './footer';
+import { CREDIT_TEXT, pageFooterText } from './footer';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { qrMatrix, qrPath, qrSize } from './qr';
 import { PlotSvg } from './PlotSvg';
@@ -100,11 +100,10 @@ function CardView({ content }: { content: CardContent }) {
 function PanelHead({ header }: { header: PanelHeader }) {
   return (
     <div className="as-panel-head">
-      <p className="as-panel-brand">
-        <span>{header.brand}</span>
-        <span>{header.status}</span>
+      <p className="as-panel-top">
+        <span className="as-panel-title">{header.title}</span>
+        <span className="as-panel-status">{header.status}</span>
       </p>
-      <p className="as-panel-title">{header.title}</p>
       {header.details ? <p className="as-panel-details">{header.details}</p> : null}
     </div>
   );
@@ -130,6 +129,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
   const rigging = useMemo(() => riggingRows(doc.result.report.sources, model.printedSources), [doc.result.report.sources, model.printedSources]);
   const fixations = useMemo(() => riggingFixations(doc.result.report.sources, model.printedSources), [doc.result.report.sources, model.printedSources]);
   const note = riggingNote(rigging.length > 0, fixations.length > 0);
+  const edgeNote = riggingEdgeNote(rigging.length > 0);
   // Names too long for their column are cut with an ellipsis, by the same rule as the PDF.
   const rigMeasure = useMemo(() => canvasMeasurePt(), []);
   const cell = (text: string, column: number, widthsMm: number[], size = 8) => clipRiggingCell(text, widthsMm[column] ?? 0, false, rigMeasure, size);
@@ -202,7 +202,10 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
             <CardView content={c.item.content} />
           </div>
         </div>
-        <p className="as-panel-footer">{footerText(pageNo)}</p>
+        <p className="as-panel-footer">
+          <span>{footerText(pageNo)}</span>
+          <span className="as-panel-credit">{CREDIT_TEXT}</span>
+        </p>
       </div>
     );
   };
@@ -255,6 +258,8 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
                   <td className="n">{r.y}</td>
                   <td className="n">{r.z}</td>
                   <td className="n">{num(r.load)}</td>
+                  <td className="n">{edgeText(r, 'toFront', NOT_STATED)}</td>
+                  <td className="n">{edgeText(r, 'toRear', NOT_STATED)}</td>
                 </tr>
               ))}
             </tbody>
@@ -289,6 +294,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
         </table>
       ) : null}
       {note ? <p className="as-rigging-note">{note}</p> : null}
+      {edgeNote ? <p className="as-rigging-note">{edgeNote}</p> : null}
       <div className="as-small-print" data-testid="print-small-print">
         {SMALL_PRINT.map((p, i) => (
           <p key={i}>

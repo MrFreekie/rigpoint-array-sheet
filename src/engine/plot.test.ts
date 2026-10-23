@@ -108,7 +108,16 @@ describe('plotArrays', () => {
     expect(checked).toBeGreaterThan(0);
   });
 
-  it('draws only the arrays asked for, and names flown ones it cannot draw', () => {
+  it('draws an array whose mounting the report does not say, and names only arrays that lack a position, size or azimuth', () => {
+    const sources = parseFixture('a').report.sources;
+    const unknown: ArraySource[] = sources.map((s, i) => (i === 0 ? { ...s, mounting: null } : i === 1 ? { ...s, mounting: null, azimuth: null } : s));
+    const { drawn, notDrawn } = plotArrays(unknown, new Set([0, 1]));
+    expect(drawn.map((d) => d.name)).toEqual([sources[0]?.name]);
+    expect(drawn[0]?.kind).toBe('flown');
+    expect(notDrawn).toEqual([sources[1]?.name]);
+  });
+
+  it('draws only the arrays asked for, and names the ones it cannot draw', () => {
     const sources = parseFixture('a').report.sources;
     expect(plotArrays(sources, new Set([0])).drawn.map((d) => d.index)).toEqual([0]);
     const broken: ArraySource[] = sources.map((s, i) => (i === 0 ? { ...s, azimuth: null } : s));
@@ -152,11 +161,13 @@ describe('numberPickups', () => {
     const pts = numberPickups([arr(0, 0, 5, []), arr(1, 1, 4.5, ['front'])]);
     expect(pts).toHaveLength(1);
     expect(pts[0]?.label).toBe('PA1');
+    expect(pts[0]?.single).toBe(true);
   });
 
   it('gives each pickup the motor load of its side', () => {
     const pts = numberPickups([arr(0, 0, 5, ['front', 'rear'])]);
     expect(pts.map((p) => p.load)).toEqual([100, 200]);
+    expect(pts.map((p) => p.single)).toEqual([false, false]);
   });
 
   it('numbers report C: both K1 rows, front lower than rear', () => {

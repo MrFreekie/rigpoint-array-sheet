@@ -20,6 +20,7 @@ import {
   plotPageCount,
   PRINT_PALETTE,
   scaleBarMetres,
+  tableRow,
   tableNameLines,
   SCREEN_PALETTE,
   type PlotInput,
@@ -149,7 +150,7 @@ describe('the plot page', () => {
     for (const side of ['House left', 'House right', 'Stage', 'Audience']) expect(t).toContain(side);
   });
 
-  it('draws one marker per pickup and one Position dot per flown array, dashed boxes for arrays with pickups and solid for the rest', () => {
+  it('draws one marker per pickup and one Position dot per array that is not a stack, dashed boxes for arrays with pickups and solid for the rest', () => {
     const { content, pages: p } = pages('a');
     const ops = p[0]!.ops;
     const flown = content.arrays.filter((a) => a.kind === 'flown');
@@ -209,10 +210,37 @@ describe('the plot page', () => {
     expect(t.some((x) => /^-?\d+\.\d\d m( \(|$)/.test(x) || /^Position Z|^Top site/.test(x))).toBe(false);
   });
 
-  it('labels the line between front and rear pickups with the stated total weight and the plan spacing', () => {
-    const t = texts(pages('c').pages[0]!.ops);
-    expect(t).toContain('1332.6 kg, 1.01 m');
-    expect(t).toContain('732.6 kg, 0.90 m');
+  it('puts the stated total weight and the plan spacing under the array name, and nothing on the front to rear line', () => {
+    const { content, pages: p } = pages('c');
+    const ops = p[0]!.ops;
+    const t = texts(ops);
+    const k1 = content.arrays.find((a) => a.pickups.length === 2)!;
+    const at = (text: string) => ops.findIndex((o) => o.op === 'text' && o.text === text);
+    const i = at(k1.name);
+    expect(i).toBeGreaterThan(-1);
+    expect(ops[i + 1]).toMatchObject({ op: 'text', text: `Total ${k1.totalWeight} kg` });
+    const spacing = content.points.find((pt) => pt.arrayIndex === k1.index && pt.which === 'front')!.spacing!;
+    expect(ops[i + 2]).toMatchObject({ op: 'text', text: `Spacing ${spacing.toFixed(2)} m` });
+    expect(t).toContain('Total 1332.6 kg');
+    expect(t).toContain('Spacing 1.01 m');
+    expect(t.some((x) => /^\d+(\.\d+)? kg, /.test(x))).toBe(false);
+  });
+
+  it('leaves out the total line when the report states none, and the spacing line when there is one pickup or none', () => {
+    const { content } = pages('c');
+    const out = layoutPlotPages(
+      { ...content, arrays: content.arrays.map((a) => ({ ...a, totalWeight: null })), footer: () => 'footer' },
+      estimateWidth,
+    );
+    const t = texts(out[0]!.ops);
+    expect(t.some((x) => x.startsWith('Total '))).toBe(false);
+    expect(t.some((x) => x.startsWith('Spacing '))).toBe(true);
+    const single = content.arrays.find((a) => content.points.filter((pt) => pt.arrayIndex === a.index).length === 1)!;
+    expect(single).toBeDefined();
+    const tt = texts(pages('c').pages[0]!.ops);
+    const spacingLines = tt.filter((x) => x.startsWith('Spacing ')).length;
+    const withBoth = new Set(content.points.filter((pt) => pt.which === 'front' && pt.spacing !== null).map((pt) => pt.arrayIndex)).size;
+    expect(spacingLines).toBe(withBoth);
   });
 
   it('labels an array with one pickup once', () => {
@@ -285,11 +313,11 @@ describe('the plot page', () => {
         }
       }
     }
-    // Report C at 1:400 packs ten stacks and flown arrays into a few millimetres either side of the origin lines, so a
+    // Report C at 1:400 packs ten stacks and other arrays into a few millimetres either side of the origin lines, so a
     // label or two there may sit across an origin line. Nothing else may clash, and reports A and E have none at all.
     const rest = problems.filter((m) => !(m.startsWith('c:') && m.includes('an origin line')));
     expect(rest).toEqual([]);
-    expect(problems.filter((m) => m.startsWith('c:')).length).toBeLessThanOrEqual(2);
+    expect(problems.filter((m) => m.startsWith('c:')).length).toBeLessThanOrEqual(1);
   });
 
   it('keeps every leader line off the labels, the origin lines and other leaders on reports A, C and E', () => {
@@ -423,5 +451,15 @@ describe('plotContent', () => {
     const doc = newDoc(parseFixture('e'), 'e.pdf');
     const model = sheetModel(doc, false);
     expect(plotContent(doc, model)!.points).toEqual(numberPickups(plotArrays(doc.result.report.sources, model.printedSources).drawn));
+  });
+});
+
+describe('the Pickup column of the table', () => {
+  const point = { label: 'PA1', number: 1, arrayIndex: 0, source: 'A', which: 'front' as const, single: false, pickupPosition: 6, at: { x: 1, y: 2, z: 3 }, load: 100, spacing: null };
+  it('says Single for an array with one pickup, whichever side it is, and Front or Rear for a pair', () => {
+    expect(tableRow({ ...point, single: true })[2]).toBe('Single');
+    expect(tableRow({ ...point, single: true, which: 'rear' })[2]).toBe('Single');
+    expect(tableRow(point)[2]).toBe('Front');
+    expect(tableRow({ ...point, which: 'rear' })[2]).toBe('Rear');
   });
 });

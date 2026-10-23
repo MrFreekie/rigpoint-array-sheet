@@ -2,7 +2,8 @@
 // browser): one pocket card, and the rigging summary page. pdf-export.ts draws them with pdf-lib.
 // Sizes match the print stylesheet, so the downloaded PDF and the printed sheet look alike.
 
-import { riggingNote, type FixationRow, type RiggingRow } from '../engine/sheet';
+import { edgeText, riggingEdgeNote, riggingNote, type FixationRow, type RiggingRow } from '../engine/sheet';
+import { NOT_STATED } from '../ui/format';
 import { clipMiddle, wrap, type DrawOp, type Measure } from './array-image';
 import { FIXATION_COLUMNS, warningText, type CardContent } from './card-content';
 import { CARD_W_MM, PX_PER_MM } from './layout';
@@ -88,8 +89,9 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
     y += h;
   };
 
+  // A plain small line under the title, not a box, so it cannot be mistaken for a warning.
   if (content.mirrorNote) {
-    box(null, content.mirrorNote, 0.25, true);
+    paragraph(content.mirrorNote, FONT_SIZES.note, 1.2);
     y += mm(1);
   }
   for (const w of content.warnings) {
@@ -154,10 +156,10 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
   return { width: W, height: y, ops };
 }
 
-export const RIGGING_PICKUP_COLUMNS = ['Array', 'Pickup', 'Position no.', 'X (m)', 'Y (m)', 'Z (m)', 'Load (kg)'];
+export const RIGGING_PICKUP_COLUMNS = ['Array', 'Pickup', 'Position no.', 'X (m)', 'Y (m)', 'Z (m)', 'Load (kg)', 'To front (m)', 'To rear (m)'];
 export const RIGGING_FIXATION_COLUMNS = ['Array', 'Fixation', 'X (m)', 'Y (m)', 'Z (m)'];
 /** Column widths on the 192 mm rigging page; the print stylesheet's tables use the same shares. */
-export const RIGGING_PICKUP_WIDTHS_MM = [50, 20, 24, 24, 24, 24, 26];
+export const RIGGING_PICKUP_WIDTHS_MM = [52, 14, 21, 15, 15, 15, 18, 21, 21];
 export const RIGGING_FIXATION_WIDTHS_MM = [80, 40, 24, 24, 24];
 /** What a cell keeps free of text: its padding on both sides and the border (1.2 mm each side, as the stylesheet pads). */
 export const RIGGING_CELL_PAD_PT = mm(2.4) + 2;
@@ -253,7 +255,7 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     table(
       RIGGING_PICKUP_COLUMNS,
       RIGGING_PICKUP_WIDTHS_MM,
-      input.rows.map((r) => [r.source, r.location, String(r.pickupPosition), String(r.x), String(r.y), String(r.z), r.load === null ? '–' : String(r.load)]),
+      input.rows.map((r) => [r.source, r.location, String(r.pickupPosition), String(r.x), String(r.y), String(r.z), r.load === null ? NOT_STATED : String(r.load), edgeText(r, 'toFront', NOT_STATED), edgeText(r, 'toRear', NOT_STATED)]),
     );
   }
   if (input.fixations.length > 0) {
@@ -270,6 +272,14 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     y += 4;
     ops.push(textOp(0, y, note, 7));
     y += 7 * 1.3;
+  }
+  const edgeNote = riggingEdgeNote(input.rows.length > 0);
+  if (edgeNote) {
+    y += 2;
+    for (const line of wrap(edgeNote, 7, false, W, measure)) {
+      ops.push(textOp(0, y, line, 7));
+      y += 7 * 1.3;
+    }
   }
 
   // The approved disclaimer, word for word.

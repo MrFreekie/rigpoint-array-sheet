@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import type { FlySheetColumn } from '../engine/sheet';
 import { enclosureLabel } from '../engine/types';
-import { FIXATION_COLUMNS, fixationName, warningText } from '../print/card-content';
+import { FIXATION_COLUMNS, fixationName, pickupFact, warningText } from '../print/card-content';
 import { degrees, kg, metres, NOT_STATED, num } from './format';
 
 interface Props {
@@ -32,10 +32,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
   const hasColumns = c.rows.some((r) => r.column !== null);
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
-  const pickups =
-    c.pickups.length === 0
-      ? NOT_STATED
-      : c.pickups.map((p) => `${p.which === 'front' ? 'Front' : 'Rear'} ${p.position}`).join(', ');
+  const [pickupLabel, pickups] = pickupFact(c.pickups);
 
   return (
     <article className="card" aria-labelledby={`${id}-name`}>
@@ -51,18 +48,17 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         <p className="card-sub">
           {c.group ? <span className="chip">{c.group}</span> : null} {c.configuration ?? 'configuration not stated'}
         </p>
+        {coversMirror || mirrorOf ? (
+          <p className="mirror-note" data-testid="mirror-note">
+            {`Also mirrored with: ${coversMirror ?? mirrorOf}`}
+          </p>
+        ) : null}
       </header>
 
       <label className="check-field print-check">
         <input type="checkbox" checked={printed} onChange={(e) => onPrinted(e.target.checked)} />
         <span>Print this array</span>
       </label>
-
-      {coversMirror || mirrorOf ? (
-        <p className="mirror-note" data-testid="mirror-note">
-          <span className="tag tag-mirror">MIRRORED</span> <strong>{coversMirror ?? mirrorOf}</strong>
-        </p>
-      ) : null}
 
       {c.warnings.length > 0 ? (
         <ul className="warnings" aria-label={`Soundvision warnings for ${c.name}`}>
@@ -101,7 +97,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         <dd>{degrees(c.azimuth)}</dd>
         <dt>Frame</dt>
         <dd>{c.bumper ?? NOT_STATED}</dd>
-        <dt>Pickups</dt>
+        <dt>{pickupLabel}</dt>
         <dd>{pickups}</dd>
         <dt>Position X, Y, Z</dt>
         <dd>{c.position ? `${c.position.x}, ${c.position.y}, ${c.position.z} m` : NOT_STATED}</dd>

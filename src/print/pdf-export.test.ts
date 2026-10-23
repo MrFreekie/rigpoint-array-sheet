@@ -6,7 +6,7 @@ import { readPdfItems } from '../files/pdf-items';
 import { parseFixture } from '../testing/fixtures';
 import { newDoc, withPrinted, type Doc } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
-import { printFooter } from './footer';
+import { CREDIT_TEXT, printFooter } from './footer';
 import { renderPdf } from './pdf-export';
 
 const FOOTER = printFooter({
@@ -100,20 +100,24 @@ describe('renderPdf', () => {
     expect(all).not.toContain('Rigging plot');
   });
 
-  it('says MIRRORED and the other array, with nothing else', async () => {
+  it('says Also mirrored with and the other array, with nothing else', async () => {
     const { all } = await make(sampleDoc());
-    expect(all).toContain('MIRRORED: KARA II R Main');
+    expect(all).toContain('Also mirrored with: KARA II R Main');
     expect(all).not.toContain('exact left-right');
   });
 
   it('gives every pocket panel its own header and footer', async () => {
     const { text } = await make(sampleDoc());
     const page1 = text(1);
-    expect(page1.match(/RIGPOINT ARRAY/g)).toHaveLength(4);
+    expect(page1).not.toContain('RIGPOINT ARRAY');
+    expect(page1.match(/Created with RigPoint Array Sheet/g)).toHaveLength(4);
     expect(page1.match(/Main stage · Grand Hall/g)).toHaveLength(4);
     expect(page1.match(/Z-axis zero: Arena floor/g)).toHaveLength(4);
     expect(page1.match(/Page 1 of 5/g)?.length).toBeGreaterThanOrEqual(4);
     expect(page1).toContain('RigPoint Array 0.1.0 · Soundvision 2026.3.1');
+    // One credit line under the footer of each of the four panels, below the footer text.
+    const credits = (await make(sampleDoc())).items.filter((i) => i.page === 1 && i.text === CREDIT_TEXT);
+    expect(credits).toHaveLength(4);
     expect(page1).toContain('(unsaved changes)'.replace('unsaved changes', 'not saved'));
   });
 
@@ -221,10 +225,11 @@ describe('renderPdf', () => {
     const { pages, text } = await make(tallDoc({ 'KARA II L Main': 24 }));
     expect(pages).toBe(5); // one long page, two grid pages of four, the plot, then the rigging page
     expect(text(1).match(/KARA II L Main/g)).toHaveLength(1);
-    expect(text(1).match(/RIGPOINT ARRAY/g)).toHaveLength(1);
+    expect(text(1)).not.toContain('RIGPOINT ARRAY');
+    expect(text(1).match(/Created with RigPoint Array Sheet/g)).toHaveLength(1);
     expect(text(1).match(/KARA II/g)?.length).toBeGreaterThanOrEqual(24);
     expect(text(2)).toContain('KARA II R Main');
-    expect(text(2).match(/RIGPOINT ARRAY/g)).toHaveLength(4);
+    expect(text(2).match(/Created with RigPoint Array Sheet/g)).toHaveLength(4);
   });
 
   it('puts two 24-row arrays side by side on one long page, each with its own header and page number', async () => {
@@ -232,9 +237,9 @@ describe('renderPdf', () => {
     expect(pages).toBe(5); // two long columns on one page, then grid pages of four and three, the plot, then the rigging page
     expect(text(1)).toContain('KARA II L Main');
     expect(text(1)).toContain('KARA II L Out');
-    expect(text(1).match(/RIGPOINT ARRAY/g)).toHaveLength(2);
+    expect(text(1).match(/Created with RigPoint Array Sheet/g)).toHaveLength(2);
     expect(text(1).match(/Page 1 of 5/g)).toHaveLength(2);
-    expect(text(2).match(/RIGPOINT ARRAY/g)).toHaveLength(4);
+    expect(text(2).match(/Created with RigPoint Array Sheet/g)).toHaveLength(4);
   });
 
   it('marks a long page with a DRAFT word per column and a dashed centre line, and a grid page with the dashed cross', async () => {

@@ -20,7 +20,7 @@ export interface CardContent {
   subtitle: string;
   /** Show, status and Z-axis zero, so a card on its own is still traceable. */
   context: string;
-  /** "MIRRORED: " and the name of the other array, when this card stands for a mirror image or is one. */
+  /** "Also mirrored with: " and the name of the other array, when this card stands for a mirror image or is one. */
   mirrorNote: string | null;
   facts: [label: string, value: string][];
   /** One row per fixation: name, X, Y, Z as the report prints them. Empty when the report states none. */
@@ -46,10 +46,18 @@ export function warningText(w: { title: string; message: string }): string {
   return w.title.endsWith('.') ? `${w.title} ${w.message}` : `${w.title}. ${w.message}`;
 }
 
+/**
+ * The pickup row of a card, the same on the screen card, the print view, the PNG and the PDF. An array with one pickup shows
+ * the position number as its frame and bar hole; with two, each pickup is named front or rear.
+ */
+export function pickupFact(pickups: readonly { which: 'front' | 'rear'; position: number | string }[]): [label: string, value: string] {
+  if (pickups.length === 0) return ['Pickups', NOT_STATED];
+  if (pickups.length === 1) return ['Frame/Bar Hole', String(pickups[0]?.position)];
+  return ['Pickups', pickups.map((p) => `${p.which === 'front' ? 'Front' : 'Rear'} ${p.position}`).join(', ')];
+}
+
 export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
   const c = entry.column;
-  const pickups =
-    c.pickups.length === 0 ? NOT_STATED : c.pickups.map((p) => `${p.which === 'front' ? 'Front' : 'Rear'} ${p.position}`).join(', ');
 
   const facts: CardContent['facts'] = [['Total mass', kg(c.totalMass)]];
   if (c.motors !== null) {
@@ -64,7 +72,7 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
     ['Bottom site', degrees(c.bottomSite)],
     ['Azimuth', degrees(c.azimuth)],
     ['Frame', c.bumper ?? NOT_STATED],
-    ['Pickups', pickups],
+    pickupFact(c.pickups),
     ['Position X, Y, Z', c.position ? `${c.position.x}, ${c.position.y}, ${c.position.z} m` : NOT_STATED],
   );
 
@@ -85,7 +93,7 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
     title: c.name,
     subtitle: [c.group, c.configuration ?? 'configuration not stated'].filter(Boolean).join(' · '),
     context: [ctx.show.trim(), ctx.venue.trim(), status, ctx.zAxisZero.trim() ? `Z-axis zero: ${ctx.zAxisZero.trim()}` : ''].filter(Boolean).join(' · '),
-    mirrorNote: entry.coversMirror ? `MIRRORED: ${entry.coversMirror}` : entry.mirrorOf ? `MIRRORED: ${entry.mirrorOf}` : null,
+    mirrorNote: entry.coversMirror ? `Also mirrored with: ${entry.coversMirror}` : entry.mirrorOf ? `Also mirrored with: ${entry.mirrorOf}` : null,
     facts,
     fixations: c.fixations.map((f) => [fixationName(f.name), String(f.at.x), String(f.at.y), String(f.at.z)]),
     warnings: c.warnings.map((w) => ({ ...w })),

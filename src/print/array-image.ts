@@ -3,6 +3,7 @@
 // it works under the strict Content Security Policy.
 
 import { FIXATION_COLUMNS, warningText, type CardContent } from './card-content';
+import { CREDIT_TEXT } from './footer';
 
 export const IMAGE_W = 640;
 const PAD = 28;
@@ -127,7 +128,9 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
     y += h + 8;
   };
 
-  if (content.mirrorNote) box([{ text: content.mirrorNote, bold: true }], 1);
+  if (content.mirrorNote) {
+    paragraph(content.mirrorNote, 12, { color: '#333', gap: 8 });
+  }
   for (const w of content.warnings) {
     box(
       [
@@ -194,6 +197,8 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
     text(line, 11, { color: '#333' });
     y += 15;
   }
+  text(CREDIT_TEXT, 11, { color: '#333' });
+  y += 15;
   y += PAD - 10;
 
   const height = Math.max(y, 200);

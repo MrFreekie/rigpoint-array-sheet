@@ -31,7 +31,7 @@ describe('layoutPocketCard', () => {
       expect(t).toContain(value);
     }
     expect(t.filter((x) => x === 'KARA II')).toHaveLength(15);
-    expect(t).toContain('MIRRORED: KARA II R Main');
+    expect(t).toContain('Also mirrored with: KARA II R Main');
     expect(t).toContain('90 On');
   });
 
@@ -162,11 +162,11 @@ describe('layoutRiggingPage', () => {
       expect(t).toContain('Every fixation is listed, including those of mirrored arrays, because their positions differ.');
     });
 
-    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.975 (fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
+    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.961 (the edge distance note costs a line; fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
       const laid = layoutRiggingPage(withFixations(), estimateWidth);
       const fit = fitScale(pxHeight(laid.height), FULL_H_MM, MIN_FULL_SCALE);
       expect(fit.overflow).toBe(false);
-      expect(fit.scale).toBe(0.975);
+      expect(fit.scale).toBe(0.961);
     });
 
     it('sets the fixation table in 7 pt text and keeps the pickup table at 8 pt', () => {
@@ -256,7 +256,7 @@ describe('which panel a typical mirrored main goes in', () => {
   };
   const kindOf = (doc: typeof docA) => {
     const c = content(doc, 'KARA II L Main', false);
-    expect(c.mirrorNote).toBe('MIRRORED: KARA II R Main');
+    expect(c.mirrorNote).toBe('Also mirrored with: KARA II R Main');
     expect(c.facts.map((f) => f[0])).toContain('Front motor load');
     return planPages([{ item: 0, heightPx: ptToPx(layoutPocketCard(c, estimateWidth).height) }])[0]?.kind;
   };

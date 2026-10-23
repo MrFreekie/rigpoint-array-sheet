@@ -1,4 +1,4 @@
-// The geometry behind the rigging plot: where each flown or stacked array sits on the plan and which pickup gets which number.
+// The geometry behind the rigging plot: where each array marked flown or stacked in the report sits on the plan and which pickup gets which number.
 // It reads the report's Position, Spatial dimensions and Azimuth as printed and turns them into a box on the plan.
 // Nothing here works out a load, an angle or a height. The one figure it derives is the plan distance between an array's
 // front and rear pickups, from their X and Y only.
@@ -37,6 +37,8 @@ export interface PlotPoint {
   arrayIndex: number;
   source: string;
   which: 'front' | 'rear';
+  /** True when the array has only one pickup, so the table says Single rather than Front or Rear. */
+  single: boolean;
   /** The pickup position number as the report prints it. */
   pickupPosition: number;
   at: Point3;
@@ -70,18 +72,34 @@ export function footprint(s: Pick<ArraySource, 'position' | 'dimensions' | 'azim
   return [at(-half, 0), at(half, 0), at(half, depth), at(-half, depth)];
 }
 
+/**
+ * How far a pickup lies from the front and from the rear edge of its array's box, measured along the array's own axis
+ * in metres to 2 decimals. Positive means inside the box; negative means in front of the front edge or behind the rear
+ * edge, which happens. Null when the report does not state a position, a size or an azimuth.
+ */
+export function edgeDistances(
+  s: Pick<ArraySource, 'position' | 'dimensions' | 'azimuth'>,
+  at: Pt2,
+): { toFront: number; toRear: number } | null {
+  const { position, dimensions } = s;
+  if (!position || !dimensions || s.azimuth === null) return null;
+  const a = (s.azimuth * Math.PI) / 180;
+  const along = (at.x - position.x) * -Math.sin(a) + (at.y - position.y) * -Math.cos(a);
+  const round = (v: number) => Math.round(v * 100) / 100 + 0;
+  return { toFront: round(along), toRear: round(dimensions.y - along) };
+}
+
 export interface PlotArrays {
   drawn: PlotArray[];
   /** Names of arrays the plot cannot draw because the report lacks a position, a size or an azimuth. */
   notDrawn: string[];
 }
 
-/** The flown and stacked arrays of the report, in report order. `include` limits them to some positions in the report. */
+/** The arrays the report marks as flown or stacked (an array with no pickup is not necessarily hung), in report order. `include` limits them to some positions in the report. */
 export function plotArrays(sources: readonly ArraySource[], include?: ReadonlySet<number>): PlotArrays {
   const drawn: PlotArray[] = [];
   const notDrawn: string[] = [];
   sources.forEach((s, index) => {
-    if (s.mounting !== 'flown' && s.mounting !== 'stacked') return;
     if (include && !include.has(index)) return;
     const corners = footprint(s);
     if (!corners || !s.position) {
@@ -91,7 +109,7 @@ export function plotArrays(sources: readonly ArraySource[], include?: ReadonlySe
     drawn.push({
       index,
       name: s.name,
-      kind: s.mounting,
+      kind: s.mounting === 'stacked' ? 'stacked' : 'flown',
       position: s.position,
       corners,
       pickups: s.pickups,
@@ -134,6 +152,7 @@ export function numberPickups(arrays: readonly PlotArray[], toleranceM = BAND_TO
           arrayIndex: a.index,
           source: a.name,
           which: p.which,
+          single: ordered.length === 1,
           pickupPosition: p.position,
           at: p.at,
           load: p.which === 'front' ? a.frontMotorLoad : a.rearMotorLoad,

@@ -80,7 +80,7 @@ test('report A: nine arrays print four to a page, then the plot and the rigging 
   await expect(first.getByTestId('print-card')).toHaveCount(4);
   await expect(first).toContainText('KARA II L Main');
   await expect(first).toContainText('414.2 kg');
-  await expect(first).toContainText('MIRRORED: KARA II R Main');
+  await expect(first).toContainText('Also mirrored with: KARA II R Main');
   await expect(first).toContainText('90 On');
   // Soundvision's warnings are printed with their words.
   await expect(first).toContainText('WARNING');
@@ -92,12 +92,12 @@ test('report A: nine arrays print four to a page, then the plot and the rigging 
   await expect(page.locator('.as-watermark')).toHaveCount(11);
   await expect(page.locator('[data-testid=print-page] > .as-watermark')).toHaveCount(2);
   await expect(pages(page).nth(2).locator('.as-panel-footer')).toHaveText(
-    /^RigPoint Array \d+\.\d+\.\d+ · Soundvision 2026\.3\.1 · .+\.arraysheet\.json \(not saved\) · Printed \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} · Page 3 of 5$/,
+    /^RigPoint Array \d+\.\d+\.\d+ · Soundvision 2026\.3\.1 · .+\.arraysheet\.json \(not saved\) · Printed \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} · Page 3 of 5Created with RigPoint Array Sheet\. Find it at https:\/\/mrfreekie\.github\.io\/rigpoint-array-sheet\/$/,
   );
   // Every pocket panel says whose it is and which file it came from, so a folded card still has an identity.
   await expect(page.locator('.as-cell .as-panel-head')).toHaveCount(9);
   await expect(page.locator('.as-cell .as-panel-footer')).toHaveCount(9);
-  await expect(first.locator('.as-panel-head').first()).toContainText('RigPoint Array');
+  await expect(first.locator('.as-panel-head').first()).not.toContainText('RigPoint Array');
   await expect(first.locator('.as-panel-head').first()).toContainText('Draft');
   await expect(first.locator('.as-panel-head').first()).toContainText('Example Arena - Example Show');
 
@@ -282,7 +282,7 @@ const withRows = (rows: number) =>
     return sources.slice(0, 5);
   });
 
-/** Both mains of report A with this many rows, so the pair is still mirrored and the card keeps its MIRRORED note and motor fact. */
+/** Both mains of report A with this many rows, so the pair is still mirrored and the card keeps its mirror note and motor fact. */
 const withMirroredRows = (rows: number) =>
   changedPdf((sources) => {
     for (const s of sources.filter((x) => x.name === 'KARA II L Main' || x.name === 'KARA II R Main')) {
@@ -348,7 +348,7 @@ for (const rows of [16, 17, 18, 24]) {
     // A pocket panel holds 16 rows of this array, with its mirror note and motor fact; anything taller is in a long column, and long pages come first.
     expect(long).toBe(rows >= 17);
     const note = await page.evaluate(() => [...document.querySelectorAll('.as-cell')].find((c) => c.querySelector('.pc-title')?.textContent === 'KARA II L Main')?.querySelector('.pc-mirror')?.textContent);
-    expect(note).toBe('MIRRORED: KARA II R Main');
+    expect(note).toBe('Also mirrored with: KARA II R Main');
     if (long) expect(arrayPage).toBe(1);
   });
 }
@@ -429,7 +429,7 @@ test('report E: the rigging page lists the fixations, and the print view and Dow
   await expect(last).not.toHaveClass(/as-page-overflow/);
   await expectNothingClipped(page);
 
-  // The fixation rows are a pocket card's height, and the page shrinks about as little as the PDF's plan says (0.975).
+  // The fixation rows are a pocket card's height, and the page shrinks about as little as the PDF's plan says (about 0.95).
   const rigging = await page.evaluate(() => {
     const root = document.querySelectorAll('[data-testid=print-page]');
     const lastPage = root[root.length - 1] as HTMLElement;
@@ -448,7 +448,7 @@ test('report E: the rigging page lists the fixations, and the print view and Dow
   for (const h of rigging.fixationRows) expect(h).toBeCloseTo(14.0625, 0);
   expect(rigging.pickupRow).toBeGreaterThan(rigging.fixationRows[1] ?? 0);
   expect(Math.abs(rigging.pickupRow - (13 * 96) / 72)).toBeLessThanOrEqual(1); // the PDF draws the pickup rows 13 pt high
-  expect(rigging.scale).toBeGreaterThan(0.95);
+  expect(rigging.scale).toBeGreaterThan(0.93); // the edge distance note adds a line, so a little under the 0.95 it had
   expect(rigging.scale).toBeLessThan(1);
 
   const printPages = pdfPages(await printToPdf(page, 'fixations.pdf'));

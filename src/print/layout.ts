@@ -8,8 +8,8 @@ export const PAGE_H_MM = 284;
 /** The strip at the foot of the rigging page that holds its footer. Pocket panels and long columns carry their own. */
 export const FOOTER_MM = 6;
 /** Every pocket panel has its own header (who it is for) and footer (which version and file). */
-export const PANEL_HEADER_MM = 10;
-export const PANEL_FOOTER_MM = 8;
+export const PANEL_HEADER_MM = 8;
+export const PANEL_FOOTER_MM = 10;
 export const PX_PER_MM = 96 / 25.4;
 /** Space kept clear inside each panel, at the sides and at the top and bottom. */
 export const CELL_PAD_MM = 3;

@@ -4,7 +4,6 @@
 import { STATUS_LABELS, type Doc } from '../files/doc';
 
 export interface PanelHeader {
-  brand: string;
   /** e.g. "Draft Rev B". */
   status: string;
   /** The show and venue, or the Soundvision project when neither was typed. */
@@ -22,7 +21,6 @@ export function panelHeader(doc: Doc): PanelHeader {
   const title = [doc.job.show.trim(), doc.job.venue.trim()].filter(Boolean).join(' · ') || project || doc.sourceName;
   const zero = doc.job.zAxisZero.trim();
   return {
-    brand: 'RigPoint Array',
     status: `${STATUS_LABELS[doc.status]}${doc.revision ? ` Rev ${doc.revision}` : ''}`,
     title,
     details: [project !== title ? project : '', doc.job.engineer.trim(), doc.job.company.trim(), zero ? `Z-axis zero: ${zero}` : '']

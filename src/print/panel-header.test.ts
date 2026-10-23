@@ -6,9 +6,8 @@ import { panelHeader, projectName } from './panel-header';
 const doc = () => newDoc(parseFixture('a'), 'a.pdf');
 
 describe('panelHeader', () => {
-  it('names the app, the status and the Soundvision project when no show is typed', () => {
+  it('names the status and the Soundvision project when no show is typed', () => {
     expect(panelHeader(doc())).toEqual({
-      brand: 'RigPoint Array',
       status: 'Draft',
       title: 'Example Arena - Example Show',
       details: '',
@@ -21,7 +20,6 @@ describe('panelHeader', () => {
     d.status = 'issued';
     d.revision = 'B';
     expect(panelHeader(d)).toEqual({
-      brand: 'RigPoint Array',
       status: 'Issued Rev B',
       title: 'Main stage · Grand Hall',
       details: 'Example Arena - Example Show · Sam · Acme Audio · Z-axis zero: Arena floor',

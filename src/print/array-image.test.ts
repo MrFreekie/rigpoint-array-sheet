@@ -5,6 +5,7 @@ import { newDoc } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
 import { estimateWidth, IMAGE_W, layoutCardImage, wrap, type DrawOp } from './array-image';
 import { cardContent } from './card-content';
+import { CREDIT_TEXT } from './footer';
 
 const ctx = { show: 'Main stage', venue: 'Grand Hall', status: 'issued' as const, revision: 'B', zAxisZero: 'Arena floor' };
 const docA = newDoc(parseFixture('a'), 'a.pdf');
@@ -58,6 +59,8 @@ describe('layoutCardImage', () => {
     expect(t.filter((x) => x === 'KARA II')).toHaveLength(15);
     expect(t).toContain('90 On');
     expect(t).toContain(options.footer);
+    expect(t).toContain('Created with RigPoint Array Sheet. Find it at https://mrfreekie.github.io/rigpoint-array-sheet/');
+    expect(CREDIT_TEXT).not.toMatch(/[–—-]\s/);
   });
 
   it('gets taller with more rows, and every row adds the same height', () => {
@@ -79,7 +82,7 @@ describe('layoutCardImage', () => {
 
   it('says when it stands for a mirror image', () => {
     const t = texts(layoutCardImage(content(docA, 'KARA II R Main'), options).ops).join(' ');
-    expect(t).toContain('MIRRORED: KARA II L Main');
+    expect(t).toContain('Also mirrored with: KARA II L Main');
   });
 
   it('watermarks drafts only', () => {

@@ -57,7 +57,7 @@ const LABEL_MAX_MM = 60;
 export interface PlotInput {
   arrays: readonly PlotArray[];
   points: readonly PlotPoint[];
-  /** Flown arrays left out because the report lacks a position, size or azimuth. */
+  /** Arrays left out because the report lacks a position, size or azimuth. */
   notDrawn: readonly string[];
   /** The note typed as Origin (P0), e.g. "DSE". */
   origin: string;
@@ -311,7 +311,7 @@ function footerOps(input: PlotInput, page: number, measure: Measure): PlotOp[] {
 
 /** The table rows as strings. */
 export function tableRow(p: PlotPoint): string[] {
-  return [p.label, p.source, p.which === 'front' ? 'Front' : 'Rear', p.load === null ? NOT_STATED : String(p.load), '1 t', p.at.x.toFixed(2), p.at.y.toFixed(2), p.spacing === null ? '' : p.spacing.toFixed(2)];
+  return [p.label, p.source, p.single ? 'Single' : p.which === 'front' ? 'Front' : 'Rear', p.load === null ? NOT_STATED : String(p.load), '1 t', p.at.x.toFixed(2), p.at.y.toFixed(2), p.spacing === null ? '' : p.spacing.toFixed(2)];
 }
 
 /** The array name on at most two lines, cut in the middle of the second if it is still too long. */
@@ -373,14 +373,14 @@ function dashedBox(ops: PlotOp[], pts: Pt2[], solid: boolean) {
   });
 }
 
-/** A ground stack: a solid box with its corners joined, so it cannot be mistaken for a flown array with no pickup. */
+/** A ground stack: a solid box with its corners joined, so it cannot be mistaken for an array with no pickup. */
 function stackBox(ops: PlotOp[], pts: Pt2[]) {
   dashedBox(ops, pts, true);
   const [a, b, c, d] = pts as [Pt2, Pt2, Pt2, Pt2];
   ops.push(line(a.x, a.y, c.x, c.y, 0.15, 'grey'), line(b.x, b.y, d.x, d.y, 0.15, 'grey'));
 }
 
-/** The Position of a stack: a small hollow square, where a flown array has a filled dot. */
+/** The Position of a stack: a small hollow square, where any other array has a filled dot. */
 function stackPosition(ops: PlotOp[], x: number, y: number, r: number) {
   const k = [{ x: x - r, y: y - r }, { x: x + r, y: y - r }, { x: x + r, y: y + r }, { x: x - r, y: y + r }];
   k.forEach((p, i) => {
@@ -517,29 +517,22 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   }
   for (const p of points) marker(ops, X(p.at.x), Y(p.at.y), d);
 
-  // Labels: pickups first, then arrays, then the total weight on each front to rear line.
-  const weightRequests: LabelRequest[] = [];
-  for (const list of byArray.values()) {
-    const f = list.find((p) => p.which === 'front');
-    const r = list.find((p) => p.which === 'rear');
-    const total = arrays.find((a) => a.index === f?.arrayIndex)?.totalWeight;
-    const spacing = f?.spacing ?? null;
-    if (!f || !r || ((total === null || total === undefined) && spacing === null)) continue;
-    const mx = (X(f.at.x) + X(r.at.x)) / 2;
-    const my = (Y(f.at.y) + Y(r.at.y)) / 2;
-    weightRequests.push({ anchor: rectAround(mx, my, 0.3), lines: [{ text: [total === null || total === undefined ? null : `${total} kg`, spacing === null ? null : `${spacing.toFixed(2)} m`].filter((t) => t !== null).join(', '), bold: false }], gap: 1.6 });
-  }
-  const weightLabels = placeLabels(weightRequests, occupied, softRects, segments, bounds, measure);
+  // Labels: pickups first, then the arrays.
   const requests: LabelRequest[] = points.map((p, i) => ({
     anchor: markerRects[i] as Rect,
     ignore: [boxRects.get(p.arrayIndex)].filter((r): r is Rect => !!r),
     lines: [{ text: `${p.label}  ${p.load === null ? 'load not stated' : `${p.load} kg`}`, bold: true }],
   }));
   const pointLabels = placeLabels(requests, occupied, softRects, segments, bounds, measure);
-  // Flown arrays are labelled first and the stacks, which often stand under them, find room around those.
+  const spacings = new Map<number, number>();
+  for (const p of points) if (p.which === 'front' && p.spacing !== null) spacings.set(p.arrayIndex, p.spacing);
+  // Arrays that are not marked as stacked are labelled first and the stacks, which often stand under them, find room around those.
   const arrayRequest = (a: PlotArray): LabelRequest => {
-    // The name alone: the site angle and the heights are on the cards and the rigging summary.
+    // The name, then the stated total weight and the spacing between the pickups when there is one.
     const lines = [{ text: a.name, bold: true }];
+    if (a.totalWeight !== null) lines.push({ text: `Total ${a.totalWeight} kg`, bold: false });
+    const spacing = spacings.get(a.index);
+    if (spacing !== undefined) lines.push({ text: `Spacing ${spacing.toFixed(2)} m`, bold: false });
     const own = boxRects.get(a.index) as Rect;
     return { anchor: own, ignore: [own], lines, gap: 1.2 };
   };
@@ -585,7 +578,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   }
   const arrayLabels = placeLabels(bestOrder.map(arrayRequest), occupied, softRects, segments, bounds, measure);
   const leaders: PlotOp[] = [];
-  for (const l of [...pointLabels, ...arrayLabels, ...weightLabels]) {
+  for (const l of [...pointLabels, ...arrayLabels]) {
     l.lines.forEach((t, i) => ops.push(text(l.box.x0 + 0.4, l.box.y0 + 0.2 + i * LINE_MM, t.text, LABEL_PT, { bold: t.bold })));
     if (l.leader) leaders.push(line(l.leader[0].x, l.leader[0].y, l.leader[1].x, l.leader[1].y, 0.12, 'grey'));
   }
@@ -622,9 +615,9 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const swatch = () => [{ x: COLUMN.x0, y: y }, { x: COLUMN.x0 + sw, y: y }, { x: COLUMN.x0 + sw, y: y + 2.4 }, { x: COLUMN.x0, y: y + 2.4 }];
   const hasStacks = arrays.some((a) => a.kind === 'stacked');
   const legend: [() => void, string][] = [
-    [() => dashedBox(ops, swatch(), false), 'Flown array with pickups: width and depth from the report'],
-    [() => dashedBox(ops, swatch(), true), 'Flown array with no pickup'],
-    [() => ops.push({ op: 'circle', cx: COLUMN.x0 + sw / 2, cy: y + 1.2, r: dotR, width: 0.1, color: 'dot', fill: true }), 'Flown array Position'],
+    [() => dashedBox(ops, swatch(), false), 'Array with pickups: width and depth from the report'],
+    [() => dashedBox(ops, swatch(), true), 'Array with no pickup: support not stated in the report'],
+    [() => ops.push({ op: 'circle', cx: COLUMN.x0 + sw / 2, cy: y + 1.2, r: dotR, width: 0.1, color: 'dot', fill: true }), 'Array Position'],
     ...(hasStacks
       ? ([
           [() => stackBox(ops, swatch()), 'Stacked array on the ground'],
@@ -632,7 +625,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
         ] as [() => void, string][])
       : []),
     [() => marker(ops, COLUMN.x0 + sw / 2, y + 1.2, 2.4), 'Pickup, 1 t symbol (a nominal guide only)'],
-    [() => ops.push(line(COLUMN.x0, y + 1.2, COLUMN.x0 + sw, y + 1.2, 0.2, 'grey')), 'Front to rear pickup, with the total weight'],
+    [() => ops.push(line(COLUMN.x0, y + 1.2, COLUMN.x0 + sw, y + 1.2, 0.2, 'grey')), 'Front to rear pickup'],
   ];
   ops.push(text(COLUMN.x0, y, 'Key', 5.5, { bold: true }));
   y += 4.2;
