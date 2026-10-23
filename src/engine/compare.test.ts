@@ -30,6 +30,16 @@ describe('compareReports', () => {
     expect(changes[0]?.now).toContain('angle 3');
   });
 
+  it('reports a change in C1 #1 apart from C2 #1', () => {
+    const d = () => structuredClone(parseFixture('d').report);
+    const next = d();
+    const source = next.sources.find((s) => s.name === 'SB28 L')!;
+    source.cabinets.find((c) => c.column === 1)!.topZ = 1.5;
+    const changes = compareReports(d(), next);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: 'changed', array: 'SB28 L', what: 'Enclosure C1 #1' });
+  });
+
   it('reports added and removed enclosures, pickups and warnings', () => {
     const next = a();
     next.sources[0]!.cabinets.pop();

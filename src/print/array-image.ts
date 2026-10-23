@@ -110,7 +110,7 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
   y += 14;
 
   // Enclosure table. Type takes whatever the fixed columns leave.
-  const fixed: Record<string, number> = { '#': 46, Panflex: 110, Angle: 86, Site: 96 };
+  const fixed: Record<string, number> = { '#': 46, 'Col #': 92, Panflex: 110, Angle: 86, Site: 96 };
   const widths = content.columns.map((c) => fixed[c] ?? 0);
   const typeIndex = content.columns.indexOf('Type');
   widths[typeIndex] = inner - widths.reduce((a, b) => a + b, 0);

@@ -60,7 +60,7 @@ Two levels of problem come back with the report.
 
 An error means the figures cannot be relied on: no text, not a Soundvision report, or units other than kilograms and metres.
 
-A check means something looks wrong and should be compared with the PDF: a line the parser did not understand, an unreadable cell, a motor count that does not match the pickups, or enclosures out of order. A flown or stacked array with no Position line is also flagged. For flown arrays the parser compares figures the PDF prints against each other. Each site angle should equal the one above minus its angle, and the first and last site angles should match the top and bottom site. Every row except the first needs an angle, and a table that has lost its Angle column gets one check about the column. Heights are not compared, because with large splays the front edges of enclosures do not meet. Stacked arrays follow different rules, so only their numbering is checked.
+A check means something looks wrong and should be compared with the PDF: a line the parser did not understand, an unreadable cell, a motor count that does not match the pickups, or enclosures out of order. A flown or stacked array with no Position line is also flagged. For flown arrays the parser compares figures the PDF prints against each other. Each site angle should equal the one above minus its angle, and the first and last site angles should match the top and bottom site. Every row except the first needs an angle, and a table that has lost its Angle column gets one check about the column. Heights are not compared, because with large splays the front edges of enclosures do not meet. Stacked arrays follow different rules, so only their numbering is checked. A stack laid out in columns is numbered from #1 in each column, and the column numbers must run C1, C2, C3 with none missing and no plain rows mixed in.
 
 ## Tests
 
@@ -88,7 +88,7 @@ A card that stands for a pair says only `MIRRORED` and the name of the other arr
 
 ## Saved files
 
-A saved file is JSON in the format `arraysheet/3`. It holds the report as read from the PDF (not the PDF), the problems found, the show details, one ground offset and one print choice per array, the status, the revision, the name of the PDF and the time it was saved. The schema is `src/schema/array-file.ts`.
+A saved file is JSON in the format `arraysheet/4`. It holds the report as read from the PDF (not the PDF), the problems found, the show details, one ground offset and one print choice per array, the status, the revision, the name of the PDF and the time it was saved. The schema is `src/schema/array-file.ts`.
 
 Every opened file is treated as untrusted. In order, it must pass the size limit (8 MB), parse as JSON, say it is an `arraysheet` file, be no newer than this version, and pass the schema. The schema also caps the number of arrays, enclosures, pickups, warnings and the length of text. Anything wrong stops the open with a plain-English message that names the field. Nothing is partly opened.
 

@@ -59,7 +59,7 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
   };
 
   if (content.mirrorNote) box(null, content.mirrorNote, 0.7, true);
-  for (const w of content.warnings) box(w.severity, `${w.title}${w.message ? `. ${w.message}` : ''}`, 1.1, false);
+  for (const w of content.warnings) box(w.severity, [w.title, w.message].filter(Boolean).join(' '), 1.1, false);
 
   // Facts: label on the left, value in bold on the right, a light line under each.
   const rowH = FONT_SIZES.body * 1.2 + mm(0.5);
@@ -73,7 +73,7 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
   y += mm(1.5);
 
   // Enclosure table. Type takes whatever the fixed columns leave.
-  const fixed: Record<string, number> = { '#': mm(6), Panflex: mm(17), Angle: mm(13), Site: mm(15) };
+  const fixed: Record<string, number> = { '#': mm(6), 'Col #': mm(13), Panflex: mm(17), Angle: mm(13), Site: mm(15) };
   const widths = content.columns.map((c) => fixed[c] ?? 0);
   const typeAt = content.columns.indexOf('Type');
   widths[typeAt] = W - widths.reduce((a, b) => a + b, 0);

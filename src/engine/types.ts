@@ -25,6 +25,8 @@ export interface Pickup {
 export interface Cabinet {
   /** The number in the first column, "#1" is 1. */
   number: number;
+  /** The column of a ground stack that is laid out in columns: "C2 #1" is 2. Absent when the row has no column. */
+  column?: number | undefined;
   type: string;
   /** Angle column as printed on this enclosure's row. Null when the table has no Angles column. */
   angle: number | null;
@@ -33,6 +35,11 @@ export interface Cabinet {
   bottomZ: number | null;
   /** Panflex setting as printed, e.g. "35/35". Null when the table has no Panflex value for this row. */
   panflex: string | null;
+}
+
+/** How a row's number is printed: "3", or "C2 #1" when the array is laid out in columns. */
+export function enclosureLabel(c: { number: number; column?: number | null | undefined }): string {
+  return c.column ? `C${c.column} #${c.number}` : String(c.number);
 }
 
 export interface SoundvisionWarning {

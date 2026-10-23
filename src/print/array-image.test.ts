@@ -9,6 +9,7 @@ import { cardContent } from './card-content';
 const ctx = { show: 'Main stage', venue: 'Grand Hall', status: 'issued' as const, revision: 'B', zAxisZero: 'Arena floor' };
 const docA = newDoc(parseFixture('a'), 'a.pdf');
 const docB = newDoc(parseFixture('b'), 'b.pdf');
+const docD = newDoc(parseFixture('d'), 'd.pdf');
 const content = (doc: typeof docA, name: string) => cardContent(sheetModel(doc, true).entries.find((e) => e.column.name === name)!, ctx);
 const options = { footer: 'RigPoint Array 0.1.0 · a.arraysheet.json · Exported 22/10/2026 09:05', draft: false };
 const texts = (ops: DrawOp[]) => ops.flatMap((o) => (o.op === 'text' ? [o.text] : []));
@@ -86,7 +87,7 @@ describe('layoutCardImage', () => {
   });
 
   it('keeps everything inside the picture', () => {
-    for (const [doc, name] of [[docA, 'KARA II L Main'], [docB, 'FL KARA II L'], [docB, 'GS KARA II L'], [docA, 'SB28 L Front']] as const) {
+    for (const [doc, name] of [[docA, 'KARA II L Main'], [docB, 'FL KARA II L'], [docB, 'GS KARA II L'], [docA, 'SB28 L Front'], [docD, 'SB28 L']] as const) {
       const layout = layoutCardImage(content(doc, name), { ...options, footer: 'x '.repeat(120) });
       for (const o of layout.ops) {
         if (o.op === 'text' && o.rotate === undefined) {
@@ -100,6 +101,13 @@ describe('layoutCardImage', () => {
         if (o.op === 'rect') expect(o.y + o.h).toBeLessThanOrEqual(layout.height);
       }
     }
+  });
+
+  it('labels the rows of a stack laid out in columns', () => {
+    const t = texts(layoutCardImage(content(docD, 'SB28 L'), options).ops);
+    expect(t).toContain('Col #');
+    expect(t).toContain('C1 #1');
+    expect(t).toContain('C2 #1');
   });
 
   it('is the same every time', () => {

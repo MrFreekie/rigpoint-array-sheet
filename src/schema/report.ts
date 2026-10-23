@@ -11,6 +11,7 @@ const Point3Schema = z.object({ x: num(), y: num(), z: num() });
 
 export const CabinetSchema = z.object({
   number: z.number({ error: 'Enclosure number must be a number' }).int({ error: 'Enclosure number must be a whole number' }).positive({ error: 'Enclosure number must be 1 or more' }),
+  column: z.number({ error: 'Enclosure column must be a number' }).int({ error: 'Enclosure column must be a whole number' }).positive({ error: 'Enclosure column must be 1 or more' }).optional(),
   type: text(),
   angle: num().nullable(),
   site: num().nullable(),

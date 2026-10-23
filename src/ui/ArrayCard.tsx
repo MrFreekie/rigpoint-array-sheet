@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import type { FlySheetColumn } from '../engine/sheet';
+import { enclosureLabel } from '../engine/types';
 import { degrees, kg, metres, NOT_STATED, num } from './format';
 
 interface Props {
@@ -27,6 +28,7 @@ interface Props {
 
 export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted }: Props) {
   const id = useId();
+  const hasColumns = c.rows.some((r) => r.column !== null);
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
   const pickups =
@@ -136,7 +138,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
             <caption className="visually-hidden">Enclosures of {c.name}, as listed in the report</caption>
             <thead>
               <tr>
-                <th scope="col">#</th>
+                <th scope="col">{hasColumns ? 'Col #' : '#'}</th>
                 <th scope="col">Type</th>
                 {hasAngles ? <th scope="col">Angle</th> : null}
                 <th scope="col">Site</th>
@@ -145,8 +147,8 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
             </thead>
             <tbody>
               {c.rows.map((r) => (
-                <tr key={r.number}>
-                  <th scope="row">{r.number}</th>
+                <tr key={enclosureLabel(r)}>
+                  <th scope="row">{enclosureLabel(r)}</th>
                   <td>{r.type}</td>
                   {hasAngles ? <td className="n">{num(r.angle)}</td> : null}
                   <td className="n">{num(r.site)}</td>

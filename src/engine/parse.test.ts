@@ -4,11 +4,13 @@
 
 import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
+import { parseSoundvision } from './parse';
 import type { ArraySource } from './types';
 
 const a = parseFixture('a');
 const b = parseFixture('b');
 const c = parseFixture('c');
+const d = parseFixture('d');
 
 function find(result: typeof a, name: string): ArraySource {
   const s = result.report.sources.find((x) => x.name === name);
@@ -209,5 +211,128 @@ describe('report C (K1, K2 and A15 arrays, nested groups, an HF stack)', () => {
       'WARNING: Tipping hazard',
       'CAUTION: Tipping hazard',
     ]);
+  });
+});
+
+describe('report D (flown arrays and ground-stacked subs laid out in columns)', () => {
+  it('reads cleanly with nothing to check', () => {
+    expect(d.problems).toEqual([]);
+    expect(d.ok).toBe(true);
+  });
+
+  it('finds 8 sources and their mounting', () => {
+    expect(d.report.sources.map((s) => s.name)).toEqual([
+      '12 KARA II L',
+      '12 KARA II R',
+      '9 KARA II',
+      '9 KARA II RIGHT',
+      'SB28 L',
+      'SB28 R',
+      'X12 L',
+      'X12 R',
+    ]);
+    expect(d.report.sources.map((s) => s.mounting)).toEqual(['flown', 'flown', 'flown', 'flown', 'stacked', 'stacked', 'flown', 'flown']);
+  });
+
+  it('reads a stacked sub array laid out in columns, keeping the column of each row', () => {
+    const s = find(d, 'SB28 L');
+    expect(s.groups).toEqual(['ALL', 'MAIN', 'SUB']);
+    expect(s.orientation).toBe('horizontal');
+    expect(s.weights.total).toBe(186);
+    expect(s.cabinets).toEqual([
+      { number: 1, column: 1, type: 'SB28', angle: null, site: 0, topZ: 1.3, bottomZ: 0, panflex: null },
+      { number: 1, column: 2, type: 'SB28', angle: null, site: 0, topZ: 1.3, bottomZ: 0, panflex: null },
+    ]);
+    expect(find(d, 'SB28 R').cabinets.map((c) => c.column)).toEqual([1, 2]);
+  });
+
+  it('keeps the tipping hazard warning on the stacked subs', () => {
+    for (const name of ['SB28 L', 'SB28 R']) {
+      expect(find(d, name).warnings).toEqual([
+        { severity: 'CAUTION', title: 'Tipping hazard', message: 'L-Acoustics recommends securing the array to the ground.' },
+      ]);
+    }
+  });
+
+  it('leaves flown rows without a column', () => {
+    expect(d.report.sources.filter((s) => s.mounting === 'flown').every((s) => s.cabinets.every((x) => x.column === undefined))).toBe(true);
+  });
+});
+
+describe('numbering of a stack laid out in columns', () => {
+  const row = (y: number, label: string) => [
+    { page: 1, x: 73, y, text: label },
+    { page: 1, x: 135, y, text: 'SB28' },
+    { page: 1, x: 250, y, text: '0' },
+    { page: 1, x: 322, y, text: '1.3' },
+    { page: 1, x: 432, y, text: '0' },
+  ];
+  const head = (y: number, text: string) => ({ page: 1, x: 71, y, text });
+  const report = (labels: string[], without?: number) =>
+    parseSoundvision([
+      head(700, 'Distance unit: m'),
+      head(690, 'Weight unit: kg'),
+      head(680, '1. Source: SB'),
+      head(670, '1. 1. Physical configuration'),
+      head(660, 'Configuration: horizontal, stacked array'),
+      head(650, 'Position (X; Y; Z, m): 1; 0; 0'),
+      head(640, 'Site: 0 °'),
+      head(630, 'Total weight (Enclosures + Frames): 186 kg'),
+      { page: 1, x: 98, y: 600, text: '#' },
+      { page: 1, x: 149, y: 600, text: 'Type' },
+      { page: 1, x: 207, y: 600, text: 'Site (°)' },
+      { page: 1, x: 273, y: 600, text: 'Top Z (m)' },
+      { page: 1, x: 356, y: 600, text: 'Bottom Z (m)' },
+      ...labels.flatMap((l, i) => row(580 - i * 18, l).filter((c) => c.x !== without)),
+    ]);
+
+  it('accepts #1 once in each column', () => {
+    expect(report(['C1 #1', 'C2 #1']).problems).toEqual([]);
+  });
+
+  it('accepts several rows in each column', () => {
+    expect(report(['C1 #1', 'C1 #2', 'C2 #1', 'C2 #2']).problems).toEqual([]);
+  });
+
+  it('still catches a missing row within a column', () => {
+    const p = report(['C1 #1', 'C2 #2']).problems;
+    expect(p).toHaveLength(1);
+    expect(p[0]?.message).toMatch(/not numbered in order/);
+  });
+
+  it('accepts columns numbered 1 to n', () => {
+    expect(report(['C1 #1', 'C2 #1', 'C3 #1']).problems).toEqual([]);
+  });
+
+  it('catches a column that is missing', () => {
+    const p = report(['C1 #1', 'C3 #1']).problems;
+    expect(p).toHaveLength(1);
+    expect(p[0]?.message).toMatch(/columns of the stack are not numbered.*found C1, C3/);
+  });
+
+  it('catches columns that do not start at C1', () => {
+    const p = report(['C2 #1', 'C3 #1']).problems;
+    expect(p).toHaveLength(1);
+    expect(p[0]?.message).toMatch(/found C2, C3/);
+  });
+
+  it('catches a table that mixes plain and column rows', () => {
+    const p = report(['#1', 'C1 #1']).problems;
+    expect(p).toHaveLength(1);
+    expect(p[0]?.message).toMatch(/some do not/);
+  });
+
+  it('names the column when a cell is missing', () => {
+    const p = report(['C1 #1', 'C2 #1'], 250).problems;
+    expect(p.map((x) => x.message)).toEqual([
+      expect.stringContaining('Enclosure C1 #1, site angle: nothing was found'),
+      expect.stringContaining('Enclosure C2 #1, site angle: nothing was found'),
+    ]);
+  });
+
+  it('does not take column 0 as a column', () => {
+    const r = report(['C0 #1']);
+    expect(r.report.sources[0]?.cabinets).toEqual([]);
+    expect(r.problems.some((x) => /not understood/.test(x.message))).toBe(true);
   });
 });

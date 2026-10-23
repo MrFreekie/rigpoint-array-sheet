@@ -5,10 +5,10 @@ import type { ParseResult, TextItem } from '../engine/types';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
-export function loadItems(name: 'a' | 'b' | 'c'): TextItem[] {
+export function loadItems(name: 'a' | 'b' | 'c' | 'd'): TextItem[] {
   return JSON.parse(readFileSync(`${root}fixtures/soundvision-${name}.items.json`, 'utf8')) as TextItem[];
 }
 
-export function parseFixture(name: 'a' | 'b' | 'c'): ParseResult {
+export function parseFixture(name: 'a' | 'b' | 'c' | 'd'): ParseResult {
   return parseSoundvision(loadItems(name));
 }

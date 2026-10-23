@@ -8,7 +8,7 @@ import { parseFixture } from '../testing/fixtures';
 
 const NOW = new Date('2026-10-22T10:30:00.000Z');
 
-function sample(name: 'a' | 'b' = 'a'): Doc {
+function sample(name: 'a' | 'b' | 'd' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `report-${name}.pdf`);
   doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3' };
   doc.offsets = { 0: '1.5', 4: '-0.2' };
@@ -47,6 +47,14 @@ describe('print choices', () => {
     const { doc } = openFileText(JSON.stringify(v2), 'old.arraysheet.json');
     expect(doc.job.venue).toBe('');
     expect(doc.job.show).toBe('Main stage');
+  });
+
+  it('an older (version 3) file opens as saved, and a stack in columns keeps its columns', () => {
+    const v3 = JSON.parse(serialiseDoc(sample('d'), '0.1.0', NOW)) as { format: string };
+    v3.format = 'arraysheet/3';
+    const { doc } = openFileText(JSON.stringify(v3), 'old.arraysheet.json');
+    expect(doc.job.show).toBe('Main stage');
+    expect(doc.result.report.sources[4]?.cabinets.map((c) => c.column)).toEqual([1, 2]);
   });
 
   it('an older (version 1) file opens with every array chosen for printing', () => {
@@ -92,7 +100,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/3');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/4');
   });
 
   it('writes one offset per array, blank where none was typed', () => {

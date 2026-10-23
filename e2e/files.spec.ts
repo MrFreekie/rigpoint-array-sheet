@@ -49,7 +49,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/3', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/4', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 

@@ -78,7 +78,7 @@ export function renderReport(document: ReportDocument, sources: RenderedSource[]
     if (s.cabinets.length > 0) {
       lines.push({ cells: header(hasAngles), table: true });
       for (const c of s.cabinets) {
-        const cells: Cell[] = [{ x: 73, text: `#${c.number}` }, { x: 107, text: c.type }];
+        const cells: Cell[] = [{ x: 73, text: c.column ? `C${c.column} #${c.number}` : `#${c.number}` }, { x: 107, text: c.type }];
         if (c.angle !== null) cells.push(right(f(c.angle), COLUMN_RIGHT.angle));
         if (c.site !== null) cells.push(right(f(c.site), COLUMN_RIGHT.site));
         if (c.topZ !== null) cells.push(right(f(c.topZ), COLUMN_RIGHT.topZ));

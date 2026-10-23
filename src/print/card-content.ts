@@ -1,6 +1,7 @@
 // What one array's card says, as plain data. The printed pocket card and the PNG export both draw from
 // this, so they show the same thing as each other and as the screen.
 
+import { enclosureLabel } from '../engine/types';
 import { STATUS_LABELS, type Status } from '../files/doc';
 import { degrees, kg, metres, NOT_STATED, num } from '../ui/format';
 import type { SheetEntry } from '../ui/sheet-model';
@@ -51,9 +52,10 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
 
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
-  const columns = ['#', 'Type', ...(hasPanflex ? ['Panflex'] : []), ...(hasAngles ? ['Angle'] : []), 'Site'];
+  const hasColumns = c.rows.some((r) => r.column !== null);
+  const columns = [hasColumns ? 'Col #' : '#', 'Type', ...(hasPanflex ? ['Panflex'] : []), ...(hasAngles ? ['Angle'] : []), 'Site'];
   const rows = c.rows.map((r) => [
-    String(r.number),
+    enclosureLabel(r),
     r.type,
     ...(hasPanflex ? [r.panflex ? `${r.panflex.text}${r.panflex.sideUnknown ? '?' : ''}` : (r.panflexPrinted ?? NOT_STATED)] : []),
     ...(hasAngles ? [num(r.angle)] : []),

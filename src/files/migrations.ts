@@ -20,6 +20,9 @@ export const MIGRATIONS: Record<number, Migration> = {
     const job = file['job'];
     return typeof job === 'object' && job !== null && !Array.isArray(job) ? { ...file, job: { ...job, venue: '' } } : file;
   },
+  // Version 4 added the optional column of an enclosure row (ground stacks laid out in columns).
+  // Nothing in an older file changes; the step makes older copies of the app refuse every version 4 file, with or without columns.
+  3: (file) => file,
 };
 
 export function migrate(

@@ -36,7 +36,7 @@ function facts(s: ArraySource): Map<string, string> {
   for (const p of s.pickups) m.set(`${p.which === 'front' ? 'Front' : 'Rear'} pickup`, `${p.position} at ${point(p.at)}`);
   for (const c of s.cabinets) {
     m.set(
-      `Enclosure #${c.number}`,
+      c.column ? `Enclosure C${c.column} #${c.number}` : `Enclosure #${c.number}`,
       `${c.type}, angle ${show(c.angle)}, site ${show(c.site)}, top ${show(c.topZ)}, bottom ${show(c.bottomZ)}, Panflex ${show(c.panflex)}`,
     );
   }

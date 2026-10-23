@@ -122,3 +122,18 @@ describe('isMirror', () => {
     }
   });
 });
+
+describe('findMirrors with stacks laid out in columns', () => {
+  const d = parseFixture('d').report.sources;
+
+  it('report D: pairs the left and right subs', () => {
+    expect(names(d).some(([x, y]) => x === 'SB28 L' && y === 'SB28 R')).toBe(true);
+  });
+
+  it('does not pair arrays whose rows sit in different columns', () => {
+    const left = d.find((s) => s.name === 'SB28 L')!;
+    const right = mirrorOf(left);
+    right.cabinets[1] = { ...right.cabinets[1]!, column: 3 };
+    expect(isMirror(left, right)).toBe(false);
+  });
+});

@@ -41,6 +41,18 @@ function randomSource(r: ReturnType<typeof rng>, number: number): RenderedSource
     });
     z = bottom;
   }
+  // A ground stack may be laid out in columns, each numbered from #1.
+  if (!flown && count > 1 && r.chance(0.5)) {
+    const columns = r.int(2, 3);
+    const seen: number[] = Array(columns).fill(0);
+    cabinets.forEach((c, i) => {
+      const column = (i % columns) + 1;
+      seen[column - 1]! += 1;
+      c.column = column;
+      c.number = seen[column - 1]!;
+    });
+    cabinets.sort((x, y) => (x.column ?? 0) - (y.column ?? 0) || x.number - y.number);
+  }
   const motors = flown ? r.int(1, 2) : null;
   const pt = () => ({ x: round(r.int(-2000, 2000) / 100, 2), y: round(r.int(0, 1500) / 100, 2), z: round(r.int(0, 1200) / 100, 2) });
   const orientation = r.pick(['vertical', 'horizontal'] as const);

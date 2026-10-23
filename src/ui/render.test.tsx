@@ -20,6 +20,13 @@ const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard
   );
 
 describe('ArrayCard', () => {
+  it('labels the rows of a stack laid out in columns', () => {
+    const html = card('SB28 L', parseFixture('d').report.sources);
+    expect(html).toContain('Col #');
+    expect(html).toContain('C1 #1');
+    expect(html).toContain('C2 #1');
+  });
+
   it('shows a flown array as the report states it', () => {
     const html = card('KARA II L Main');
     expect(html).toContain('KARA II L Main');

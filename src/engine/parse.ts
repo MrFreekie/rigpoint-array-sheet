@@ -3,6 +3,7 @@
 // Anything it cannot read is reported as a problem rather than guessed.
 
 import * as msg from './messages';
+import { enclosureLabel } from './types';
 import type {
   ArraySource,
   Cabinet,
@@ -78,6 +79,8 @@ const SOURCE = /^(\d+)\. Source: (.+)$/;
 const PHYSICAL = /^\d+\. 1\. Physical configuration$/;
 const ACOUSTIC = /^\d+\. 2\. Acoustic configuration$/;
 const SEVERITY = /^[A-Z]{4,}$/;
+/** The first cell of an enclosure row: "#3", or "C2 #1" in a ground stack laid out in columns. */
+const ROW_LABEL = /^(?:C([1-9]\d*) )?#(\d+)$/;
 const POINT = '(-?[\\d.]+); (-?[\\d.]+); (-?[\\d.]+)';
 const DEGREES = '(-?[\\d.]+) \\S+';
 
@@ -256,7 +259,9 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
 
   function tableRow(line: Line, src: ArraySource, table: TableLayout) {
     const first = line.cells[0];
-    const number = Number(/^#(\d+)$/.exec(first?.text ?? '')?.[1]);
+    const label = ROW_LABEL.exec(first?.text ?? '');
+    const number = Number(label?.[2]);
+    const column = label?.[1] === undefined ? undefined : Number(label[1]);
     const typeParts: string[] = [];
     const values: Partial<Record<Column, string[]>> = {};
     for (const cell of line.cells.slice(1)) {
@@ -272,11 +277,11 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     const read = (key: Column, label: string, required: boolean): number | null => {
       const parts = values[key];
       if (!parts || parts.length === 0) {
-        if (required) problem('check', msg.missingCell(number, label));
+        if (required) problem('check', msg.missingCell(number, column, label));
         return null;
       }
       const value = parts.length === 1 ? num(parts[0] ?? '') : null;
-      if (value === null) problem('check', msg.unreadableCell(number, label, parts.join(' ')));
+      if (value === null) problem('check', msg.unreadableCell(number, column, label, parts.join(' ')));
       return value;
     };
 
@@ -284,6 +289,7 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     const site = read('site', 'site angle', true);
     const cabinet: Cabinet = {
       number,
+      ...(column === undefined ? {} : { column }),
       type: typeParts.join(' '),
       // Only the first row of a flown array may have no angle (a K1 hang leaves it blank).
       angle: hasAngles ? read('angle', 'angle', src.mounting === 'flown' && src.cabinets.length > 0) : null,
@@ -343,7 +349,7 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
         layout = layoutOf(line);
         tableLacksAngle = !layout.columns.some((c) => c.key === 'angle');
         inWarnings = false;
-      } else if (layout && /^#\d+$/.test(line.cells[0]?.text ?? '')) {
+      } else if (layout && ROW_LABEL.test(line.cells[0]?.text ?? '')) {
         tableRow(line, source, layout);
       } else if (line.text === 'Mechanical warnings:') {
         inWarnings = true;
@@ -399,10 +405,23 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
  * (mixed enclosures, tilted tops, HF stacks), so only their numbering is checked.
  */
 function checkTable(s: ArraySource, note: (level: Problem['level'], message: string) => void) {
-  const numbers = s.cabinets.map((c) => c.number);
-  const ascending = numbers.every((n, i) => n === i + 1);
-  const descending = numbers.every((n, i) => n === numbers.length - i);
-  if (!ascending && !descending) note('check', msg.enclosureNumbering(numbers.map((n) => `#${n}`).join(', ')));
+  // A stack laid out in columns numbers each column from #1.
+  const columns = new Map<number, number[]>();
+  for (const c of s.cabinets) columns.set(c.column ?? 0, [...(columns.get(c.column ?? 0) ?? []), c.number]);
+  const stackColumns = [...columns.keys()].filter((k) => k !== 0).sort((a, b) => a - b);
+  if (stackColumns.length > 0 && columns.has(0)) {
+    note('check', msg.mixedColumnRows());
+  } else if (stackColumns.some((k, i) => k !== i + 1)) {
+    note('check', msg.stackColumnNumbering(stackColumns.map((k) => `C${k}`).join(', ')));
+  }
+  for (const numbers of columns.values()) {
+    const ascending = numbers.every((n, i) => n === i + 1);
+    const descending = numbers.every((n, i) => n === numbers.length - i);
+    if (!ascending && !descending) {
+      note('check', msg.enclosureNumbering(s.cabinets.map((c) => (c.column ? enclosureLabel(c) : `#${c.number}`)).join(', ')));
+      break;
+    }
+  }
 
   if (s.mounting !== 'flown') return;
   const first = s.cabinets[0];

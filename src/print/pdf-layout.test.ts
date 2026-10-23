@@ -13,6 +13,7 @@ import { SMALL_PRINT } from './small-print';
 const ctx = { show: 'Main stage', venue: 'Grand Hall', status: 'issued' as const, revision: 'B', zAxisZero: 'Arena floor' };
 const docA = newDoc(parseFixture('a'), 'a.pdf');
 const docB = newDoc(parseFixture('b'), 'b.pdf');
+const docD = newDoc(parseFixture('d'), 'd.pdf');
 const content = (doc: typeof docA, name: string, mirrors = true) =>
   cardContent(sheetModel(doc, mirrors).entries.find((e) => e.column.name === name)!, ctx);
 const texts = (ops: DrawOp[]) => ops.flatMap((o) => (o.op === 'text' ? [o.text] : []));
@@ -46,7 +47,7 @@ describe('layoutPocketCard', () => {
   });
 
   it('keeps everything inside the card width and its height', () => {
-    for (const [doc, name] of [[docA, 'KARA II L Main'], [docB, 'FL KARA II L'], [docB, 'GS KARA II L'], [docA, 'SB28 L Front']] as const) {
+    for (const [doc, name] of [[docA, 'KARA II L Main'], [docB, 'FL KARA II L'], [docB, 'GS KARA II L'], [docA, 'SB28 L Front'], [docD, 'SB28 L']] as const) {
       const laid = layoutPocketCard(content(doc, name), estimateWidth);
       for (const o of laid.ops) {
         if (o.op === 'text') {
@@ -140,5 +141,21 @@ describe('layoutRiggingPage', () => {
     const t = texts(layoutRiggingPage(input(rows), estimateWidth).ops);
     expect(t).toContain('FL KARA II L');
     expect(t).not.toContain('FL KARA II R');
+  });
+});
+
+describe('a ground stack laid out in columns', () => {
+  it('labels each row with its column, so the repeated #1 can be told apart', () => {
+    const card = content(docD, 'SB28 L');
+    expect(card.columns).toEqual(['Col #', 'Type', 'Site']);
+    expect(card.rows).toEqual([
+      ['C1 #1', 'SB28', '0'],
+      ['C2 #1', 'SB28', '0'],
+    ]);
+  });
+
+  it('keeps the plain # heading for arrays without columns', () => {
+    expect(content(docD, '12 KARA II L').columns[0]).toBe('#');
+    expect(content(docB, 'GS KARA II L').rows[0]?.[0]).toBe('6');
   });
 });
