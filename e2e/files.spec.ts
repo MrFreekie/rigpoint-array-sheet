@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { openJson, openPdf, samplePdf, save, savedName, start } from './helpers';
+import { changedPdf, openJson, openPdf, samplePdf, save, savedName, start } from './helpers';
 
 test('opens a Soundvision PDF and shows one card per array without sideways scrolling', async ({ page }) => {
   await start(page);
@@ -64,7 +64,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/6', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/7', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -98,6 +98,60 @@ test('save, reopen, approve and lock', async ({ page }) => {
   const next = await save(page);
   expect(savedName(next.download)).toBe('Main stage - Rev C.arraysheet.json');
   expect(next.json).toMatchObject({ status: 'draft', revision: 'C' });
+});
+
+test('notes for the show are typed in Show details, shown on the rigging summary, saved, and read-only when locked', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const showNotes = () => page.getByRole('region', { name: 'Show details' }).getByRole('textbox', { name: /^Notes/ });
+  const notes = showNotes();
+  await expect(page.getByText('0 of 500 characters')).toBeVisible();
+  await notes.fill('Load in at 08:00.\nCall Sam first.');
+  await expect(page.getByText('33 of 500 characters')).toBeVisible();
+  const summary = page.locator('section', { has: page.getByRole('heading', { name: 'Rigging summary' }) });
+  await expect(summary.getByTestId('show-notes')).toContainText('Load in at 08:00.');
+  await expect(summary.getByTestId('show-notes')).toContainText('Call Sam first.');
+
+  // The box stops at 500 characters, and a pasted control character is dropped.
+  await notes.fill('x'.repeat(520));
+  await expect(page.getByText('500 of 500 characters')).toBeVisible();
+  await notes.fill('Bring ear plugs.');
+
+  const draft = await save(page);
+  expect(draft.json['job']).toMatchObject({ notes: 'Bring ear plugs.' });
+  await page.getByRole('button', { name: 'New' }).click();
+  await openJson(page, 'saved.arraysheet.json', draft.text);
+  await expect(showNotes()).toHaveValue('Bring ear plugs.');
+
+  // Approved and saved: the box is read-only, and the notes still show.
+  await page.getByLabel('Status').selectOption('approved');
+  await save(page);
+  await expect(showNotes()).toBeDisabled();
+  await expect(summary.getByTestId('show-notes')).toContainText('Bring ear plugs.');
+});
+
+test('the show date is picked in Show details, saved as YYYY-MM-DD, printed UK style, and read-only when locked', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const date = page.getByLabel('Show date');
+  await date.fill('2026-10-23');
+  await expect(date).toHaveValue('2026-10-23');
+  const draft = await save(page);
+  expect(draft.json['job']).toMatchObject({ show_date: '2026-10-23' });
+  await page.getByRole('button', { name: 'New' }).click();
+  await openJson(page, 'saved.arraysheet.json', draft.text);
+  await expect(page.getByLabel('Show date')).toHaveValue('2026-10-23');
+
+  // The print view carries it on the panels, the plot and the rigging page, written day, month, year.
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.getByTestId('print-page').first().locator('.as-panel-details').first()).toContainText('23/10/2026');
+  await expect(page.getByTestId('print-page').last()).toContainText('23/10/2026');
+  await expect(page.getByTestId('print-page').last()).not.toContainText('2026-10-23');
+  await page.emulateMedia({ media: 'screen' });
+
+  await page.getByLabel('Status').selectOption('approved');
+  await save(page);
+  await expect(page.getByLabel('Show date')).toBeDisabled();
 });
 
 test('a file with a missing section is refused and says which', async ({ page }) => {
@@ -159,7 +213,7 @@ test('update from a newer PDF: nothing to update, then a list of differences', a
   await page.getByTestId('update-file').setInputFiles({ name: 'newer.pdf', mimeType: 'application/pdf', buffer: samplePdf('b') });
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('The new PDF is different', { timeout: 20_000 });
-  await expect(dialog).toContainText('Your show details and ground offsets are kept');
+  await expect(dialog).toContainText('Your show details, ground offsets, titles and notes are kept');
   await dialog.getByRole('button', { name: 'Keep as saved' }).click();
   await expect(page.locator('.card')).toHaveCount(9, { timeout: 20_000 });
 
@@ -306,4 +360,139 @@ test('Download DXF saves the plot in millimetres at full size, and says so besid
   expect(lines.slice(at, at + 3)).toEqual(['$INSUNITS', '70', '4']);
   expect(lines).toContain('Soundvision origin: DSE');
   expect(lines).toContain('ARRAYS');
+});
+
+test('an array can be deleted and the delete undone, and the sheet, the summary and the plot follow', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await expect(page.getByText('9 of 18 arrays shown')).toBeVisible();
+  const summary = page.locator('section', { has: page.getByRole('heading', { name: 'Rigging summary' }) });
+  await expect(summary).toContainText('KARA II L Main');
+  await expect(page.getByTestId('deleted-list')).toHaveCount(0);
+  await expect(page.locator('svg', { hasText: 'PA1' }).first()).toContainText('KARA II L Main');
+
+  await page.getByRole('button', { name: 'Delete KARA II L Main', exact: true }).click();
+  // Its mirror image now stands alone, so the card count is the same, and the figures leave the summary.
+  await expect(page.getByText('9 of 17 arrays shown')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'KARA II L Main', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'KARA II R Main', exact: true })).toBeVisible();
+  await expect(page.getByTestId('deleted-list')).toContainText('1 deleted');
+  await expect(summary).not.toContainText('KARA II L Main');
+  await expect(page.locator('svg', { hasText: 'PA1' }).first()).not.toContainText('KARA II L Main');
+  await expect(page.getByText('● Unsaved changes')).toBeVisible();
+
+  // The focus lands on Undo, which names what it brings back.
+  const undo = page.getByRole('button', { name: 'Undo delete of KARA II L Main' });
+  await expect(undo).toBeFocused();
+  await undo.click();
+  await expect(page.getByText('9 of 18 arrays shown')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'KARA II L Main', exact: true })).toBeVisible();
+  await expect(summary).toContainText('KARA II L Main');
+  await expect(page.getByTestId('deleted-list')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Undo delete', exact: true })).toBeDisabled();
+});
+
+test('a title and a note are saved, come back on reopening, and stay with the array when the file is updated from a PDF', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const card = () => page.locator('.card', { has: page.getByRole('heading', { name: 'KARA II L Out', exact: true }) });
+  await card().getByLabel('Card title').fill('Left outfill');
+  await page.locator('.card', { hasText: 'Left outfill' }).getByLabel('Notes for the crew').fill('Hang at 2 m');
+  const saved = await save(page);
+  const json = saved.json as { titles: string[]; notes: string[]; report: { sources: { name: string }[] } };
+  const at = json.report.sources.findIndex((s) => s.name === 'KARA II L Out');
+  expect(json.titles[at]).toBe('Left outfill');
+  expect(json.notes[at]).toBe('Hang at 2 m');
+  expect(json.titles.filter(Boolean)).toHaveLength(1);
+
+  await page.getByRole('button', { name: 'New' }).click();
+  await openJson(page, 'x.arraysheet.json', saved.text);
+  const again = page.locator('.card', { hasText: 'Left outfill' });
+  await expect(again).toContainText('Soundvision name: KARA II L Out');
+  await expect(again.getByLabel('Card title')).toHaveValue('Left outfill');
+  await expect(again.getByLabel('Notes for the crew')).toHaveValue('Hang at 2 m');
+  // The rigging plot and its table use the title as well.
+  const summary = page.locator('section', { has: page.getByRole('heading', { name: 'Rigging summary' }) });
+  await expect(summary).toContainText('Left outfill');
+  await expect(summary).not.toContainText('KARA II L Out');
+
+  // A newer PDF names the array by its report name, so the title and the note stay with it.
+  await page.getByTestId('update-file').setInputFiles({
+    name: 'newer.pdf',
+    mimeType: 'application/pdf',
+    buffer: changedPdf((sources) => sources.map((s) => (s.name === 'KARA II R Main' ? { ...s, site: (s.site ?? 0) + 1 } : s))),
+  });
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('The new PDF is different', { timeout: 20_000 });
+  await dialog.getByRole('button', { name: 'Update from new PDF' }).click();
+  const kept = page.locator('.card', { hasText: 'Left outfill' });
+  await expect(kept.getByLabel('Notes for the crew')).toHaveValue('Hang at 2 m');
+});
+
+test('the title and note boxes are switched off on a read-only file', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await page.getByLabel('Status').selectOption('approved');
+  await save(page);
+  await expect(page.locator('.tag-check', { hasText: 'READ-ONLY' })).toBeVisible();
+  await expect(page.getByLabel('Card title').first()).toBeDisabled();
+  await expect(page.getByLabel('Notes for the crew').first()).toBeDisabled();
+});
+
+test('a deleted array stays in the saved file, can be restored after reopening, and is not counted as deleted twice', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await page.getByRole('button', { name: 'Delete KARA II L Main', exact: true }).click();
+  const saved = await save(page);
+  const json = saved.json as { deleted: boolean[]; report: { sources: unknown[] }; titles: string[]; notes: string[] };
+  expect(json.deleted[0]).toBe(true);
+  expect(json.deleted.filter(Boolean)).toHaveLength(1);
+  expect(json.report.sources).toHaveLength(18);
+  expect(json.titles).toHaveLength(18);
+  expect(json.notes).toHaveLength(18);
+
+  await page.getByRole('button', { name: 'New' }).click();
+  await openJson(page, 'x.arraysheet.json', saved.text);
+  await expect(page.getByText('9 of 17 arrays shown')).toBeVisible();
+  await expect(page.getByText('Saved · x.arraysheet.json')).toBeVisible();
+  // Undo is a session thing: there is nothing to undo after reopening, but Restore works.
+  await expect(page.getByRole('button', { name: 'Undo delete', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Restore KARA II L Main' }).click();
+  await expect(page.getByText('9 of 18 arrays shown')).toBeVisible();
+  await expect(page.getByTestId('deleted-list')).toHaveCount(0);
+  await expect(page.getByText('● Unsaved changes')).toBeVisible();
+});
+
+test('a read-only file cannot delete or restore', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await page.getByRole('button', { name: 'Delete KARA II L Main', exact: true }).click();
+  await page.getByLabel('Status').selectOption('approved');
+  const approved = await save(page);
+  await expect(page.locator('.tag-check', { hasText: 'READ-ONLY' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Delete KARA II R Main', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Restore KARA II L Main' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^Undo delete/ })).toBeDisabled();
+  // What was approved stays approved.
+  expect((approved.json as { deleted: boolean[] }).deleted[0]).toBe(true);
+});
+
+test('update from PDF brings a deleted array back, and says so', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await page.getByRole('button', { name: 'Delete KARA II L Main', exact: true }).click();
+  await expect(page.getByText('9 of 17 arrays shown')).toBeVisible();
+
+  await page.getByTestId('update-file').setInputFiles({ name: 'newer.pdf', mimeType: 'application/pdf', buffer: samplePdf('a') });
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('The new PDF is different', { timeout: 20_000 });
+  await expect(dialog).toContainText('RESTORED');
+  await expect(dialog).toContainText('KARA II L Main');
+  await expect(dialog).toContainText('differs from this file in 1 place');
+  await dialog.getByRole('button', { name: 'Update from new PDF' }).click();
+
+  await expect(page.getByText('9 of 18 arrays shown')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'KARA II L Main', exact: true })).toBeVisible();
+  await expect(page.getByTestId('deleted-list')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Undo delete', exact: true })).toBeDisabled();
 });

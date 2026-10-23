@@ -3,8 +3,9 @@
 // Sizes match the print stylesheet, so the downloaded PDF and the printed sheet look alike.
 
 import { edgeText, riggingEdgeNote, riggingNote, type FixationRow, type RiggingRow } from '../engine/sheet';
+import { showDateText } from '../files/show-date';
 import { NOT_STATED } from '../ui/format';
-import { clipMiddle, wrap, type DrawOp, type Measure } from './array-image';
+import { clipMiddle, noteLines, wrap, wrapAfterLead, type DrawOp, type Measure } from './array-image';
 import { FIXATION_COLUMNS, warningText, type CardContent } from './card-content';
 import { CARD_W_MM, PX_PER_MM } from './layout';
 import { SMALL_PRINT } from './small-print';
@@ -34,20 +35,6 @@ const FONT_SIZES = { title: 11, subtitle: 7, note: 6.5, body: 7 };
 
 function textOp(x: number, y: number, text: string, size: number, opts: { bold?: boolean; color?: string; align?: 'left' | 'right' | 'center' } = {}): DrawOp {
   return { op: 'text', x, y, text, size, bold: opts.bold ?? false, align: opts.align ?? 'left', color: opts.color ?? '#000' };
-}
-
-/** Wraps text that follows a lead on the first line: that line is `firstMax` wide, the rest `max`. The first line may be empty. */
-function wrapAfterLead(text: string, size: number, bold: boolean, firstMax: number, max: number, measure: Measure): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  let first = '';
-  let n = 0;
-  for (; n < words.length; n++) {
-    const trial = first ? `${first} ${words[n]}` : (words[n] as string);
-    if (measure(trial, size, bold) > firstMax) break;
-    first = trial;
-  }
-  const rest = words.slice(n).join(' ');
-  return rest ? [first, ...wrap(rest, size, bold, max, measure)] : [first];
 }
 
 /** One array as a pocket card, at the width of an A6 panel less its padding. Height depends on the content. */
@@ -92,6 +79,21 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
   // A plain small line under the title, not a box, so it cannot be mistaken for a warning.
   if (content.mirrorNote) {
     paragraph(content.mirrorNote, FONT_SIZES.note, 1.2);
+    y += mm(1);
+  }
+  if (content.reportNameNote) {
+    paragraph(content.reportNameNote, FONT_SIZES.note, 1.2);
+    y += mm(1);
+  }
+  // The crew's note: a plain paragraph, "Note:" in bold running into the first line, the person's line breaks kept.
+  if (content.note) {
+    const size = FONT_SIZES.note;
+    const lead = measure('Note: ', size, true);
+    for (const line of noteLines(content.note, size, W, measure)) {
+      if (line.lead) ops.push(textOp(0, y, 'Note:', size, { bold: true }));
+      if (line.text) ops.push(textOp(line.lead ? lead : 0, y, line.text, size));
+      y += size * 1.2;
+    }
     y += mm(1);
   }
   for (const w of content.warnings) {
@@ -169,9 +171,14 @@ export function clipRiggingCell(text: string, columnMm: number, bold: boolean, m
   return clipMiddle(text, size, bold, mm(columnMm) - RIGGING_CELL_PAD_PT, measure);
 }
 
-/** The line under the rigging heading: show, venue and Z-axis zero. The print preview and the PDF both use it. */
-export function riggingSubtitle(job: { show: string; venue: string; zAxisZero: string }): string {
-  return [job.show.trim(), job.venue.trim(), job.zAxisZero.trim() ? `Z-axis zero: ${job.zAxisZero.trim()}` : ''].filter(Boolean).join(' · ');
+/** The line under the rigging heading: show, venue, show date and Z-axis zero. The print preview and the PDF both use it. */
+export function riggingSubtitle(job: { show: string; venue: string; zAxisZero: string; showDate?: string }): string {
+  return [job.show.trim(), job.venue.trim(), showDateText(job.showDate ?? ''), job.zAxisZero.trim() ? `Z-axis zero: ${job.zAxisZero.trim()}` : ''].filter(Boolean).join(' · ');
+}
+
+/** The notes for the whole show as printed on the rigging summary: line breaks kept, nothing when there are none. The print preview and the PDF both use it. */
+export function riggingNotes(job: { notes: string }): string {
+  return job.notes.trim() === '' ? '' : job.notes.replace(/\s+$/, '');
 }
 
 export interface RiggingInput {
@@ -179,6 +186,8 @@ export interface RiggingInput {
   fixations: readonly FixationRow[];
   /** Show and venue line under the heading. */
   subtitle: string;
+  /** Notes for the whole show, or blank. Printed under the subtitle. */
+  notes: string;
   /** Dark squares of the QR code, and the address it holds. */
   qr: boolean[][];
   qrUrl: string;
@@ -197,6 +206,17 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
   }
 
   y += 8 * 1.5 + mm(3);
+
+  if (input.notes) {
+    const size = 8;
+    const leadW = measure('Notes: ', size, true);
+    for (const line of noteLines(input.notes, size, W, measure, 'Notes: ')) {
+      if (line.lead) ops.push(textOp(0, y, 'Notes:', size, { bold: true }));
+      if (line.text) ops.push(textOp(line.lead ? leadW : 0, y, line.text, size));
+      y += size * 1.3;
+    }
+    y += mm(3);
+  }
 
   /** A table whose first two columns are text and the rest numbers. Text that does not fit its column is cut with an ellipsis. */
   const table = (heads: string[], widthsMm: number[], body: string[][], compact = false) => {

@@ -144,3 +144,31 @@ describe('compareReports and fixations', () => {
     ]);
   });
 });
+
+describe('compareReports with deleted arrays', () => {
+  it('lists a deleted array that is in the new PDF as restored, in one line', () => {
+    const changes = compareReports(a(), a(), new Set([0]));
+    expect(changes).toEqual([
+      { kind: 'restored', array: 'KARA II L Main', what: 'Array', saved: 'deleted in this file', now: 'in the new PDF, so it comes back' },
+    ]);
+  });
+
+  it('does not list the figures of a deleted array that changed', () => {
+    const next = a();
+    next.sources[0]!.weights.total = 420;
+    expect(compareReports(a(), next, new Set([0])).map((c) => c.kind)).toEqual(['restored']);
+  });
+
+  it('says nothing about a deleted array that is not in the new PDF', () => {
+    const next = a();
+    next.sources.splice(0, 1);
+    expect(compareReports(a(), next, new Set([0]))).toEqual([]);
+  });
+
+  it('still matches the arrays after a deleted one by name', () => {
+    const next = a();
+    next.sources[2]!.weights.total = 1;
+    const changes = compareReports(a(), next, new Set([0]));
+    expect(changes.map((c) => c.kind)).toEqual(['restored', 'changed']);
+  });
+});

@@ -138,6 +138,12 @@ input {
   white-space: nowrap;
 }
 
+.show-notes {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  margin: 0 0 0.75rem;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -662,4 +668,17 @@ select {
 
 .print-check {
   margin: 0;
+}
+
+.card-delete {
+  margin: 0.5rem 0 0;
+}
+
+.deleted-list {
+  list-style: none;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
 }

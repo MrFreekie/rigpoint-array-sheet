@@ -11,8 +11,7 @@ export type PlotContent = Omit<PlotInput, 'footer'>;
 
 /** Null when no chosen array can be drawn, in which case the printout has no plot page. */
 export function plotContent(doc: Doc, model: SheetModel): PlotContent | null {
-  const sources = doc.result.report.sources;
-  const { drawn, notDrawn } = plotArrays(sources, model.printedSources);
+  const { drawn, notDrawn } = plotArrays(model.sources, model.printedSources);
   if (drawn.length === 0) return null;
   return {
     arrays: drawn,

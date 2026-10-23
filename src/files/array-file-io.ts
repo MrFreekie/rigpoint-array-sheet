@@ -25,9 +25,14 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
       default_offset: doc.job.defaultOffset,
       origin: doc.job.origin,
       side_labels: doc.job.sideLabels,
+      notes: doc.job.notes,
+      show_date: doc.job.showDate,
     },
     offsets: Array.from({ length: count }, (_, i) => doc.offsets[i] ?? ''),
     print: Array.from({ length: count }, (_, i) => !doc.noPrint[i]),
+    titles: Array.from({ length: count }, (_, i) => doc.titles[i] ?? ''),
+    notes: Array.from({ length: count }, (_, i) => doc.notes[i] ?? ''),
+    deleted: Array.from({ length: count }, (_, i) => doc.deleted[i] === true),
     report: doc.result.report,
     problems: doc.result.problems,
   };
@@ -68,6 +73,18 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
   f.print.forEach((printed, i) => {
     if (!printed) noPrint[i] = true;
   });
+  const titles: Record<number, string> = {};
+  f.titles.forEach((t, i) => {
+    if (t.trim() !== '') titles[i] = t;
+  });
+  const notes: Record<number, string> = {};
+  f.notes.forEach((t, i) => {
+    if (t.trim() !== '') notes[i] = t;
+  });
+  const deleted: Record<number, boolean> = {};
+  f.deleted.forEach((gone, i) => {
+    if (gone) deleted[i] = true;
+  });
   const doc: Doc = {
     result: { report: f.report, problems: f.problems, ok: !f.problems.some((p) => p.level === 'error') },
     sourceName: f.source_name,
@@ -80,8 +97,13 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
       defaultOffset: f.job.default_offset,
       origin: f.job.origin,
       sideLabels: f.job.side_labels,
+      notes: f.job.notes,
+      showDate: f.job.show_date,
     },
     offsets,
+    titles,
+    notes,
+    deleted,
     status: f.status,
     revision: f.revision,
     fileName,

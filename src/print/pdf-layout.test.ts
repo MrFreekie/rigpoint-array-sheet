@@ -5,7 +5,7 @@ import { sheetModel } from '../ui/sheet-model';
 import { canvasMeasurePt, estimateWidth, type DrawOp } from './array-image';
 import { cardContent } from './card-content';
 import { CELL_H_MM, FULL_H_MM, LONG_H_MM, MIN_FULL_SCALE, PX_PER_MM, fitScale, planPages } from './layout';
-import { PT_PER_MM, RIGGING_CELL_PAD_PT, RIGGING_FIXATION_WIDTHS_MM, RIGGING_PICKUP_WIDTHS_MM, clipRiggingCell, layoutPocketCard, layoutRiggingPage, ptToPx, riggingSubtitle } from './pdf-layout';
+import { PT_PER_MM, RIGGING_CELL_PAD_PT, RIGGING_FIXATION_WIDTHS_MM, RIGGING_PICKUP_WIDTHS_MM, clipRiggingCell, layoutPocketCard, layoutRiggingPage, ptToPx, riggingNotes, riggingSubtitle } from './pdf-layout';
 import { qrMatrix } from './qr';
 import { riggingFixations, riggingRows } from '../engine/sheet';
 import { SMALL_PRINT } from './small-print';
@@ -96,6 +96,7 @@ describe('layoutRiggingPage', () => {
     rows,
     fixations,
     subtitle: 'Main stage · Grand Hall',
+    notes: '',
     qr: qrMatrix('https://example.com/'),
     qrUrl: 'https://example.com/',
   });
@@ -231,6 +232,59 @@ describe('layoutRiggingPage', () => {
     it('joins show, venue and Z-axis zero, trimmed, leaving out what is empty', () => {
       expect(riggingSubtitle({ show: ' Main stage ', venue: 'Grand Hall', zAxisZero: 'Stage floor' })).toBe('Main stage · Grand Hall · Z-axis zero: Stage floor');
       expect(riggingSubtitle({ show: 'Main stage', venue: ' ', zAxisZero: '' })).toBe('Main stage');
+    });
+
+    it('puts the show date, UK style, after the venue, and leaves it out when there is none', () => {
+      expect(riggingSubtitle({ show: 'Main stage', venue: 'Grand Hall', zAxisZero: 'Stage floor', showDate: '2026-10-23' })).toBe('Main stage · Grand Hall · 23/10/2026 · Z-axis zero: Stage floor');
+      expect(riggingSubtitle({ show: 'Main stage', venue: 'Grand Hall', zAxisZero: '', showDate: '' })).toBe('Main stage · Grand Hall');
+    });
+  });
+
+  describe('riggingNotes', () => {
+    it('keeps line breaks, drops trailing space, and is blank when there is nothing to print', () => {
+      expect(riggingNotes({ notes: 'Load in at 08:00.\nCall Sam first.\n\n' })).toBe('Load in at 08:00.\nCall Sam first.');
+      expect(riggingNotes({ notes: ' \n ' })).toBe('');
+      expect(riggingNotes({ notes: '' })).toBe('');
+    });
+  });
+
+  describe('show notes on the rigging page', () => {
+    const lines = (notes: string) =>
+      layoutRiggingPage({ ...input(), notes }, estimateWidth).ops.filter((o) => o.op === 'text' && o.size === 8 && o.y > 0 && o.y < 70);
+
+    it('prints Notes: in bold, then the text, one line per line break, under the subtitle and above the tables', () => {
+      const laid = layoutRiggingPage({ ...input(), notes: 'Load in at 08:00.\nCall Sam first.' }, estimateWidth);
+      const label = laid.ops.filter((o) => o.op === 'text' && o.text === 'Notes:');
+      expect(label).toHaveLength(1);
+      expect(label[0]).toMatchObject({ bold: true });
+      const t = texts(laid.ops);
+      expect(t).toContain('Load in at 08:00.');
+      expect(t).toContain('Call Sam first.');
+      const y = (text: string) => (laid.ops.find((o) => o.op === 'text' && o.text === text) as { y: number }).y;
+      expect(y('Main stage · Grand Hall')).toBeLessThan(y('Notes:'));
+      expect(y('Call Sam first.')).toBeGreaterThan(y('Load in at 08:00.'));
+      expect(y('Call Sam first.')).toBeLessThan(y('Array'));
+    });
+
+    it('wraps a long note inside the page width, even a word with no spaces', () => {
+      const laid = layoutRiggingPage({ ...input(), notes: `${'word '.repeat(120)}${'x'.repeat(80)}`.slice(0, 500) }, estimateWidth);
+      for (const o of laid.ops) {
+        if (o.op === 'text' && o.size === 8 && o.text.startsWith('word')) expect(estimateWidth(o.text, 8, false)).toBeLessThanOrEqual(laid.width + 0.5);
+      }
+      expect(lines('word '.repeat(100)).length).toBeGreaterThan(2);
+    });
+
+    it('leaves the page exactly as it was when there are no notes', () => {
+      const none = layoutRiggingPage(input(), estimateWidth);
+      expect(layoutRiggingPage({ ...input(), notes: '' }, estimateWidth)).toEqual(none);
+      expect(texts(none.ops)).not.toContain('Notes:');
+    });
+
+    it('makes the page taller by the lines the note takes', () => {
+      const one = layoutRiggingPage({ ...input(), notes: 'One line.' }, estimateWidth).height;
+      const three = layoutRiggingPage({ ...input(), notes: 'One.\nTwo.\nThree.' }, estimateWidth).height;
+      expect(three).toBeGreaterThan(one);
+      expect(one).toBeGreaterThan(layoutRiggingPage(input(), estimateWidth).height);
     });
   });
 

@@ -140,12 +140,15 @@ describe('findMirrors with stacks laid out in columns', () => {
 });
 
 describe('report E and fixations', () => {
-  it('pairs the flown hangs, the subs and the two fills that mirror left to right', () => {
+  it('pairs the flown hangs, the subs and the two fills that mirror left to right, and the two centre hangs that mirror front to back', () => {
     expect(names(e)).toEqual([
       ['YZ Sym of Left', 'YZ Sym of YZ Sym of Left'],
       ['XZ Sym of YZ Sym of Left', 'XZ Sym of Left'],
       ['KS28 4', 'KS28 3'],
       ['KARA II 2', 'KARA II 1'],
+      // Front-back pairs, found after the left-right ones: the two centre hangs, azimuth 0 and 180, and two subs.
+      ['Copy of YZ Sym of Left', 'XZ Sym of Copy of YZ Sym of Left'],
+      ['KS28 2', 'KS28 1'],
     ]);
   });
 
@@ -175,5 +178,120 @@ describe('report E and fixations', () => {
   it('does not pair a fill with a copy that has the same fixations unmirrored', () => {
     const same = { ...structuredClone(fill), position: { ...fill.position!, x: -fill.position!.x } };
     expect(isMirror(fill, same)).toBe(false);
+  });
+});
+
+describe('findMirrors with arrays left out', () => {
+  const list = () => structuredClone(parseFixture('a').report.sources);
+
+  it('does not pair an array in the skip set, so its partner stands alone', () => {
+    const base = findMirrors(list());
+    expect(base.get(0)).toBe(1);
+    const skipped = findMirrors(list(), new Set([0]));
+    expect(skipped.has(0)).toBe(false);
+    expect([...skipped.values()]).not.toContain(0);
+    expect([...skipped.values()]).not.toContain(1);
+    expect(skipped.size).toBe(base.size - 1);
+  });
+
+  it('lets the caller refuse a pair', () => {
+    const refused = findMirrors(list(), new Set(), (i, j) => !(i === 0 && j === 1));
+    expect(refused.has(0)).toBe(false);
+    expect(refused.size).toBe(findMirrors(list()).size - 1);
+  });
+});
+
+/** The front-back mirror image of an array: Y negated, azimuth 180 less the original, everything else as it was. */
+function frontBackOf(s: ArraySource): ArraySource {
+  return {
+    ...structuredClone(s),
+    name: s.name + ' behind',
+    position: s.position && { ...s.position, y: -s.position.y },
+    azimuth: s.azimuth === null ? null : 180 - s.azimuth,
+    pickups: s.pickups.map((p) => ({ ...p, at: { ...p.at, y: -p.at.y } })),
+  };
+}
+
+describe('front-back mirrors', () => {
+  const main = () => structuredClone(a.find((s) => s.name === 'KARA II L Main')!);
+  const kara = () => ({ ...main(), fixations: [], fixationCount: undefined });
+
+  it('pairs an array with its image across Y = 0', () => {
+    const one = kara();
+    const two = frontBackOf(one);
+    expect(isMirror(one, two, 'frontBack')).toBe(true);
+    expect(isMirror(one, two)).toBe(false);
+  });
+
+  it('takes azimuths that add up to 180 modulo 360, whichever way they are printed', () => {
+    for (const [x, y] of [
+      [0, 180],
+      [10, 170],
+      [-10, -170],
+      [180, 0],
+      [-170, -10],
+      [90, 90],
+      [-90, 270],
+    ] as const) {
+      const one = { ...kara(), azimuth: x };
+      const two = { ...frontBackOf(one), azimuth: y };
+      expect(isMirror(one, two, 'frontBack'), `${x} and ${y}`).toBe(true);
+    }
+    const one = { ...kara(), azimuth: 10 };
+    expect(isMirror(one, { ...frontBackOf(one), azimuth: 171 }, 'frontBack')).toBe(false);
+  });
+
+  it('never pairs an array whose Y is 0, and does pair one whose X is 0', () => {
+    const on = { ...kara(), position: { ...kara().position!, y: 0 } };
+    expect(isMirror(on, frontBackOf(on), 'frontBack')).toBe(false);
+    const centre = { ...kara(), position: { ...kara().position!, x: 0 } };
+    expect(isMirror(centre, frontBackOf(centre), 'frontBack')).toBe(true);
+  });
+
+  it('refuses arrays with fixations, because nobody knows whether their names swap', () => {
+    const fill = structuredClone(e.find((s) => s.name === 'KARA II 2')!);
+    expect(fill.fixations?.length).toBeGreaterThan(0);
+    expect(isMirror(fill, frontBackOf(fill), 'frontBack')).toBe(false);
+  });
+
+  it('refuses a pair whose Panflex figures differ, and any other difference', () => {
+    const one = kara();
+    const two = frontBackOf(one);
+    const row = two.cabinets.findIndex((c) => c.panflex !== null);
+    expect(row).toBeGreaterThanOrEqual(0);
+    two.cabinets[row] = { ...two.cabinets[row]!, panflex: two.cabinets[row]!.panflex!.split('/').reverse().join('/') };
+    if (two.cabinets[row]!.panflex !== one.cabinets[row]!.panflex) expect(isMirror(one, two, 'frontBack')).toBe(false);
+    const three = frontBackOf(one);
+    three.position = { ...three.position!, y: three.position!.y + 0.01 };
+    expect(isMirror(one, three, 'frontBack')).toBe(false);
+  });
+
+  it('finds left-right pairs first, so a quad of four arrays gives two left-right pairs', () => {
+    const lr = { ...kara(), name: 'LR one', azimuth: 20 };
+    const lr2 = { ...mirrorOf(lr), name: 'LR two' };
+    // Soundvision prints azimuths between -180 and 180, so the turned copies are brought into that range.
+    const wrapped = (s: ArraySource) => ({ ...s, azimuth: s.azimuth === null ? null : ((((s.azimuth + 180) % 360) + 360) % 360) - 180 });
+    const fb = wrapped(frontBackOf(lr));
+    const fb2 = wrapped(frontBackOf(lr2));
+    const list = [lr, lr2, { ...fb, name: 'FB one' }, { ...fb2, name: 'FB two' }];
+    expect([...findMirrors(list)]).toEqual([
+      [0, 1],
+      [2, 3],
+    ]);
+  });
+
+  it('pairs a front-back image when no left-right partner exists, and leaves the samples alone', () => {
+    const one = kara();
+    const list = [one, frontBackOf(one)];
+    expect([...findMirrors(list)]).toEqual([[0, 1]]);
+    expect(names(a).length).toBe(9);
+    expect(names(b).length).toBe(8);
+  });
+
+  it('honours the skip set and the veto for front-back pairs too', () => {
+    const one = kara();
+    const list = [one, frontBackOf(one)];
+    expect(findMirrors(list, new Set([0])).size).toBe(0);
+    expect(findMirrors(list, new Set(), () => false).size).toBe(0);
   });
 });

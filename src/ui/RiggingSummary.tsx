@@ -1,12 +1,18 @@
 import { edgeText, riggingEdgeNote, riggingNote, type FixationRow, type RiggingRow } from '../engine/sheet';
 import { NOT_STATED, num } from './format';
 
-export function RiggingSummary({ rows, fixations = [] }: { rows: readonly RiggingRow[]; fixations?: readonly FixationRow[] }) {
+export function RiggingSummary({ rows, fixations = [], notes = '' }: { rows: readonly RiggingRow[]; fixations?: readonly FixationRow[]; notes?: string }) {
   const note = riggingNote(rows.length > 0, fixations.length > 0);
   const edgeNote = riggingEdgeNote(rows.length > 0);
   return (
     <section className="panel" aria-labelledby="rigging-heading">
       <h2 id="rigging-heading">Rigging summary</h2>
+      {notes ? (
+        <p className="show-notes" data-testid="show-notes">
+          <strong>Notes: </strong>
+          {notes}
+        </p>
+      ) : null}
       {note ? <p className="muted">{note}</p> : null}
       {edgeNote ? <p className="muted">{edgeNote}</p> : null}
       {rows.length === 0 ? (

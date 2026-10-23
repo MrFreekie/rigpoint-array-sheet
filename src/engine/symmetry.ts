@@ -1,6 +1,7 @@
-// Finds arrays that are left-right mirror images of each other, so a fly sheet can show one of the pair.
-// The test is strict: every figure the sheet shows must match, with X and azimuth negated and the
-// two Panflex figures swapped. If anything differs, even by 0.01, the arrays are not paired.
+// Finds arrays that are mirror images of each other, so a fly sheet can show one of the pair.
+// Left to right, X and azimuth are negated and the two Panflex figures swapped. Front to back, Y is negated and the
+// azimuth is 180 degrees less the other. The test is strict: every figure the sheet shows must match. If anything
+// differs, even by 0.01, the arrays are not paired.
 
 import type { ArraySource, Point3 } from './types';
 
@@ -21,8 +22,28 @@ function swapPanflex(p: string | null): string | null {
   return m ? `${m[2]}/${m[1]}` : p;
 }
 
-/** True when `b` is `a` reflected across the centre line (X = 0). */
-export function isMirror(a: ArraySource, b: ArraySource): boolean {
+function mirroredFrontBack(a: Point3 | null, b: Point3 | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.x === b.x && a.y === -b.y && a.z === b.z;
+}
+
+/** True when `b` faces the way `a` would after a half turn about the Y axis: azimuths that add up to 180, taken modulo 360. */
+function azimuthFrontBack(a: number | null, b: number | null): boolean {
+  if (a === null || b === null) return a === b;
+  const turn = (((a + b - 180) % 360) + 360) % 360;
+  return Math.min(turn, 360 - turn) < 1e-9;
+}
+
+/** Which way a pair is mirrored: across the centre line (X = 0), or across the line through the stage (Y = 0). */
+export type MirrorAxis = 'leftRight' | 'frontBack';
+
+/**
+ * True when `b` is `a` reflected across the centre line (X = 0), or, with `frontBack`, across Y = 0. Front to back is
+ * stricter. Nobody has seen how the report names the fixations or the Panflex sides of such a pair, so an array that has
+ * fixations, or Panflex figures that differ from its partner's, is never paired that way.
+ */
+export function isMirror(a: ArraySource, b: ArraySource, across: MirrorAxis = 'leftRight'): boolean {
+  if (across === 'frontBack') return isMirrorFrontBack(a, b);
   if (a.position === null || b.position === null || a.position.x === 0) return false;
   if (a.groups.length !== b.groups.length || a.groups.some((g, i) => g !== b.groups[i])) return false;
   if (a.configuration !== b.configuration || a.bumper !== b.bumper || a.motors !== b.motors) return false;
@@ -73,25 +94,70 @@ export function isMirror(a: ArraySource, b: ArraySource): boolean {
   });
 }
 
+function isMirrorFrontBack(a: ArraySource, b: ArraySource): boolean {
+  if (a.position === null || b.position === null || a.position.y === 0) return false;
+  if (a.groups.length !== b.groups.length || a.groups.some((g, i) => g !== b.groups[i])) return false;
+  if (a.configuration !== b.configuration || a.bumper !== b.bumper || a.motors !== b.motors) return false;
+  if (!mirroredFrontBack(a.position, b.position) || !azimuthFrontBack(a.azimuth, b.azimuth)) return false;
+  if (!same(a.site, b.site) || !same(a.bottomElevation, b.bottomElevation) || !same(a.topSite, b.topSite) || !same(a.bottomSite, b.bottomSite)) return false;
+  const da = a.dimensions;
+  const db = b.dimensions;
+  if ((da === null) !== (db === null) || (da && db && (da.x !== db.x || da.y !== db.y || da.z !== db.z))) return false;
+  if (JSON.stringify(a.weights) !== JSON.stringify(b.weights)) return false;
+
+  if (a.pickups.length !== b.pickups.length) return false;
+  for (let i = 0; i < a.pickups.length; i++) {
+    const p = a.pickups[i];
+    const q = b.pickups[i];
+    if (!p || !q || p.which !== q.which || p.position !== q.position || !mirroredFrontBack(p.at, q.at)) return false;
+  }
+
+  if ((a.fixations ?? []).length > 0 || (b.fixations ?? []).length > 0) return false;
+  if ((a.fixationCount ?? null) !== (b.fixationCount ?? null) || (a.fixationCount ?? 0) > 0) return false;
+
+  if (a.cabinets.length !== b.cabinets.length) return false;
+  for (let i = 0; i < a.cabinets.length; i++) {
+    const c = a.cabinets[i];
+    const d = b.cabinets[i];
+    if (!c || !d) return false;
+    if (c.number !== d.number || (c.column ?? null) !== (d.column ?? null) || c.type !== d.type || !same(c.angle, d.angle) || !same(c.site, d.site)) return false;
+    if (!same(c.topZ, d.topZ) || !same(c.bottomZ, d.bottomZ) || c.panflex !== d.panflex) return false;
+  }
+
+  if (a.warnings.length !== b.warnings.length) return false;
+  return a.warnings.every((w, i) => {
+    const v = b.warnings[i];
+    return v !== undefined && w.severity === v.severity && w.title === v.title && w.message === v.message;
+  });
+}
+
 /**
  * Pairs each array with its mirror image, the first in report order being the one to show.
  * Returns a map from the index of the array to show to the index of its mirror. Each array
- * is in at most one pair.
+ * is in at most one pair. Left-right pairs are found first over every array, then front-back pairs among
+ * those still free. Positions in `skip` are left out, and `canPair` can veto a pair.
  */
-export function findMirrors(sources: readonly ArraySource[]): Map<number, number> {
+export function findMirrors(
+  sources: readonly ArraySource[],
+  skip: ReadonlySet<number> = new Set(),
+  canPair: (a: number, b: number) => boolean = () => true,
+): Map<number, number> {
   const pairs = new Map<number, number>();
-  const taken = new Set<number>();
-  for (let i = 0; i < sources.length; i++) {
-    if (taken.has(i)) continue;
-    const a = sources[i];
-    if (!a) continue;
-    for (let j = i + 1; j < sources.length; j++) {
-      const b = sources[j];
-      if (taken.has(j) || !b || !isMirror(a, b)) continue;
-      pairs.set(i, j);
-      taken.add(i);
-      taken.add(j);
-      break;
+  // An array left out (deleted) is never paired, so its partner stands alone.
+  const taken = new Set<number>(skip);
+  for (const across of ['leftRight', 'frontBack'] as const) {
+    for (let i = 0; i < sources.length; i++) {
+      if (taken.has(i)) continue;
+      const a = sources[i];
+      if (!a) continue;
+      for (let j = i + 1; j < sources.length; j++) {
+        const b = sources[j];
+        if (taken.has(j) || !b || !canPair(i, j) || !isMirror(a, b, across)) continue;
+        pairs.set(i, j);
+        taken.add(i);
+        taken.add(j);
+        break;
+      }
     }
   }
   return pairs;

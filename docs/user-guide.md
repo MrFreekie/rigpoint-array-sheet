@@ -19,6 +19,10 @@ You will see one of three messages above the cards:
 
 Show, venue, system engineer, company and Z-axis zero go on every pocket card, so a folded card still says whose it is. Soundvision does not state the venue, so type it. Origin (P0) says where the Soundvision origin is, for example DSE, Iron Line or Arena Centre. It is printed on the rigging plot.
 
+Show date is optional. Pick it with the date field and it prints day, month, year, for example 23/10/2026, beside the venue on every pocket card, on the rigging plot and on the rigging summary. It is separate from the date inside the Soundvision report. Leave it blank and nothing is printed.
+
+Notes is a box for anything the whole crew needs to know about the show, up to 500 characters, with line breaks kept. It prints as a Notes paragraph under the heading of the rigging summary, and only there. Each array also has its own note on its card. Leave the box blank and the page is unchanged.
+
 Ground offset is how far below the report's heights your floor is. A report height of 9.4 m with an offset of 0.3 m shows as 9.1 m. Set one offset for every array, or type a different one on a single card. If you leave it blank the heights are the report's own.
 
 ## The rigging plot
@@ -51,7 +55,7 @@ The DXF has no scale bar, because it is already full size. It is a design aid an
 
 Each card shows what the report states: weights, motor loads, heights, site angles, azimuth, frame, pickups, Soundvision's warnings, the fixation positions of a stacked array when the report lists them (X, Y and Z as the report prints them, with no ground offset taken off), and a row for each enclosure with its Panflex label (for example 90 On).
 
-Arrays that are exact left-right copies show once. The card has a small line under its title that says Also mirrored with and the name of the other array. Tick Show the mirrored arrays too to see both.
+Arrays that are exact mirror images of each other show once, whether the mirror runs left to right or front to back. The card has a small line under its title that says Also mirrored with and the name of the other array. Tick Show the mirrored arrays too to see both. Two arrays with different notes keep a card each, so no instruction is hidden. A front to back pair is only found when the arrays have no fixations and the same Panflex figures, because those have not been checked for such a pair.
 
 ## Choose what to print
 
@@ -81,9 +85,23 @@ Draft, Issued, Approved and Superseded are the four statuses. Approved and super
 
 To change an approved file, press Create new revision. It starts a draft with the next letter (blank, then A, B, C) and never writes over the old file. Setting the old one to Superseded is up to you.
 
+## Card title and notes for the crew
+
+Each card has a Card title box. Type a name there and it replaces the array name on the card, the printed sheet, the PDF, the images, the rigging plot, the DXF and the rigging summary. Clear the box to go back to the name in the report. The card then carries a small line, Soundvision name, with the name from the report, so the two can always be matched. The title is kept with the file, and Update from PDF still finds the array by its report name, so the title survives an update.
+
+Each card also has a Notes for the crew box for instructions, up to 300 characters, with the line breaks you type. The note prints on the card under the mirror line, after the word Note. It is not shown on the rigging plot, the DXF or the rigging summary. An approved or superseded file cannot be changed, so both boxes are switched off there.
+
+## Deleting an array
+
+Each card has a Delete array button. A deleted array leaves the cards, the printed sheet, the PDF, the rigging plot, the DXF and the rigging summary, and the checks that concern only that array are hidden. Mirrored arrays stay together until one is deleted, and then the other has a card of its own.
+
+Undo delete, beside Save selected as images, brings back the last array you deleted, and it can be pressed again for the one before. The undo list lasts for the session only. A list under the cards shows what is deleted, each with a Restore button, and that list is saved with the file, so you can restore an array after reopening it.
+
+A deleted array stays in the file, marked as deleted. The file holds the report as read either way, so deleting and restoring does not make it any bigger. An approved or superseded file cannot be changed, so nothing can be deleted or restored in it.
+
 ## A newer PDF arrives
 
-With your file open, press Update from PDF and choose the newer report. The app lists exactly what differs. Choose Update from new PDF or Keep as saved. Your show details, offsets and print choices stay with the arrays of the same name.
+With your file open, press Update from PDF and choose the newer report. The app lists exactly what differs. Choose Update from new PDF or Keep as saved. Your show details, offsets, print choices, titles and notes stay with the arrays of the same name. An array you deleted comes back if the new PDF has it, and the list marks it as restored.
 
 ## Install it and use it offline
 

@@ -23,7 +23,7 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} printed onPrinted={() => {}} {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} {...extra} />,
   );
 
 describe('ArrayCard', () => {
@@ -163,6 +163,16 @@ describe('RiggingSummary', () => {
     expect(html).toContain('3.08');
   });
 
+  it('shows the notes for the show above the tables, and nothing when there are none', () => {
+    const withNotes = renderToStaticMarkup(<RiggingSummary rows={riggingRows(b)} notes={'Load in at 08:00.\nCall Sam first.'} />);
+    expect(withNotes).toContain('data-testid="show-notes"');
+    expect(withNotes).toContain('Load in at 08:00.');
+    expect(withNotes.indexOf('show-notes')).toBeLessThan(withNotes.indexOf('<table'));
+    const without = renderToStaticMarkup(<RiggingSummary rows={riggingRows(b)} />);
+    expect(without).not.toContain('show-notes');
+    expect(renderToStaticMarkup(<RiggingSummary rows={riggingRows(b)} notes="" />)).not.toContain('Notes:');
+  });
+
   it('names only pickups in its line when the report states no fixations, and shows no fixation table', () => {
     const html = renderToStaticMarkup(<RiggingSummary rows={riggingRows(b)} fixations={riggingFixations(b)} />);
     expect(html).toContain(riggingNote(true, false));
@@ -214,5 +224,42 @@ describe('rigging plot', () => {
     const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} />);
     expect(html).toContain(PLOT_DEVELOPMENT_NOTE);
     expect(html).toContain('data-testid="plot-svg"');
+  });
+});
+
+describe('ArrayCard delete button', () => {
+  it('is there when the file can be changed, and named for its array', () => {
+    const html = card('KARA II L Main', a, { onDelete: () => {} });
+    expect(html).toContain('Delete array');
+    expect(html).toContain('aria-label="Delete KARA II L Main"');
+  });
+
+  it('is not offered on a read-only file', () => {
+    expect(card('KARA II L Main', a, { locked: true })).not.toContain('Delete array');
+  });
+});
+
+describe('ArrayCard title and notes', () => {
+  it('has a card title field with the report name as its placeholder, and a notes box with a count', () => {
+    const html = card('KARA II L Main', a, { note: 'Hang at 2 m' });
+    expect(html).toContain('Card title');
+    expect(html).toContain('placeholder="KARA II L Main"');
+    expect(html).toContain('maxLength="60"');
+    expect(html).toContain('Notes for the crew');
+    expect(html).toContain('maxLength="300"');
+    expect(html).toContain('11 of 300 characters');
+    expect(html).not.toContain('Soundvision name:');
+  });
+
+  it('says what Soundvision calls an array once it has a title of its own', () => {
+    const html = card('KARA II L Main', a, { titleText: 'Main left', reportName: 'KARA II L Main' });
+    expect(html).toContain('Soundvision name: KARA II L Main');
+  });
+
+  it('disables both fields on a read-only file', () => {
+    const open = card('KARA II L Main', a);
+    const locked = card('KARA II L Main', a, { locked: true });
+    expect(open).not.toContain('disabled');
+    expect(locked.match(/disabled=""/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
   });
 });

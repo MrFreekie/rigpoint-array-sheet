@@ -66,6 +66,8 @@ describe('editKey', () => {
   it('changes when the side labels are turned off', () => {
     const doc = fresh();
     expect(editKey({ ...doc, job: { ...doc.job, sideLabels: false } })).not.toBe(editKey(doc));
+    expect(editKey({ ...doc, job: { ...doc.job, notes: 'Call Sam first.' } })).not.toBe(editKey(doc));
+    expect(editKey({ ...doc, job: { ...doc.job, showDate: '2026-10-23' } })).not.toBe(editKey(doc));
   });
 });
 

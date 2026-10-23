@@ -2,6 +2,8 @@ import { useId } from 'react';
 import type { FlySheetColumn } from '../engine/sheet';
 import { enclosureLabel } from '../engine/types';
 import { FIXATION_COLUMNS, fixationName, pickupFact, warningText } from '../print/card-content';
+import { NOTES_MAX, TITLE_MAX } from '../schema/array-file';
+import { plain } from './plain';
 import { degrees, kg, metres, NOT_STATED, num } from './format';
 
 interface Props {
@@ -23,11 +25,21 @@ interface Props {
   /** Set when this card is the mirror image of another array that is also shown. */
   mirrorOf?: string | undefined;
   onOffset: (text: string) => void;
+  /** The title the person typed for this card, or blank to use the name in the report. */
+  titleText: string;
+  /** The name the report gives the array. */
+  reportName: string;
+  onTitle: (text: string) => void;
+  /** What the person wrote for the crew. */
+  note: string;
+  onNote: (text: string) => void;
+  /** Deletes this array. Not offered on a read-only file. */
+  onDelete?: (() => void) | undefined;
   /** True when the offset in use comes from the "every array" field. */
   usingDefault: boolean;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onDelete, titleText, reportName, onTitle, note, onNote }: Props) {
   const id = useId();
   const hasColumns = c.rows.some((r) => r.column !== null);
   const hasAngles = c.rows.some((r) => r.angle !== null);
@@ -51,6 +63,11 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         {coversMirror || mirrorOf ? (
           <p className="mirror-note" data-testid="mirror-note">
             {`Also mirrored with: ${coversMirror ?? mirrorOf}`}
+          </p>
+        ) : null}
+        {titleText.trim() !== '' ? (
+          <p className="mirror-note" data-testid="report-name-note">
+            {`Soundvision name: ${reportName}`}
           </p>
         ) : null}
       </header>
@@ -132,6 +149,36 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         </div>
       ) : null}
 
+      <label className="field title-field">
+        <span>Card title</span>
+        <input
+          type="text"
+          value={titleText}
+          maxLength={TITLE_MAX}
+          disabled={locked === true}
+          // A title is one line of plain text. The file refuses control characters, so they are dropped as they are typed.
+          onChange={(e) => onTitle(plain(e.target.value, false))}
+          placeholder={reportName}
+          autoComplete="off"
+        />
+      </label>
+
+      <label className="field note-field">
+        <span>Notes for the crew</span>
+        <textarea
+          value={note}
+          maxLength={NOTES_MAX}
+          rows={3}
+          disabled={locked === true}
+          // Line breaks stay; any other control character is dropped.
+          onChange={(e) => onNote(plain(e.target.value, true))}
+          aria-describedby={`${id}-note-count`}
+        />
+        <span id={`${id}-note-count`} className="muted">
+          {note.length} of {NOTES_MAX} characters. Printed on the card.
+        </span>
+      </label>
+
       <label className="field offset-field">
         <span>Ground offset (m)</span>
         <input
@@ -154,6 +201,14 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
           <span className="field-error">Heights are hidden: the ground offset for every array is not a number.</span>
         ) : null}
       </label>
+
+      {onDelete ? (
+        <p className="card-delete">
+          <button type="button" className="button" onClick={onDelete} aria-label={`Delete ${c.name}`}>
+            Delete array
+          </button>
+        </p>
+      ) : null}
 
       {c.rows.length === 0 ? (
         <p className="muted">No enclosure table was found for this array.</p>

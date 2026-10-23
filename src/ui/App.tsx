@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
-import { compareReports, matchByName, type Change } from '../engine/compare';
+import { compareReports, type Change } from '../engine/compare';
 import { riggingFixations, riggingRows } from '../engine/sheet';
-import type { ParseResult } from '../engine/types';
+import type { ParseResult, Problem } from '../engine/types';
 import { openFileText, serialiseDoc } from '../files/array-file-io';
 import { browserStore, readAutosave, writeAutosave, type Restorable } from '../files/autosave';
-import { editKey, isDirty, isLocked, keepsHandle, markSaved, sameDocument, statusLocks } from '../files/doc';
+import { deletedList, editKey, isDirty, isLocked, keepsHandle, markSaved, sameDocument, statusLocks } from '../files/doc';
 import { downloadBlob } from '../files/download';
 import { suggestedFileName, suggestedImageName, suggestedPdfName } from '../files/file-name';
 import { ensurePermission, fsAccessSupported, pickFileToOpen } from '../files/fs-access';
@@ -19,10 +19,11 @@ import { takeSharedFile } from '../files/share-target';
 import { cardImageBlob } from '../print/array-image';
 import { cardContent } from '../print/card-content';
 import { printFooter } from '../print/footer';
+import { riggingNotes } from '../print/pdf-layout';
 import { PrintSheet } from '../print/PrintSheet';
 import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
-import { newDoc, showTitle, STATUS_LABELS, withPrinted, type Doc, type Job, type Status } from './document';
+import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, withDeleted, withNote, withPrinted, withTitle, type Doc, type Job, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -56,6 +57,10 @@ export function App() {
   const [handle, setHandle] = useState<FileSystemFileHandle | null>(null);
   const [recent, setRecent] = useState<RecentFile[]>([]);
   const [recentOpen, setRecentOpen] = useState(false);
+  /** Positions in the report of the arrays deleted this session, latest last. Never saved: only Undo reads it. */
+  const [undoStack, setUndoStack] = useState<number[]>([]);
+  const undoButton = useRef<HTMLButtonElement>(null);
+  const undoDepth = useRef(0);
   const fsAccess = useMemo(fsAccessSupported, []);
   const openInput = useRef<HTMLInputElement>(null);
   const docRef = useRef<Doc | null>(null);
@@ -67,7 +72,14 @@ export function App() {
   const model = useMemo(() => (doc ? sheetModel(doc, showMirrors) : null), [doc, showMirrors]);
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   const printable = doc !== null && doc.result.ok && model !== null && !model.badOffsets && printCount > 0;
-  const checks = doc ? doc.result.problems.filter((p) => p.level === 'check').length : 0;
+  const problems = useMemo(() => (doc ? visibleProblems(doc) : []), [doc]);
+  const checks = problems.filter((p) => p.level === 'check').length;
+
+  // After a delete, put the focus on Undo, so the next key press can take it back.
+  useEffect(() => {
+    if (undoStack.length > undoDepth.current) undoButton.current?.focus();
+    undoDepth.current = undoStack.length;
+  }, [undoStack]);
 
   // Offer back a copy kept from an earlier visit that ended with unsaved changes.
   useEffect(() => {
@@ -117,7 +129,7 @@ export function App() {
     setBusy(true);
     setError(null);
     try {
-      const ctx = { show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero };
+      const ctx = { show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero, showDate: doc.job.showDate };
       const footer = printFooter({
         appVersion: __APP_VERSION__,
         soundvisionVersion: doc.result.report.document.version,
@@ -205,6 +217,7 @@ export function App() {
         setHandle(null);
       }
       setCompare(null);
+      setUndoStack([]);
       // The opened file replaces whatever the kept copy was for, and the offer must not block autosave.
       setRestore(null);
       void browserStore.clear();
@@ -326,7 +339,7 @@ export function App() {
         setError(`The new PDF cannot be relied on, so nothing was changed. ${first?.message ?? ''}`.trim());
         return;
       }
-      const changes = compareReports(doc.result.report, fresh.report);
+      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles);
       if (changes.length === 0) setNotice(`${file.name} matches this file. There is nothing to update.`);
       else setCompare({ fresh, sourceName: file.name, changes });
     } catch (e) {
@@ -338,18 +351,8 @@ export function App() {
 
   function applyUpdate() {
     if (!doc || !compare) return;
-    const map = matchByName(doc.result.report, compare.fresh.report);
-    const offsets: Record<number, string> = {};
-    for (const [i, text] of Object.entries(doc.offsets)) {
-      const j = map.get(Number(i));
-      if (j !== undefined) offsets[j] = text;
-    }
-    const noPrint: Record<number, boolean> = {};
-    for (const [i, skip] of Object.entries(doc.noPrint)) {
-      const j = map.get(Number(i));
-      if (skip && j !== undefined) noPrint[j] = true;
-    }
-    setDoc({ ...doc, result: compare.fresh, sourceName: compare.sourceName, offsets, noPrint, printOverride: null });
+    setDoc(updatedDoc(doc, compare.fresh, compare.sourceName));
+    setUndoStack([]);
     setNotice(`Updated from ${compare.sourceName}. The file has unsaved changes.`);
     setCompare(null);
   }
@@ -357,6 +360,7 @@ export function App() {
   function startAgain() {
     if (!confirmDiscard('Start again anyway?')) return;
     setDoc(null);
+    setUndoStack([]);
     setHandle(null);
     setError(null);
     setNotice(null);
@@ -373,6 +377,23 @@ export function App() {
   const setOffset = (index: number, text: string) =>
     setDoc((d) => (d && !d.locked ? { ...d, offsets: { ...d.offsets, [index]: text } } : d));
   const setPrinted = (index: number, printed: boolean) => setDoc((d) => (d ? withPrinted(d, index, printed) : d));
+  const setTitle = (index: number, text: string) => setDoc((d) => (d ? withTitle(d, index, text) : d));
+  const setNote = (index: number, text: string) => setDoc((d) => (d ? withNote(d, index, text) : d));
+  const deleteArray = (index: number) => {
+    if (!doc || doc.locked) return;
+    setDoc(withDeleted(doc, index, true));
+    setUndoStack((s) => [...s, index]);
+  };
+  const undoDelete = () => {
+    const index = undoStack[undoStack.length - 1];
+    if (index === undefined) return;
+    setDoc((d) => (d ? withDeleted(d, index, false) : d));
+    setUndoStack((s) => s.slice(0, -1));
+  };
+  const restoreArray = (index: number) => {
+    setDoc((d) => (d ? withDeleted(d, index, false) : d));
+    setUndoStack((s) => s.filter((i) => i !== index));
+  };
   const setRevision = (revision: string) => setDoc((d) => (d && !d.locked ? { ...d, revision } : d));
 
   return (
@@ -523,6 +544,7 @@ export function App() {
                 disabled={busy}
                 onClick={() => {
                   setDoc(restore.doc);
+                  setUndoStack([]);
                   // The kept copy was never written to a file, so Save must ask where.
                   setHandle(null);
                   setCompare(null);
@@ -590,6 +612,12 @@ export function App() {
           <Report
             doc={doc}
             model={model}
+            problems={problems}
+            undoLabel={undoStack.length > 0 ? (doc.result.report.sources[undoStack[undoStack.length - 1] ?? -1]?.name ?? null) : null}
+            undoButton={undoButton}
+            onDelete={deleteArray}
+            onUndo={undoDelete}
+            onRestore={restoreArray}
             showMirrors={showMirrors}
             onShowMirrors={setShowMirrors}
             locked={locked}
@@ -598,6 +626,8 @@ export function App() {
             onStatus={onStatus}
             onRevision={setRevision}
             onOffset={setOffset}
+            onTitle={setTitle}
+            onNote={setNote}
             onPrinted={setPrinted}
             onImage={(entry) => void saveImages([entry])}
             onAllImages={() => model && void saveImages(model.entries.filter((e) => e.print))}
@@ -640,6 +670,14 @@ export function App() {
 interface ReportProps {
   doc: Doc;
   model: SheetModel | null;
+  /** The problems to show: the checks that concern only deleted arrays are left out. */
+  problems: readonly Problem[];
+  /** The name of the array a click on Undo would bring back, or null when there is nothing to undo. */
+  undoLabel: string | null;
+  undoButton: RefObject<HTMLButtonElement | null>;
+  onDelete: (i: number) => void;
+  onUndo: () => void;
+  onRestore: (i: number) => void;
   showMirrors: boolean;
   onShowMirrors: (show: boolean) => void;
   locked: boolean;
@@ -648,13 +686,15 @@ interface ReportProps {
   onStatus: (s: Status) => void;
   onRevision: (r: string) => void;
   onOffset: (i: number, t: string) => void;
+  onTitle: (i: number, t: string) => void;
+  onNote: (i: number, t: string) => void;
   onPrinted: (i: number, printed: boolean) => void;
   onImage: (entry: SheetEntry) => void;
   onAllImages: () => void;
 }
 
-function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onPrinted, onImage, onAllImages }: ReportProps) {
-  const { report, problems, ok } = doc.result;
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onPrinted, onImage, onAllImages }: ReportProps) {
+  const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
     <>
@@ -666,7 +706,7 @@ function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, o
             <h2 id="fly-heading" className="section-heading">
               Fly sheet
               <span className="count">
-                {model.entries.length} of {report.sources.length} arrays shown
+                {model.entries.length} of {model.live.size} arrays shown
               </span>
             </h2>
             <div className="sheet-tools">
@@ -674,14 +714,35 @@ function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, o
                 <label className="check-field">
                   <input type="checkbox" checked={showMirrors} onChange={(e) => onShowMirrors(e.target.checked)} />
                   <span>
-                    Show the {model.mirrorPairs} mirrored {model.mirrorPairs === 1 ? 'array' : 'arrays'} too (exact left-right copies are hidden)
+                    Show the {model.mirrorPairs} mirrored {model.mirrorPairs === 1 ? 'array' : 'arrays'} too (exact mirror images are hidden)
                   </span>
                 </label>
               ) : null}
               <button type="button" className="button" disabled={busy || model.badOffsets || printCount === 0} onClick={onAllImages}>
                 Save selected as images
               </button>
+              <button type="button" className="button" ref={undoButton} disabled={undoLabel === null || locked} onClick={onUndo}>
+                {undoLabel === null ? 'Undo delete' : `Undo delete of ${undoLabel}`}
+              </button>
             </div>
+            {model.deletedList.length > 0 ? (
+              <div className="muted source-line" data-testid="deleted-list">
+                <p>
+                  {model.deletedList.length} deleted. The report still holds {model.deletedList.length === 1 ? 'it' : 'them'}, so
+                  {model.deletedList.length === 1 ? ' it' : ' they'} can be restored. {locked ? 'This file is read-only, so nothing can be restored.' : ''}
+                </p>
+                <ul className="deleted-list">
+                  {model.deletedList.map((d) => (
+                    <li key={d.index}>
+                      {d.name}{' '}
+                      <button type="button" className="button" disabled={locked} onClick={() => onRestore(d.index)} aria-label={`Restore ${d.name}`}>
+                        Restore
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <p className="muted source-line" data-testid="print-count">
               {printCount === model.entries.length
                 ? `All ${printCount} arrays shown are chosen for printing and as images.`
@@ -705,15 +766,21 @@ function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, o
                   defaultBad={entry.offset.badField === 'default'}
                   usingDefault={(doc.offsets[entry.index] ?? '').trim() === ''}
                   onOffset={(t) => onOffset(entry.index, t)}
+                  titleText={doc.titles[entry.index] ?? ''}
+                  reportName={entry.reportName}
+                  onTitle={(t) => onTitle(entry.index, t)}
+                  note={doc.notes[entry.index] ?? ''}
+                  onNote={(t) => onNote(entry.index, t)}
                   printed={entry.print}
                   onPrinted={(p) => onPrinted(entry.index, p)}
                   onImage={entry.offset.value === null ? undefined : () => onImage(entry)}
+                  onDelete={locked ? undefined : () => onDelete(entry.index)}
                 />
               ))}
             </div>
           </section>
           <RiggingPlotPreview doc={doc} model={model} />
-          <RiggingSummary rows={riggingRows(report.sources)} fixations={riggingFixations(report.sources)} />
+          <RiggingSummary rows={riggingRows(model.sources, model.live)} fixations={riggingFixations(model.sources, model.live)} notes={riggingNotes(doc.job)} />
         </>
       ) : null}
     </>

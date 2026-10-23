@@ -16,7 +16,7 @@ describe('panelHeader', () => {
 
   it('puts the show first and keeps the project, engineer, company and Z-axis zero beneath it', () => {
     const d = doc();
-    d.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '', origin: 'DSE', sideLabels: true };
+    d.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '', origin: 'DSE', sideLabels: true, notes: '', showDate: '' };
     d.status = 'issued';
     d.revision = 'B';
     expect(panelHeader(d)).toEqual({
@@ -24,6 +24,14 @@ describe('panelHeader', () => {
       title: 'Main stage · Grand Hall',
       details: 'Example Arena - Example Show · Sam · Acme Audio · Z-axis zero: Arena floor',
     });
+  });
+
+  it('puts the show date first in the details line, UK style, and leaves the line alone when there is none', () => {
+    const d = doc();
+    d.job = { ...d.job, show: 'Main stage', engineer: 'Sam', showDate: '2026-10-23' };
+    expect(panelHeader(d).details).toBe('23/10/2026 · Example Arena - Example Show · Sam');
+    d.job.showDate = '';
+    expect(panelHeader(d).details).toBe('Example Arena - Example Show · Sam');
   });
 
   it('uses the venue alone when there is no show, and the show alone when there is no venue', () => {

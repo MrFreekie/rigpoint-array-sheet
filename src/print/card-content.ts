@@ -3,6 +3,7 @@
 
 import { enclosureLabel } from '../engine/types';
 import { STATUS_LABELS, type Status } from '../files/doc';
+import { showDateText } from '../files/show-date';
 import { degrees, kg, metres, NOT_STATED, num } from '../ui/format';
 import type { SheetEntry } from '../ui/sheet-model';
 
@@ -12,6 +13,8 @@ export interface CardContext {
   status: Status;
   revision: string;
   zAxisZero: string;
+  /** The show date as YYYY-MM-DD, or blank. */
+  showDate?: string;
 }
 
 export interface CardContent {
@@ -22,6 +25,10 @@ export interface CardContent {
   context: string;
   /** "Also mirrored with: " and the name of the other array, when this card stands for a mirror image or is one. */
   mirrorNote: string | null;
+  /** "Soundvision name: " and the name in the report, only when the person gave the array a title of their own. */
+  reportNameNote: string | null;
+  /** What the person wrote for the crew, trimmed, with its line breaks. Null when blank. */
+  note: string | null;
   facts: [label: string, value: string][];
   /** One row per fixation: name, X, Y, Z as the report prints them. Empty when the report states none. */
   fixations: string[][];
@@ -92,7 +99,9 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
   return {
     title: c.name,
     subtitle: [c.group, c.configuration ?? 'configuration not stated'].filter(Boolean).join(' · '),
-    context: [ctx.show.trim(), ctx.venue.trim(), status, ctx.zAxisZero.trim() ? `Z-axis zero: ${ctx.zAxisZero.trim()}` : ''].filter(Boolean).join(' · '),
+    context: [ctx.show.trim(), ctx.venue.trim(), showDateText(ctx.showDate ?? ''), status, ctx.zAxisZero.trim() ? `Z-axis zero: ${ctx.zAxisZero.trim()}` : ''].filter(Boolean).join(' · '),
+    reportNameNote: entry.renamed ? `Soundvision name: ${entry.reportName}` : null,
+    note: entry.note.trim() === '' ? null : entry.note.trim(),
     mirrorNote: entry.coversMirror ? `Also mirrored with: ${entry.coversMirror}` : entry.mirrorOf ? `Also mirrored with: ${entry.mirrorOf}` : null,
     facts,
     fixations: c.fixations.map((f) => [fixationName(f.name), String(f.at.x), String(f.at.y), String(f.at.z)]),

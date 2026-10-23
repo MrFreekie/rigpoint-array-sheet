@@ -4,9 +4,11 @@
 import type { ArraySource, Report } from './types';
 
 export interface Change {
-  kind: 'added' | 'removed' | 'changed';
+  kind: 'added' | 'removed' | 'changed' | 'restored';
   /** The array concerned, or null for a change to the report as a whole. */
   array: string | null;
+  /** The title the person gave the array, when it differs from its name in the report. Absent otherwise. */
+  shownAs?: string;
   what: string;
   saved: string | null;
   now: string | null;
@@ -63,8 +65,12 @@ function diffFacts(array: string, a: Map<string, string>, b: Map<string, string>
   }
 }
 
-/** Arrays are matched by name. Two arrays with the same name are matched in the order they appear. */
-export function compareReports(saved: Report, next: Report): Change[] {
+/**
+ * Arrays are matched by name. Two arrays with the same name are matched in the order they appear.
+ * An array in `deleted` (positions in the saved report) that is in the new PDF comes back, so it is listed as restored
+ * instead of figure by figure. One that is not in the new PDF is not listed.
+ */
+export function compareReports(saved: Report, next: Report, deleted: ReadonlySet<number> = new Set(), titles: Readonly<Record<number, string>> = {}): Change[] {
   const out: Change[] = [];
 
   const doc: [string, string | null, string | null][] = [
@@ -79,14 +85,30 @@ export function compareReports(saved: Report, next: Report): Change[] {
   const queues = new Map<string, ArraySource[]>();
   for (const s of next.sources) queues.set(s.name, [...(queues.get(s.name) ?? []), s]);
   const matched = new Set<ArraySource>();
-  for (const s of saved.sources) {
+  for (const [i, s] of saved.sources.entries()) {
     const match = queues.get(s.name)?.shift();
+    const first = out.length;
+    // Whatever this array adds to the list says which title the person gave it.
+    const title = titles[i]?.trim();
+    const label = () => {
+      if (title && title !== s.name) for (const c of out.slice(first)) c.shownAs = title;
+    };
+    if (deleted.has(i)) {
+      if (match) {
+        matched.add(match);
+        out.push({ kind: 'restored', array: s.name, what: 'Array', saved: 'deleted in this file', now: 'in the new PDF, so it comes back' });
+      }
+      label();
+      continue;
+    }
     if (!match) {
       out.push({ kind: 'removed', array: s.name, what: 'Array', saved: 'in the saved file', now: null });
+      label();
       continue;
     }
     matched.add(match);
     diffFacts(s.name, facts(s), facts(match), out);
+    label();
   }
   for (const s of next.sources) {
     if (!matched.has(s)) out.push({ kind: 'added', array: s.name, what: 'Array', saved: null, now: 'in the new PDF' });

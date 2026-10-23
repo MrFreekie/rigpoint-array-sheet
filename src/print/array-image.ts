@@ -89,6 +89,39 @@ export function wrap(text: string, size: number, bold: boolean, max: number, mea
   return lines.length > 0 ? lines : [''];
 }
 
+/** Wraps text that follows a lead on the first line: that line is `firstMax` wide, the rest `max`. The first line may be empty. */
+export function wrapAfterLead(text: string, size: number, bold: boolean, firstMax: number, max: number, measure: Measure): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  let first = '';
+  let n = 0;
+  for (; n < words.length; n++) {
+    const trial = first ? `${first} ${words[n]}` : (words[n] as string);
+    if (measure(trial, size, bold) > firstMax) break;
+    first = trial;
+  }
+  const rest = words.slice(n).join(' ');
+  return rest ? [first, ...wrap(rest, size, bold, max, measure)] : [first];
+}
+
+/**
+ * The lines of a note for the crew: "Note:" in bold runs into the first line, each line break the person typed starts a new
+ * line, and a blank line stays blank. Every printed form of a card wraps the note with this, so they agree.
+ */
+export function noteLines(note: string, size: number, max: number, measure: Measure, lead = 'Note: '): { text: string; lead: boolean }[] {
+  const indent = measure(lead, size, true);
+  const out: { text: string; lead: boolean }[] = [];
+  note.split(/\r?\n/).forEach((segment, i) => {
+    if (i === 0) {
+      wrapAfterLead(segment, size, false, max - indent, max, measure).forEach((text, k) => out.push({ text, lead: k === 0 }));
+    } else if (segment.trim() === '') {
+      out.push({ text: '', lead: false });
+    } else {
+      wrap(segment, size, false, max, measure).forEach((text) => out.push({ text, lead: false }));
+    }
+  });
+  return out;
+}
+
 export interface ImageOptions {
   /** Footer text, e.g. which file and when it was exported. */
   footer: string;
@@ -130,6 +163,19 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
 
   if (content.mirrorNote) {
     paragraph(content.mirrorNote, 12, { color: '#333', gap: 8 });
+  }
+  if (content.reportNameNote) {
+    paragraph(content.reportNameNote, 12, { color: '#333', gap: 8 });
+  }
+  if (content.note) {
+    const size = 13;
+    const leadW = measure('Note: ', size, true);
+    for (const line of noteLines(content.note, size, inner, measure)) {
+      if (line.lead) text('Note:', size, { bold: true });
+      if (line.text) text(line.text, size, { x: PAD + (line.lead ? leadW : 0) });
+      y += Math.round(size * 1.3);
+    }
+    y += 8;
   }
   for (const w of content.warnings) {
     box(

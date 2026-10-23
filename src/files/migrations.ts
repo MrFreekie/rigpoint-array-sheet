@@ -33,6 +33,21 @@ export const MIGRATIONS: Record<number, Migration> = {
     const job = file['job'];
     return typeof job === 'object' && job !== null && !Array.isArray(job) ? { ...file, job: { ...job, origin: '', side_labels: true } } : file;
   },
+  // Version 7 added a card title and a note for each array, the arrays the person deleted, and the notes and date of the show.
+  // An older copy of the app would drop them when it saved, and bring deleted arrays back, so it refuses version 7 files.
+  6: (file) => {
+    const report = file['report'];
+    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
+    const count = Array.isArray(sources) ? sources.length : 0;
+    const job = file['job'];
+    return {
+      ...file,
+      ...(typeof job === 'object' && job !== null && !Array.isArray(job) ? { job: { ...job, notes: '', show_date: '' } } : {}),
+      titles: Array.from({ length: count }, () => ''),
+      notes: Array.from({ length: count }, () => ''),
+      deleted: Array.from({ length: count }, () => false),
+    };
+  },
 };
 
 export function migrate(

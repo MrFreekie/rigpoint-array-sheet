@@ -3,7 +3,7 @@ import { Dialog } from './Dialog';
 
 const SHOWN = 60;
 
-const WORD = { changed: 'CHANGED', added: 'ADDED', removed: 'REMOVED' } as const;
+const WORD = { changed: 'CHANGED', added: 'ADDED', removed: 'REMOVED', restored: 'RESTORED' } as const;
 
 /** What a new PDF would change in the file that is open, with the choice to update or keep it as saved. */
 export function CompareDialog({
@@ -21,14 +21,14 @@ export function CompareDialog({
   return (
     <Dialog title="The new PDF is different" onClose={onKeep}>
       <p>
-        {sourceName} differs from this file in {changes.length} {changes.length === 1 ? 'place' : 'places'}. Your show details and ground
-        offsets are kept. Offsets stay with an array of the same name.
+        {sourceName} differs from this file in {changes.length} {changes.length === 1 ? 'place' : 'places'}. Your show details, ground
+        offsets, titles and notes are kept. They stay with an array of the same name. An array you deleted comes back if the new PDF has it.
       </p>
       <ul className="change-list" aria-label="Differences">
         {shown.map((c, i) => (
           <li key={i}>
-            <span className={`tag ${c.kind === 'changed' ? 'tag-check' : c.kind === 'added' ? 'tag-ok' : 'tag-error'}`}>{WORD[c.kind]}</span>{' '}
-            {c.array ? <strong>{c.array}: </strong> : null}
+            <span className={`tag ${c.kind === 'changed' ? 'tag-check' : c.kind === 'added' || c.kind === 'restored' ? 'tag-ok' : 'tag-error'}`}>{WORD[c.kind]}</span>{' '}
+            {c.array ? <strong>{c.shownAs ? `${c.array} (shown as ${c.shownAs}): ` : `${c.array}: `}</strong> : null}
             {c.what}
             {c.saved !== null && c.now !== null ? (
               <>

@@ -200,6 +200,12 @@ describe('cardContent', () => {
     expect(c.rows[4]).toEqual(['2', 'SB18', '–', '–', '0']);
   });
 
+  it('puts the show date, UK style, after the venue in the context, and nothing when there is none', () => {
+    const entry = sheetModel(docA, false).entries[0]!;
+    expect(cardContent(entry, { ...ctx, showDate: '2026-10-23' }).context).toBe('Main stage · Grand Hall · 23/10/2026 · Issued Rev B · Z-axis zero: Arena floor');
+    expect(cardContent(entry, { ...ctx, showDate: '' }).context).toBe('Main stage · Grand Hall · Issued Rev B · Z-axis zero: Arena floor');
+  });
+
   it('drops empty context parts', () => {
     const entry = sheetModel(docA, false).entries[0]!;
     expect(cardContent(entry, { show: '', venue: '', status: 'draft', revision: '', zAxisZero: '' }).context).toBe('Draft');

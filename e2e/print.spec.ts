@@ -111,6 +111,36 @@ test('report A: nine arrays print four to a page, then the plot and the rigging 
   await expect(last.getByTestId('print-small-print')).toContainText('Soundvision and L-Acoustics are trademarks of their owners.');
 });
 
+test('notes for the show print on the rigging page only, in the print view and in Download PDF', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await expect(page.getByTestId('print-show-notes')).toHaveCount(0);
+  await expect(pages(page)).toHaveCount(5);
+  const before = pdfPages(await printToPdf(page, 'no-notes.pdf'));
+
+  await page.emulateMedia({ media: 'screen' });
+  await page.getByRole('region', { name: 'Show details' }).getByRole('textbox', { name: /^Notes/ }).fill('Load in at 08:00.\nCall Sam first.');
+  await page.emulateMedia({ media: 'print' });
+  const last = pages(page).last();
+  await expect(last.getByTestId('print-show-notes')).toContainText('Notes: Load in at 08:00.');
+  await expect(last.getByTestId('print-show-notes')).toContainText('Call Sam first.');
+  await expect(pages(page).getByTestId('print-show-notes')).toHaveCount(1); // the rigging page only; another copy is the hidden one used to measure it
+  // The two lines stay two lines in the print view.
+  expect(await last.getByTestId('print-show-notes').evaluate((el) => getComputedStyle(el).whiteSpace)).toBe('pre-line');
+  await expectNothingClipped(page);
+  expect(pdfPages(await printToPdf(page, 'notes.pdf'))).toBe(before);
+
+  await page.emulateMedia({ media: 'screen' });
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+  const count = Math.max(...items.map((i) => i.page));
+  expect(count).toBe(before);
+  const on = (p: number) => items.filter((i) => i.page === p).map((i) => i.text).join(' ');
+  expect(on(count)).toContain('Load in at 08:00.');
+  expect(on(count)).toContain('Call Sam first.');
+  expect(on(1)).not.toContain('Call Sam first.');
+});
+
 test('report B: eight arrays make two pages of cards and the rigging page', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('b'));
@@ -379,6 +409,45 @@ test('a card table row is 14.0625 px high, and a rendered card is as tall as the
   expect(measured.cards.length).toBeGreaterThan(5);
   // 0.5 mm is 1.89 CSS pixels.
   for (const c of measured.cards) expect(Math.abs(c.rendered - c.planned), c.title).toBeLessThan(0.5 * (96 / 25.4));
+});
+
+// A title and a note change a card's height. The plan counts the lines the way the browser wraps them, so the print view and the PDF
+// must put the same card on the same page, and nothing may be cut off.
+test('a card with a title and a long note is as tall as the plan says, and the PDF carries both', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const card = page.locator('.card', { has: page.getByRole('heading', { name: 'KARA II L Out', exact: true }) });
+  await card.getByLabel('Card title').fill('Left outfill');
+  await expect(page.getByRole('heading', { name: 'Left outfill', exact: true })).toBeVisible();
+  await expect(page.locator('.card', { hasText: 'Soundvision name: KARA II L Out' })).toHaveCount(1);
+  const note = 'Hang from the front bar hole.\n\nCheck the chain twice before the load in. ' + 'x'.repeat(60);
+  await page.locator('.card', { hasText: 'Left outfill' }).getByLabel('Notes for the crew').fill(note);
+  await expect(page.getByText(`${note.length} of 300 characters`)).toBeVisible();
+
+  await expect.poll(() => page.locator('.as-fit[data-planned-height]').count()).toBeGreaterThan(0);
+  const measured = await page.evaluate(() => ({
+    cards: [...document.querySelectorAll<HTMLElement>('.as-fit[data-planned-height]')].map((fit) => ({
+      title: fit.querySelector('.pc-title')?.textContent ?? '',
+      rendered: (fit.querySelector('.pc') as HTMLElement).offsetHeight,
+      planned: Number(fit.dataset['plannedHeight']),
+      note: fit.querySelector('.pc-note')?.textContent ?? null,
+    })),
+  }));
+  for (const c of measured.cards) expect(Math.abs(c.rendered - c.planned), c.title).toBeLessThan(0.5 * (96 / 25.4));
+  const titled = measured.cards.find((c) => c.title === 'Left outfill');
+  expect(titled?.note).toBe(`Note: ${note}`);
+  expect(measured.cards.filter((c) => c.note !== null)).toHaveLength(1);
+  await expectNothingClipped(page);
+
+  await page.emulateMedia({ media: 'screen' });
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+  const text = items.map((i) => i.text).join(' ');
+  expect(text).toContain('Left outfill');
+  expect(text).toContain('Soundvision name: KARA II L Out');
+  expect(text).toContain('Note:');
+  expect(text).toContain('Hang from the front bar hole.');
+  expect(text).toContain('Check the chain twice before the load in.');
 });
 
 // Report E has stacked arrays with fixation positions. The block under the facts must be a table row high per position

@@ -2,6 +2,7 @@
 // whose it is: the app, the show, the Soundvision project, who made it and which revision it is.
 
 import { STATUS_LABELS, type Doc } from '../files/doc';
+import { showDateText } from '../files/show-date';
 
 export interface PanelHeader {
   /** e.g. "Draft Rev B". */
@@ -23,7 +24,7 @@ export function panelHeader(doc: Doc): PanelHeader {
   return {
     status: `${STATUS_LABELS[doc.status]}${doc.revision ? ` Rev ${doc.revision}` : ''}`,
     title,
-    details: [project !== title ? project : '', doc.job.engineer.trim(), doc.job.company.trim(), zero ? `Z-axis zero: ${zero}` : '']
+    details: [showDateText(doc.job.showDate), project !== title ? project : '', doc.job.engineer.trim(), doc.job.company.trim(), zero ? `Z-axis zero: ${zero}` : '']
       .filter(Boolean)
       .join(' · '),
   };

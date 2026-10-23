@@ -219,6 +219,13 @@
   font-size: 6.5pt;
 }
 
+.pc-note {
+  margin-bottom: 1mm;
+  font-size: 6.5pt;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 .pc-warnings {
   list-style: none;
   padding: 0;
@@ -322,6 +329,13 @@
 .as-rigging-note {
   margin: 2mm 0 0;
   font-size: 7pt;
+}
+
+.as-rigging-notes {
+  margin: 0 0 3mm;
+  font-size: 8pt;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 /* Fixed columns (the shares the PDF uses) and one line per row; text that is too long has been cut with an ellipsis. */

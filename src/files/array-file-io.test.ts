@@ -10,7 +10,7 @@ const NOW = new Date('2026-10-22T10:30:00.000Z');
 
 function sample(name: 'a' | 'b' | 'd' | 'e' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `report-${name}.pdf`);
-  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3', origin: 'Iron Line', sideLabels: false };
+  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3', origin: 'Iron Line', sideLabels: false, notes: '', showDate: '' };
   doc.offsets = { 0: '1.5', 4: '-0.2' };
   doc.revision = 'B';
   doc.status = 'issued';
@@ -56,6 +56,77 @@ describe('origin', () => {
     const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { job: Record<string, unknown> };
     f.job['origin'] = 5;
     expect(() => openFileText(JSON.stringify(f), null)).toThrow(/Origin \(P0\) must be text/);
+  });
+});
+
+describe('show date', () => {
+  it('is saved as YYYY-MM-DD and comes back', () => {
+    const doc = sample();
+    doc.job = { ...doc.job, showDate: '2026-10-23' };
+    expect(JSON.parse(serialiseDoc(doc, '0.1.0', NOW)).job.show_date).toBe('2026-10-23');
+    expect(roundTrip(doc).doc.job.showDate).toBe('2026-10-23');
+    expect(roundTrip(sample()).doc.job.showDate).toBe('');
+  });
+
+  it('is blank in a version 6 file', () => {
+    const v6 = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { format: string; job: Record<string, unknown>; titles?: unknown; notes?: unknown; deleted?: unknown };
+    v6.format = 'arraysheet/6';
+    delete v6.job['show_date'];
+    delete v6.job['notes'];
+    delete v6.titles;
+    delete v6.notes;
+    delete v6.deleted;
+    expect(openFileText(JSON.stringify(v6), null).doc.job.showDate).toBe('');
+  });
+
+  it('is refused when it is not a real calendar date or not text, and blank is fine', () => {
+    const f = () => JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { job: Record<string, unknown> };
+    for (const bad of ['23/10/2026', '2026-02-30', '2026-13-01', 'tomorrow']) {
+      const file = f();
+      file.job['show_date'] = bad;
+      expect(() => openFileText(JSON.stringify(file), null), bad).toThrow(/show date must be a real date or blank/i);
+    }
+    const odd = f();
+    odd.job['show_date'] = 5;
+    expect(() => openFileText(JSON.stringify(odd), null)).toThrow(/Show date must be text/);
+    const blank = f();
+    blank.job['show_date'] = '';
+    expect(() => openFileText(JSON.stringify(blank), null)).not.toThrow();
+  });
+});
+
+describe('show notes', () => {
+  it('are saved with line breaks and come back', () => {
+    const doc = sample();
+    doc.job = { ...doc.job, notes: 'Load in at 08:00.\nCall Sam first.' };
+    expect(JSON.parse(serialiseDoc(doc, '0.1.0', NOW)).job.notes).toBe('Load in at 08:00.\nCall Sam first.');
+    expect(roundTrip(doc).doc.job.notes).toBe('Load in at 08:00.\nCall Sam first.');
+  });
+
+  it('are blank in a version 6 file', () => {
+    const v6 = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { format: string; job: Record<string, unknown>; titles?: unknown; notes?: unknown; deleted?: unknown };
+    v6.format = 'arraysheet/6';
+    delete v6.job['notes'];
+    delete v6.titles;
+    delete v6.notes;
+    delete v6.deleted;
+    expect(openFileText(JSON.stringify(v6), null).doc.job.notes).toBe('');
+  });
+
+  it('are refused when they are over 500 characters, not text, or hold control characters', () => {
+    const f = () => JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { job: Record<string, unknown> };
+    const long = f();
+    long.job['notes'] = 'x'.repeat(501);
+    expect(() => openFileText(JSON.stringify(long), null)).toThrow(/Show notes is too long/);
+    const odd = f();
+    odd.job['notes'] = 5;
+    expect(() => openFileText(JSON.stringify(odd), null)).toThrow(/Show notes must be text/);
+    const ctl = f();
+    ctl.job['notes'] = 'bell\u0007';
+    expect(() => openFileText(JSON.stringify(ctl), null)).toThrow(/show notes cannot hold control characters/i);
+    const ok = f();
+    ok.job['notes'] = 'x'.repeat(500);
+    expect(() => openFileText(JSON.stringify(ok), null)).not.toThrow();
   });
 });
 
@@ -186,7 +257,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/6');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/7');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -287,5 +358,81 @@ describe('opening a bad file', () => {
       }
       expect(error).toBeInstanceOf(FileError);
     }
+  });
+});
+
+describe('titles, notes and deleted arrays', () => {
+  const edited = () => {
+    const doc = sample();
+    doc.titles = { 1: 'Front left' };
+    doc.notes = { 1: 'Rig first.\nCheck the motor.' };
+    doc.deleted = { 3: true };
+    return doc;
+  };
+
+  it('are saved and opened again', () => {
+    const f = JSON.parse(serialiseDoc(edited(), '0.1.0', NOW));
+    expect(f.titles[1]).toBe('Front left');
+    expect(f.titles[0]).toBe('');
+    expect(f.notes[1]).toBe('Rig first.\nCheck the motor.');
+    expect(f.deleted[3]).toBe(true);
+    expect(f.deleted[0]).toBe(false);
+    const back = roundTrip(edited()).doc;
+    expect(back.titles).toEqual({ 1: 'Front left' });
+    expect(back.notes).toEqual({ 1: 'Rig first.\nCheck the motor.' });
+    expect(back.deleted).toEqual({ 3: true });
+  });
+
+  it('keep the data of a deleted array in the file', () => {
+    const doc = edited();
+    const f = JSON.parse(serialiseDoc(doc, '0.1.0', NOW));
+    expect(f.report.sources).toHaveLength(doc.result.report.sources.length);
+  });
+
+  it('are not counted as saved changes after opening', () => {
+    const back = roundTrip(edited()).doc;
+    expect(back.savedKey).toBe(editKey(back));
+  });
+
+  it('are refused when a list is the wrong length', () => {
+    for (const key of ['titles', 'notes', 'deleted']) {
+      const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as Record<string, unknown[]>;
+      f[key]!.pop();
+      expect(() => openFileText(JSON.stringify(f), null)).toThrow(FileError);
+    }
+  });
+
+  it('refuse a title over 60 characters and a note over 300', () => {
+    const t = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { titles: string[]; notes: string[] };
+    t.titles[0] = 'x'.repeat(61);
+    expect(() => openFileText(JSON.stringify(t), null)).toThrow(/Title is too long/);
+    t.titles[0] = 'x'.repeat(60);
+    t.notes[0] = 'x'.repeat(301);
+    expect(() => openFileText(JSON.stringify(t), null)).toThrow(/Notes is too long/);
+    t.notes[0] = 'x'.repeat(300);
+    expect(() => openFileText(JSON.stringify(t), null)).not.toThrow();
+  });
+
+  it('refuse a title with a line break, and a note with any control character other than one', () => {
+    const t = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { titles: string[]; notes: string[] };
+    t.titles[0] = 'one\ntwo';
+    expect(() => openFileText(JSON.stringify(t), null)).toThrow(/title cannot hold line breaks/i);
+    t.titles[0] = '';
+    t.notes[0] = 'a\u0007b';
+    expect(() => openFileText(JSON.stringify(t), null)).toThrow(/note cannot hold control characters/i);
+    t.notes[0] = 'one\ntwo';
+    expect(() => openFileText(JSON.stringify(t), null)).not.toThrow();
+  });
+
+  it('are added, blank, when a version 6 file is opened', () => {
+    const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as Record<string, unknown>;
+    f['format'] = 'arraysheet/6';
+    delete f['titles'];
+    delete f['notes'];
+    delete f['deleted'];
+    const back = openFileText(JSON.stringify(f), null).doc;
+    expect(back.titles).toEqual({});
+    expect(back.notes).toEqual({});
+    expect(back.deleted).toEqual({});
   });
 });

@@ -1,4 +1,4 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/6").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/7").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
@@ -13,14 +13,20 @@ import {
   MAX_WARNINGS_PER_SOURCE,
 } from '../files/limits';
 import { REVISION_PATTERN } from '../files/revision';
+import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 6;
+export const FORMAT_VERSION = 7;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
 export const ORIGIN_MAX = 100;
+/** The longest card title and the longest note for one array. */
+export const TITLE_MAX = 60;
+export const NOTES_MAX = 300;
+/** The longest note for the whole show. */
+export const SHOW_NOTES_MAX = 500;
 
 const text = (what: string, max = 500) => z.string({ error: `${what} must be text` }).max(max, { error: `${what} is too long` });
 
@@ -43,9 +49,14 @@ export const ArrayFileSchema = z
       default_offset: text('Ground offset', 20),
       origin: text('Origin (P0)', ORIGIN_MAX),
       side_labels: z.boolean({ error: 'Side labels must be true or false' }),
+      notes: text('Show notes', SHOW_NOTES_MAX),
+      show_date: text('Show date', 10),
     }),
     offsets: z.array(text('Ground offset', 20), { error: 'Offsets must be a list' }),
     print: z.array(z.boolean({ error: 'Print must be true or false' }), { error: 'Print choices must be a list' }),
+    titles: z.array(text('Title', TITLE_MAX), { error: 'Titles must be a list' }),
+    notes: z.array(text('Notes', NOTES_MAX), { error: 'Notes must be a list' }),
+    deleted: z.array(z.boolean({ error: 'Deleted must be true or false' }), { error: 'Deleted choices must be a list' }),
     report: ReportSchema,
     problems: z.array(ProblemSchema, { error: 'Problems must be a list' }).max(MAX_PROBLEMS, { error: 'There are too many problems listed' }),
   })
@@ -61,6 +72,32 @@ export const ArrayFileSchema = z
     if (file.print.length !== sources.length) {
       ctx.addIssue({ code: 'custom', path: ['print'], message: 'There must be one print choice for each array' });
     }
+    if (file.titles.length !== sources.length) {
+      ctx.addIssue({ code: 'custom', path: ['titles'], message: 'There must be one title for each array' });
+    }
+    if (file.notes.length !== sources.length) {
+      ctx.addIssue({ code: 'custom', path: ['notes'], message: 'There must be one note for each array' });
+    }
+    if (file.deleted.length !== sources.length) {
+      ctx.addIssue({ code: 'custom', path: ['deleted'], message: 'There must be one deleted choice for each array' });
+    }
+    if (file.job.show_date !== '' && !isShowDate(file.job.show_date)) {
+      ctx.addIssue({ code: 'custom', path: ['job', 'show_date'], message: 'The show date must be a real date or blank' });
+    }
+    // The show notes may hold line breaks, nothing else that is not text.
+    // eslint-disable-next-line no-control-regex
+    if (/[\u0000-\u0009\u000b-\u001f\u007f]/.test(file.job.notes)) {
+      ctx.addIssue({ code: 'custom', path: ['job', 'notes'], message: 'The show notes cannot hold control characters' });
+    }
+    file.titles.forEach((t, i) => {
+      // eslint-disable-next-line no-control-regex
+      if (/[\u0000-\u001f\u007f]/.test(t)) ctx.addIssue({ code: 'custom', path: ['titles', i], message: 'A title cannot hold line breaks or control characters' });
+    });
+    file.notes.forEach((t, i) => {
+      // A note may hold line breaks, nothing else that is not text.
+      // eslint-disable-next-line no-control-regex
+      if (/[\u0000-\u0009\u000b-\u001f\u007f]/.test(t)) ctx.addIssue({ code: 'custom', path: ['notes', i], message: 'A note cannot hold control characters' });
+    });
     sources.forEach((s, i) => {
       const at = ['report', 'sources', i] as const;
       if (s.cabinets.length > MAX_CABINETS_PER_SOURCE) {

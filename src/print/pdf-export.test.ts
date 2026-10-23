@@ -21,7 +21,7 @@ const FOOTER = printFooter({
 
 function sampleDoc(name: 'a' | 'b' | 'c' | 'e' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `${name}.pdf`);
-  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '', origin: 'DSE', sideLabels: true };
+  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '', origin: 'DSE', sideLabels: true, notes: '', showDate: '' };
   return doc;
 }
 
@@ -68,6 +68,32 @@ describe('renderPdf', () => {
 
   it('report B is four pages', async () => {
     expect((await make(sampleDoc('b'))).pages).toBe(4);
+  });
+
+  it('prints the show date, UK style, on every panel, the plot and the rigging page, and nothing when there is none', async () => {
+    const doc = sampleDoc();
+    doc.job = { ...doc.job, showDate: '2026-10-23' };
+    const withDate = await make(doc);
+    for (let p = 1; p <= withDate.pages; p++) expect(withDate.text(p), `page ${p}`).toContain('23/10/2026');
+    const without = await make(sampleDoc());
+    expect(without.all).not.toContain('23/10/2026');
+    expect(without.pages).toBe(withDate.pages);
+  });
+
+  it('prints the show notes under the rigging heading, and nothing when there are none', async () => {
+    const doc = sampleDoc();
+    doc.job = { ...doc.job, notes: 'Load in at 08:00.\nCall Sam first.' };
+    const withNotes = await make(doc);
+    const last = withNotes.text(withNotes.pages);
+    expect(last).toContain('Rigging summary');
+    expect(last).toContain('Notes:');
+    expect(last).toContain('Load in at 08:00.');
+    expect(last).toContain('Call Sam first.');
+    // Only the rigging page carries them.
+    for (let p = 1; p < withNotes.pages; p++) expect(withNotes.text(p)).not.toContain('Call Sam first.');
+    const without = await make(sampleDoc());
+    expect(without.text(without.pages)).not.toContain('Notes:');
+    expect(without.pages).toBe(withNotes.pages);
   });
 
   it('puts the rigging plot just before the rigging summary, on a portrait page, turned a quarter turn', async () => {

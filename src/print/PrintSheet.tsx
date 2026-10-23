@@ -24,6 +24,7 @@ import {
   RIGGING_PICKUP_COLUMNS,
   RIGGING_PICKUP_WIDTHS_MM,
   clipRiggingCell,
+  riggingNotes,
   riggingSubtitle,
   layoutPocketCard,
   ptToPx,
@@ -35,6 +36,12 @@ function CardView({ content }: { content: CardContent }) {
       <h3 className="pc-title">{content.title}</h3>
       <p className="pc-sub">{content.subtitle}</p>
       {content.mirrorNote ? <p className="pc-mirror">{content.mirrorNote}</p> : null}
+      {content.reportNameNote ? <p className="pc-mirror">{content.reportNameNote}</p> : null}
+      {content.note ? (
+        <p className="pc-note">
+          <strong>Note:</strong> {content.note}
+        </p>
+      ) : null}
       {content.warnings.length > 0 ? (
         <ul className="pc-warnings">
           {content.warnings.map((w, i) => (
@@ -122,13 +129,14 @@ interface Props {
 
 export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
   const ctx = useMemo(
-    () => ({ show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero }),
-    [doc.job.show, doc.job.venue, doc.status, doc.revision, doc.job.zAxisZero],
+    () => ({ show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero, showDate: doc.job.showDate }),
+    [doc.job.show, doc.job.venue, doc.status, doc.revision, doc.job.zAxisZero, doc.job.showDate],
   );
   const contents = useMemo(() => model.entries.filter((e) => e.print).map((e) => ({ index: e.index, content: cardContent(e, ctx) })), [model, ctx]);
-  const rigging = useMemo(() => riggingRows(doc.result.report.sources, model.printedSources), [doc.result.report.sources, model.printedSources]);
-  const fixations = useMemo(() => riggingFixations(doc.result.report.sources, model.printedSources), [doc.result.report.sources, model.printedSources]);
+  const rigging = useMemo(() => riggingRows(model.sources, model.printedSources), [model.sources, model.printedSources]);
+  const fixations = useMemo(() => riggingFixations(model.sources, model.printedSources), [model.sources, model.printedSources]);
   const note = riggingNote(rigging.length > 0, fixations.length > 0);
+  const showNotes = riggingNotes(doc.job);
   const edgeNote = riggingEdgeNote(rigging.length > 0);
   // Names too long for their column are cut with an ellipsis, by the same rule as the PDF.
   const rigMeasure = useMemo(() => canvasMeasurePt(), []);
@@ -220,6 +228,12 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
           </p>
         </div>
       </div>
+      {showNotes ? (
+        <p className="as-rigging-notes" data-testid="print-show-notes">
+          <strong>Notes: </strong>
+          {showNotes}
+        </p>
+      ) : null}
       {rigging.length === 0 ? (
         <p className="as-rigging-note">No flown array in this report has a pickup position.</p>
       ) : (

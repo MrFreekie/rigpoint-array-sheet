@@ -25,7 +25,7 @@ import {
   planPages,
 } from './layout';
 import { panelHeader, type PanelHeader } from './panel-header';
-import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, ptToPx, riggingSubtitle, type Laid } from './pdf-layout';
+import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, ptToPx, riggingNotes, riggingSubtitle, type Laid } from './pdf-layout';
 import { plotContent } from './plot-input';
 import { drawPlotOps } from './plot-pdf';
 import { layoutPlotPages, plotPageCount, PRINT_PALETTE } from './plot-layout';
@@ -193,7 +193,7 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
   const measure: Measure = (t, size, bold) => (bold ? fonts.bold : fonts.regular).widthOfTextAtSize(safe(t), size);
 
   const header = panelHeader(doc);
-  const ctx = { show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero };
+  const ctx = { show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero, showDate: doc.job.showDate };
   const cards = model.entries
     .filter((e) => e.print)
     .map((e) => ({ item: layoutPocketCard(cardContent(e, ctx), measure) }))
@@ -240,9 +240,10 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
   // The rigging summary page, last.
   const rigging = layoutRiggingPage(
     {
-      rows: riggingRows(doc.result.report.sources, model.printedSources),
-      fixations: riggingFixations(doc.result.report.sources, model.printedSources),
+      rows: riggingRows(model.sources, model.printedSources),
+      fixations: riggingFixations(model.sources, model.printedSources),
       subtitle: riggingSubtitle(doc.job),
+      notes: riggingNotes(doc.job),
       qr: qrMatrix(APP_URL),
       qrUrl: APP_URL,
     },

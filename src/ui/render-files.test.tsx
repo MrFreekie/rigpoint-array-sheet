@@ -32,7 +32,7 @@ describe('JobForm status and revision', () => {
 
   it('disables every field of a locked file', () => {
     const html = renderToStaticMarkup(<JobForm doc={doc()} locked onJob={noop} onStatus={noop} onRevision={noop} />);
-    expect(html.match(/disabled=""/g)).toHaveLength(10);
+    expect(html.match(/disabled=""/g)).toHaveLength(12);
   });
 
   it('shows the revision that was typed', () => {
@@ -47,13 +47,14 @@ describe('CompareDialog', () => {
     { kind: 'changed', array: 'KARA II L Main', what: 'Total weight', saved: '414.2', now: '420' },
     { kind: 'added', array: 'New array', what: 'Array', saved: null, now: 'in the new PDF' },
     { kind: 'removed', array: 'Old array', what: 'Array', saved: 'in the saved file', now: null },
+    { kind: 'restored', array: 'Gone array', what: 'Array', saved: 'deleted in this file', now: 'in the new PDF, so it comes back' },
     { kind: 'changed', array: null, what: 'Report date', saved: '2026/10/21', now: '2026/10/22' },
   ];
   const html = renderToStaticMarkup(<CompareDialog changes={changes} sourceName="new.pdf" onUpdate={noop} onKeep={noop} />);
 
   it('says what differs, with a word for each kind of change', () => {
-    expect(html).toContain('new.pdf differs from this file in 4 places');
-    for (const word of ['CHANGED', 'ADDED', 'REMOVED']) expect(html).toContain(word);
+    expect(html).toContain('new.pdf differs from this file in 5 places');
+    for (const word of ['CHANGED', 'ADDED', 'REMOVED', 'RESTORED']) expect(html).toContain(word);
     expect(html).toContain('KARA II L Main: ');
     expect(html).toContain('was <q>414.2</q>, now <q>420</q>');
   });
@@ -64,7 +65,8 @@ describe('CompareDialog', () => {
   });
 
   it('says it keeps what was typed', () => {
-    expect(html).toContain('Your show details and ground offsets are kept');
+    expect(html).toContain('Your show details, ground offsets, titles and notes are kept');
+    expect(html).toContain('An array you deleted comes back if the new PDF has it');
   });
 
   it('lists at most 60 differences and says how many more', () => {

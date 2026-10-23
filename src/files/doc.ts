@@ -1,7 +1,8 @@
 // What the person is working on: a report read from a PDF, plus what they typed on top of it.
 // The report itself is never edited. Everything it states is shown as printed.
 
-import type { ParseResult } from '../engine/types';
+import { matchByName } from '../engine/compare';
+import type { ParseResult, Problem } from '../engine/types';
 
 export const STATUSES = ['draft', 'issued', 'approved', 'superseded'] as const;
 export type Status = (typeof STATUSES)[number];
@@ -27,6 +28,10 @@ export interface Job {
   origin: string;
   /** Whether the rigging plot names the sides (House left, House right, Stage, Audience). Off suits a show in the round. */
   sideLabels: boolean;
+  /** Notes about the whole show, for the crew. Printed on the rigging summary. */
+  notes: string;
+  /** The date of the show as YYYY-MM-DD, or blank. Printed UK style wherever the show and venue are. */
+  showDate: string;
 }
 
 export interface Doc {
@@ -36,6 +41,12 @@ export interface Doc {
   job: Job;
   /** Ground offset typed for one array, by position in the report. Blank means use the default. */
   offsets: Record<number, string>;
+  /** A card title typed for one array, by position in the report. Blank means use the name in the report. */
+  titles: Record<number, string>;
+  /** A note for the crew typed for one array, by position in the report. */
+  notes: Record<number, string>;
+  /** Arrays the person deleted, by position in the report. Their data stays in the file, so they can be restored. */
+  deleted: Record<number, boolean>;
   status: Status;
   /** Blank for the first issue, then A, B, C... */
   revision: string;
@@ -57,7 +68,7 @@ export interface Doc {
   printOverride: Record<number, boolean> | null;
 }
 
-export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true };
+export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true, notes: '', showDate: '' };
 
 export function newDoc(result: ParseResult, sourceName: string): Doc {
   return {
@@ -65,6 +76,9 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     sourceName,
     job: { ...EMPTY_JOB },
     offsets: {},
+    titles: {},
+    notes: {},
+    deleted: {},
     status: 'draft',
     revision: '',
     fileName: null,
@@ -116,7 +130,91 @@ export function editKey(doc: Doc): string {
     .filter(([, skip]) => skip)
     .map(([i]) => Number(i))
     .sort((a, b) => a - b);
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped]);
+  const typed = (r: Record<number, string>) =>
+    Object.entries(r)
+      .filter(([, text]) => text.trim() !== '')
+      .sort(([a], [b]) => Number(a) - Number(b));
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc)]);
+}
+
+/** Positions in the report of the deleted arrays, in order. */
+export function deletedList(doc: Doc): number[] {
+  return Object.entries(doc.deleted)
+    .filter(([, gone]) => gone)
+    .map(([i]) => Number(i))
+    .sort((a, b) => a - b);
+}
+
+/** True when the array at this position was deleted. */
+export function isDeleted(doc: Doc, index: number): boolean {
+  return doc.deleted[index] === true;
+}
+
+/** Delete or restore an array. A read-only file cannot change, so it comes back as it was. */
+export function withDeleted(doc: Doc, index: number, gone: boolean): Doc {
+  if (doc.locked) return doc;
+  return { ...doc, deleted: { ...doc.deleted, [index]: gone } };
+}
+
+/** Set the card title of an array. Blank goes back to the name in the report. */
+export function withTitle(doc: Doc, index: number, title: string): Doc {
+  return doc.locked ? doc : { ...doc, titles: { ...doc.titles, [index]: title } };
+}
+
+/** Set the note of an array. */
+export function withNote(doc: Doc, index: number, note: string): Doc {
+  return doc.locked ? doc : { ...doc, notes: { ...doc.notes, [index]: note } };
+}
+
+/** What an array is called on the sheet: the title typed for it, else the name in the report. */
+export function displayName(doc: Doc, index: number): string {
+  const typed = doc.titles[index]?.trim();
+  return typed ? typed : (doc.result.report.sources[index]?.name ?? '');
+}
+
+/**
+ * The document after Update from PDF. Everything the person typed stays with the array of the same name: ground offset,
+ * print choice, title and note. Arrays that were deleted come back if the new PDF has them, with the new PDF's data.
+ */
+export function updatedDoc(doc: Doc, fresh: ParseResult, sourceName: string): Doc {
+  const map = matchByName(doc.result.report, fresh.report);
+  const carry = <T>(from: Record<number, T>, keep: (v: T) => boolean): Record<number, T> => {
+    const out: Record<number, T> = {};
+    for (const [i, v] of Object.entries(from)) {
+      const j = map.get(Number(i));
+      if (j !== undefined && keep(v)) out[j] = v;
+    }
+    return out;
+  };
+  return {
+    ...doc,
+    result: fresh,
+    sourceName,
+    offsets: carry(doc.offsets, () => true),
+    titles: carry(doc.titles, () => true),
+    notes: carry(doc.notes, () => true),
+    noPrint: carry(doc.noPrint, (skip) => skip),
+    deleted: {},
+    printOverride: null,
+  };
+}
+
+/**
+ * The problems found reading the PDF, without the checks that concern only deleted arrays. An error always stays, because it
+ * means the report cannot be relied on. A check stays if any array of that name is still there, or it names no array.
+ */
+export function visibleProblems(doc: Doc): Problem[] {
+  const names = doc.result.report.sources.map((s, i) => ({ name: s.name, gone: isDeleted(doc, i) }));
+  return doc.result.problems.filter((p) => {
+    if (p.level !== 'check' || !p.source) return true;
+    const same = names.filter((n) => n.name === p.source);
+    return same.length === 0 || same.some((n) => !n.gone);
+  });
+}
+
+/** The arrays of the report that have not been deleted, as positions in the report. */
+export function liveIndexes(doc: Doc): number[] {
+  return doc.result.report.sources.flatMap((_, i) => (isDeleted(doc, i) ? [] : [i]));
 }
 
 /** True when the array at this position is chosen for printing. */
