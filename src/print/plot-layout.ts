@@ -5,6 +5,7 @@
 import { type PlotArray, type PlotPoint, type Pt2 } from '../engine/plot';
 import { NOT_STATED } from '../ui/format';
 import { clipMiddle, clipToWidth, wrap, type Measure } from './array-image';
+import { CREDIT_TEXT } from './footer';
 import { PT_PER_MM } from './pdf-layout';
 import { PLOT_SMALL_PRINT } from './small-print';
 
@@ -51,6 +52,8 @@ const TABLE_LINE_MM = 2.1;
 const TABLE_PT = 5;
 const PAD = { left: 8, right: 26, top: 8, bottom: 9 };
 const FOOTER_Y = 192.5;
+/** The credit line sits under the page footer, still inside the 198 mm page. */
+const CREDIT_Y = 195.4;
 /** No label is wider than this, so one long name cannot run across the plan. */
 const LABEL_MAX_MM = 60;
 
@@ -71,8 +74,37 @@ export interface PlotInput {
   footer: (page: number) => string;
 }
 
+/** One line of text on the plan, for a writer that draws the plan at full size. x is the left edge and y the top, in paper millimetres. */
+export interface PlotPlanText {
+  kind: 'pickup' | 'array' | 'origin' | 'side' | 'axis';
+  text: string;
+  bold: boolean;
+  x: number;
+  y: number;
+  size: number;
+}
+
+/** How the plan was laid out, so another writer can place the same labels on the same geometry at another size. */
+export interface PlotPlan {
+  ratio: number;
+  /** Paper millimetres per metre of the real world. */
+  mmPerM: number;
+  /** Where the origin lies on the page, in paper millimetres. */
+  ox: number;
+  oy: number;
+  frame: { x0: number; y0: number; x1: number; y1: number };
+  texts: PlotPlanText[];
+  /** The leader lines of the labels, in paper millimetres. */
+  leaders: [Pt2, Pt2][];
+  /** Position in the report of the arrays and pickups (by number) that were drawn; the rest did not fit. */
+  keptArrays: number[];
+  keptPoints: number[];
+}
+
 export interface PlotPage {
   ops: PlotOp[];
+  /** Set on the first page only. */
+  plan?: PlotPlan;
   /** The scale as 1:n. Zero on a page that continues the table. */
   ratio: number;
   /** True when the drawing does not fit even at the smallest scale, or the side column runs out of room. */
@@ -306,7 +338,7 @@ const headerOps = (input: PlotInput, title: string, ratio: number, measure: Meas
 
 function footerOps(input: PlotInput, page: number, measure: Measure): PlotOp[] {
   const t = clipToWidth(input.footer(page), 6, false, PLOT_W_MM * PT_PER_MM, measure);
-  return [text(PLOT_W_MM / 2, FOOTER_Y, t, 6, { align: 'center' })];
+  return [text(PLOT_W_MM / 2, FOOTER_Y, t, 6, { align: 'center' }), text(PLOT_W_MM / 2, CREDIT_Y, CREDIT_TEXT, 5, { align: 'center', color: 'grey' })];
 }
 
 /** The table rows as strings. */
@@ -436,6 +468,17 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
 
   const occupied: Rect[] = [];
   const segments: Seg[] = [];
+  const plan: PlotPlan = {
+    ratio,
+    mmPerM: s,
+    ox,
+    oy,
+    frame: { ...FRAME },
+    texts: [],
+    leaders: [],
+    keptArrays: arrays.map((a) => a.index),
+    keptPoints: points.map((p) => p.number),
+  };
 
   // The origin: dash-dot lines across the plan, its note, and the two axes.
   const ox0 = X(0);
@@ -445,6 +488,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   arrow(ops, ox0, oy0, ox0 + 14, oy0, 'axisX');
   arrow(ops, ox0, oy0, ox0, oy0 - 14, 'axisY');
   ops.push(text(ox0 + 15, oy0 - 3.4, '+X', 6, { bold: true, color: 'axisX' }), text(ox0 + 1.2, oy0 - 18.6, '+Y', 6, { bold: true, color: 'axisY' }));
+  plan.texts.push({ kind: 'axis', text: '+X', bold: true, x: ox0 + 15, y: oy0 - 3.4, size: 6 }, { kind: 'axis', text: '+Y', bold: true, x: ox0 + 1.2, y: oy0 - 18.6, size: 6 });
   const originFull = input.origin.trim() ? `Soundvision origin: ${input.origin.trim()}` : 'Soundvision origin';
   occupied.push({ x0: ox0, y0: oy0 - 14, x1: ox0 + 18, y1: oy0 + 0.5 }, { x0: ox0 - 0.5, y0: oy0 - 20, x1: ox0 + 4, y1: oy0 });
 
@@ -467,6 +511,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
     ops.push(text(x, y, t, sideSize, { bold: true, align, color: 'grey' }));
     const w = measure(t, sideSize, true) / PT_PER_MM;
     const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
+    plan.texts.push({ kind: 'side', text: t, bold: true, x: x0, y, size: sideSize });
     occupied.push({ x0, y0: y, x1: x0 + w, y1: y + sideH });
   }
 
@@ -502,7 +547,11 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   // The origin note takes the first clear spot beside the origin, below the horizontal line and to the right of the vertical one if it can.
   const originLabel = placeLabels([{ anchor: rectAround(ox0, oy0, 0.3), lines: [{ text: originFull, bold: false }] }], occupied, softRects, segments, bounds, measure)[0] as PlacedLabel;
   ops.push(text(originLabel.box.x0 + 0.4, originLabel.box.y0 + 0.2, (originLabel.lines[0] as { text: string }).text, LABEL_PT, { color: 'grey' }));
-  if (originLabel.leader) ops.push(line(originLabel.leader[0].x, originLabel.leader[0].y, originLabel.leader[1].x, originLabel.leader[1].y, 0.12, 'grey'));
+  plan.texts.push({ kind: 'origin', text: (originLabel.lines[0] as { text: string }).text, bold: false, x: originLabel.box.x0 + 0.4, y: originLabel.box.y0 + 0.2, size: LABEL_PT });
+  if (originLabel.leader) {
+    ops.push(line(originLabel.leader[0].x, originLabel.leader[0].y, originLabel.leader[1].x, originLabel.leader[1].y, 0.12, 'grey'));
+    plan.leaders.push(originLabel.leader);
+  }
 
   // Front to rear lines, then the markers on top of them.
   const byArray = new Map<number, PlotPoint[]>();
@@ -579,8 +628,15 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const arrayLabels = placeLabels(bestOrder.map(arrayRequest), occupied, softRects, segments, bounds, measure);
   const leaders: PlotOp[] = [];
   for (const l of [...pointLabels, ...arrayLabels]) {
-    l.lines.forEach((t, i) => ops.push(text(l.box.x0 + 0.4, l.box.y0 + 0.2 + i * LINE_MM, t.text, LABEL_PT, { bold: t.bold })));
-    if (l.leader) leaders.push(line(l.leader[0].x, l.leader[0].y, l.leader[1].x, l.leader[1].y, 0.12, 'grey'));
+    const kind = pointLabels.includes(l) ? 'pickup' : 'array';
+    l.lines.forEach((t, i) => {
+      ops.push(text(l.box.x0 + 0.4, l.box.y0 + 0.2 + i * LINE_MM, t.text, LABEL_PT, { bold: t.bold }));
+      plan.texts.push({ kind, text: t.text, bold: t.bold, x: l.box.x0 + 0.4, y: l.box.y0 + 0.2 + i * LINE_MM, size: LABEL_PT });
+    });
+    if (l.leader) {
+      leaders.push(line(l.leader[0].x, l.leader[0].y, l.leader[1].x, l.leader[1].y, 0.12, 'grey'));
+      plan.leaders.push(l.leader);
+    }
   }
   ops.push(...leaders);
 
@@ -641,7 +697,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const columnOverflow = y > smallTop;
 
   ops.push(...footerOps(input, 0, measure));
-  pages.push({ ops, ratio, overflow: !fits || columnOverflow });
+  pages.push({ ops, plan, ratio, overflow: !fits || columnOverflow });
 
   // ---- Pages that continue the table ----
   for (let i = 0; i < more.length; i += CONTINUED_ROWS) {

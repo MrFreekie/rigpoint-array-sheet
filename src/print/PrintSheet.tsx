@@ -219,17 +219,6 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
             {riggingSubtitle(doc.job)}
           </p>
         </div>
-        <div className="as-qr" data-testid="print-qr">
-          <svg viewBox={`0 0 ${qr.size} ${qr.size}`} width="30mm" height="30mm" role="img" aria-label={`QR code for ${APP_URL}`}>
-            <rect width={qr.size} height={qr.size} fill="#fff" />
-            <path d={qr.path} fill="#000" />
-          </svg>
-          <p>
-            RigPoint Array
-            <br />
-            {APP_URL}
-          </p>
-        </div>
       </div>
       {rigging.length === 0 ? (
         <p className="as-rigging-note">No flown array in this report has a pickup position.</p>
@@ -302,6 +291,17 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
             {p.text}
           </p>
         ))}
+      </div>
+      <div className="as-qr as-qr-bottom" data-testid="print-qr">
+        <svg viewBox={`0 0 ${qr.size} ${qr.size}`} width="30mm" height="30mm" role="img" aria-label={`QR code for ${APP_URL}`}>
+          <rect width={qr.size} height={qr.size} fill="#fff" />
+          <path d={qr.path} fill="#000" />
+        </svg>
+        <p>
+          RigPoint Array
+          <br />
+          {APP_URL}
+        </p>
       </div>
     </div>
   );

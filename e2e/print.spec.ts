@@ -448,7 +448,7 @@ test('report E: the rigging page lists the fixations, and the print view and Dow
   for (const h of rigging.fixationRows) expect(h).toBeCloseTo(14.0625, 0);
   expect(rigging.pickupRow).toBeGreaterThan(rigging.fixationRows[1] ?? 0);
   expect(Math.abs(rigging.pickupRow - (13 * 96) / 72)).toBeLessThanOrEqual(1); // the PDF draws the pickup rows 13 pt high
-  expect(rigging.scale).toBeGreaterThan(0.93); // the edge distance note adds a line, so a little under the 0.95 it had
+  expect(rigging.scale).toBeGreaterThan(0.88); // the QR code now stands under the small print and the edge distance note adds a line, so a little under the 0.93 it had
   expect(rigging.scale).toBeLessThan(1);
 
   const printPages = pdfPages(await printToPdf(page, 'fixations.pdf'));
@@ -595,3 +595,11 @@ for (const name of ['a', 'c', 'e'] as const) {
     for (const label of printed.filter((t) => /^PA\d+ /.test(t))) expect(text).toContain(label);
   });
 }
+
+test('the plot preview and the print view carry the credit line', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const credit = 'Created with RigPoint Array Sheet. Find it at https://mrfreekie.github.io/rigpoint-array-sheet/';
+  await expect(page.getByTestId('plot-preview').getByText(credit)).toBeVisible();
+  await expect(page.getByTestId('print-plot').getByText(credit)).toHaveCount(1);
+});

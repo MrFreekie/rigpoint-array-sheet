@@ -39,6 +39,14 @@ The page also lists every point with its X and Y. The Pickup column says Front o
 
 The plot is drawn only from the report. It does not show shackles, slings, trusses, motors or any other rigging, and the pickup symbol is a nominal guide. It is a design aid, not a CAD drawing.
 
+### Download DXF
+
+Under the plot on screen is a Download DXF button. It saves the same plot as a DXF file that CAD programs open. The units are millimetres at full size (1:1), and the app says so beside the button and inside the file. The origin of the Soundvision report is 0,0, +X is towards house left and +Y is towards the audience, so every coordinate is the report's figure in metres times 1000. A 1.2 m wide array is 1200 units wide. When you bring the file into your CAD program, choose millimetres if it asks.
+
+The file has the same arrays, pickups, labels and axes as the plot, drawn on separate layers: ARRAYS for arrays with pickups, ARRAYS_NO_PICKUP, STACKS and STACK_DIAGONALS, POSITIONS, PICKUPS and PICKUP_LINKS, LABELS and LEADERS, ORIGIN, AXIS_X and AXIS_Y, SIDES and NOTES. Pickup symbols are 250 mm across. Labels are plain text with no formatting, placed where the plot page puts them and sized so they read at the scale of the plot page, so at a different scale in your CAD program you may want to resize them. The small print of the plot page is in the file as text under the drawing.
+
+The DXF has no scale bar, because it is already full size. It is a design aid and not a definitive CAD drawing. Check every figure against the Soundvision report.
+
 ## Check the cards
 
 Each card shows what the report states: weights, motor loads, heights, site angles, azimuth, frame, pickups, Soundvision's warnings, the fixation positions of a stacked array when the report lists them (X, Y and Z as the report prints them, with no ground offset taken off), and a row for each enclosure with its Panflex label (for example 90 On).

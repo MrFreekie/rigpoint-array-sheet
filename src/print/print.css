@@ -386,6 +386,10 @@
   overflow-wrap: anywhere;
 }
 
+.as-qr-bottom {
+  margin: 4mm auto 0;
+}
+
 .as-qr svg {
   display: block;
 }

@@ -27,3 +27,8 @@ export function suggestedFileName(title: string, revision: string): string {
   const base = safeName(title.replace(/\.xmlp$/i, ''));
   return `${base}${revision ? ` - Rev ${revision}` : ''}${FILE_SUFFIX}`;
 }
+
+export function suggestedDxfName(title: string, revision: string): string {
+  const base = safeName(title.replace(/\.xmlp$/i, ''));
+  return `${base}${revision ? ` - Rev ${revision}` : ''}.dxf`;
+}

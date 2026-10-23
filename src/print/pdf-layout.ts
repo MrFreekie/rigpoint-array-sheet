@@ -184,7 +184,7 @@ export interface RiggingInput {
   qrUrl: string;
 }
 
-/** The rigging summary page, with the QR code and the small print. Width is the page less the margins. */
+/** The rigging summary page, with the small print and, at the bottom, the QR code. Width is the page less the margins. */
 export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm = 192): Laid {
   const W = mm(widthMm);
   const ops: DrawOp[] = [];
@@ -196,34 +196,7 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     ops.push(textOp(0, y, input.subtitle, 8));
   }
 
-  // QR code at the top right, 30 mm square with its quiet zone, and the address under it.
-  const quiet = 4;
-  const modules = input.qr.length + 2 * quiet;
-  const qrSize = mm(30);
-  const unit = qrSize / modules;
-  const qx = W - qrSize;
-  input.qr.forEach((row, r) => {
-    let c = 0;
-    while (c < row.length) {
-      if (!row[c]) {
-        c++;
-        continue;
-      }
-      let end = c;
-      while (end < row.length && row[end]) end++;
-      ops.push({ op: 'rect', x: qx + (c + quiet) * unit, y: (r + quiet) * unit, w: (end - c) * unit, h: unit, fill: '#000000', stroke: null, lineWidth: 0 });
-      c = end;
-    }
-  });
-  let cy = qrSize + 2;
-  ops.push(textOp(qx + qrSize / 2, cy, 'RigPoint Array', 5.5, { align: 'center' }));
-  cy += 5.5 * 1.2;
-  for (const line of wrap(input.qrUrl, 5.5, false, qrSize, measure)) {
-    ops.push(textOp(qx + qrSize / 2, cy, line, 5.5, { align: 'center' }));
-    cy += 5.5 * 1.2;
-  }
-
-  y = Math.max(y + 8 * 1.5, cy) + mm(3);
+  y += 8 * 1.5 + mm(3);
 
   /** A table whose first two columns are text and the rest numbers. Text that does not fit its column is cut with an ellipsis. */
   const table = (heads: string[], widthsMm: number[], body: string[][], compact = false) => {
@@ -298,6 +271,37 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     });
     y += mm(1);
   }
+
+
+  // The QR code at the bottom of the page, in the middle, 30 mm square with its quiet zone, and the address under it.
+  y += mm(4);
+  const quiet = 4;
+  const modules = input.qr.length + 2 * quiet;
+  const qrSize = mm(30);
+  const unit = qrSize / modules;
+  const qx = (W - qrSize) / 2;
+  const qy = y;
+  input.qr.forEach((row, r) => {
+    let c = 0;
+    while (c < row.length) {
+      if (!row[c]) {
+        c++;
+        continue;
+      }
+      let end = c;
+      while (end < row.length && row[end]) end++;
+      ops.push({ op: 'rect', x: qx + (c + quiet) * unit, y: qy + (r + quiet) * unit, w: (end - c) * unit, h: unit, fill: '#000000', stroke: null, lineWidth: 0 });
+      c = end;
+    }
+  });
+  let cy = qy + qrSize + 2;
+  ops.push(textOp(qx + qrSize / 2, cy, 'RigPoint Array', 5.5, { align: 'center' }));
+  cy += 5.5 * 1.2;
+  for (const line of wrap(input.qrUrl, 5.5, false, qrSize, measure)) {
+    ops.push(textOp(qx + qrSize / 2, cy, line, 5.5, { align: 'center' }));
+    cy += 5.5 * 1.2;
+  }
+  y = cy;
 
   return { width: W, height: y, ops };
 }

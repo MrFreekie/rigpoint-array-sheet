@@ -111,17 +111,30 @@ describe('layoutRiggingPage', () => {
     expect(t).toContain('Rear');
   });
 
-  it('draws the QR code as squares, one run at a time, inside a 30 mm box at the top right', () => {
+  it('draws the QR code as squares, one run at a time, in a 30 mm box in the middle at the bottom, under the small print', () => {
     const laid = layoutRiggingPage(input(), estimateWidth);
     const squares = laid.ops.filter((o) => o.op === 'rect' && o.fill === '#000000');
     expect(squares.length).toBeGreaterThan(50);
     const side = 30 * PT_PER_MM;
+    const smallPrint = laid.ops.filter((o) => o.op === 'text' && o.text.startsWith('RigPoint Array is provided'));
+    expect(smallPrint).toHaveLength(1);
+    const left = (laid.width - side) / 2;
+    const top = Math.min(...squares.map((s) => (s.op === 'rect' ? s.y : Infinity)));
     for (const s of squares) {
       if (s.op !== 'rect') continue;
-      expect(s.x).toBeGreaterThanOrEqual(laid.width - side - 0.01);
-      expect(s.x + s.w).toBeLessThanOrEqual(laid.width + 0.01);
-      expect(s.y + s.h).toBeLessThanOrEqual(side + 0.01);
+      expect(s.x).toBeGreaterThanOrEqual(left - 0.01);
+      expect(s.x + s.w).toBeLessThanOrEqual(left + side + 0.01);
+      expect(s.y + s.h).toBeLessThanOrEqual(top + side + 0.01);
     }
+    // Centred, below the small print, with the caption under it and nothing after the caption.
+    const xs = squares.flatMap((s) => (s.op === 'rect' ? [s.x, s.x + s.w] : []));
+    expect((Math.min(...xs) + Math.max(...xs)) / 2).toBeCloseTo(laid.width / 2, 0);
+    expect(top).toBeGreaterThan((smallPrint[0] as { y: number }).y);
+    const caption = laid.ops.filter((o) => o.op === 'text' && o.text === 'RigPoint Array');
+    expect(caption).toHaveLength(1);
+    expect((caption[0] as { y: number }).y).toBeGreaterThan(Math.max(...squares.map((q) => (q.op === 'rect' ? q.y + q.h : 0))));
+    expect((caption[0] as { x: number }).x).toBeCloseTo(laid.width / 2, 0);
+    expect(laid.height).toBeGreaterThan((caption[0] as { y: number }).y);
   });
 
   it('carries the approved small print, word for word', () => {
@@ -162,11 +175,11 @@ describe('layoutRiggingPage', () => {
       expect(t).toContain('Every fixation is listed, including those of mirrored arrays, because their positions differ.');
     });
 
-    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.961 (the edge distance note costs a line; fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
+    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.912 (the QR code now stands under the small print and the edge distance note costs a line; fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
       const laid = layoutRiggingPage(withFixations(), estimateWidth);
       const fit = fitScale(pxHeight(laid.height), FULL_H_MM, MIN_FULL_SCALE);
       expect(fit.overflow).toBe(false);
-      expect(fit.scale).toBe(0.961);
+      expect(fit.scale).toBe(0.912);
     });
 
     it('sets the fixation table in 7 pt text and keeps the pickup table at 8 pt', () => {

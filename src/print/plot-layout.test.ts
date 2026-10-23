@@ -5,6 +5,7 @@ import { newDoc } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
 import { NOT_STATED } from '../ui/format';
 import { estimateWidth } from './array-image';
+import { CREDIT_TEXT } from './footer';
 import { PT_PER_MM } from './pdf-layout';
 import { plotContent } from './plot-input';
 import {
@@ -461,5 +462,25 @@ describe('the Pickup column of the table', () => {
     expect(tableRow({ ...point, single: true, which: 'rear' })[2]).toBe('Single');
     expect(tableRow(point)[2]).toBe('Front');
     expect(tableRow({ ...point, which: 'rear' })[2]).toBe('Rear');
+  });
+});
+
+describe('the credit line', () => {
+  it('is on every plot page, small and plain, under the page footer and clear of everything else', () => {
+    for (const name of ['a', 'c', 'e'] as const) {
+      for (const p of pages(name).pages) {
+        const credit = p.ops.filter((o): o is TextOp => o.op === 'text' && o.text === CREDIT_TEXT);
+        expect(credit, `${name} credit line`).toHaveLength(1);
+        const c = credit[0] as TextOp;
+        expect(c.size).toBeLessThanOrEqual(5);
+        expect(c.bold).toBe(false);
+        const box = textBox(c);
+        expect(box.x0).toBeGreaterThanOrEqual(0);
+        expect(box.x1).toBeLessThanOrEqual(PLOT_W_MM);
+        expect(box.y1).toBeLessThanOrEqual(PLOT_H_MM);
+        expect(c.text).not.toMatch(/[\u2013\u2014]/);
+        for (const o of p.ops) if (o.op === 'text' && o !== c) expect(crosses(box, textBox(o)), `${o.text} against the credit line`).toBe(false);
+      }
+    }
   });
 });

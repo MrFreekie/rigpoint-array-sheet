@@ -82,6 +82,7 @@ describe('renderPdf', () => {
     expect(t).toContain('PA1');
     expect(t).toContain('Soundvision origin: DSE');
     expect(t).toContain('This plot is drawn only from the Soundvision report.');
+    expect(t).toContain('Created with RigPoint Array Sheet. Find it at https://mrfreekie.github.io/rigpoint-array-sheet/');
     expect(t).toContain(`Page ${plot + 1} of ${pages.length}`);
     expect(text(plot + 2)).toContain('Rigging summary');
     // The landscape top left corner lands at the portrait bottom left: the heading starts near the left edge and the foot of the sheet.

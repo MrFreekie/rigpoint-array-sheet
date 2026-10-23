@@ -168,6 +168,8 @@ The plot is a plan view of the arrays chosen for printing, drawn on a landscape 
 
 Known label clashes: labels keep clear of lines, markers, boxes and each other, but placement is greedy. In sample C, at 1:400, the six KS28 and four KARA II stacks stand in pairs a few millimetres from the origin lines, so several leaders there cross an origin line or a neighbour's label, and a test allows up to ten such leaders on C. Samples A and E have none, and a new clash on either fails a test.
 
+`src/print/plot-dxf.ts` writes the plot as an R12 style ASCII DXF, with no library. Geometry comes from the engine at full size: millimetres, the report's X and Y times 1000, origin at 0,0, so the file does not depend on the plot scale. The labels, leaders and axis text come from `PlotPage.plan`, which `layoutPlotPages` fills on the first page with where it placed each line of text and each leader in paper millimetres, plus the paper millimetres per metre and the origin. The writer converts those back to real millimetres and sizes the text by the plot ratio, so the labels clash as little as on the page. Marker symbols are 250 mm across, not the paper minimum. Layers carry the line types (dashed, dash dot) and the header sets `$INSUNITS` 4 and `$MEASUREMENT` 1. Characters outside ASCII are written as `\U+XXXX`. The tests read the file back with a strict structural parser, because no DXF library is installed.
+
 Phase one draws the 1 ton circle with a cross on every pickup. Choosing other symbols, custom values, and the two print ticks come later.
 
 ## Choosing what to print

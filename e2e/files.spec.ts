@@ -287,3 +287,23 @@ test('Download PDF follows the choice of arrays and is off when none is chosen',
   await cards.nth(0).getByLabel('Print this array').uncheck();
   await expect(page.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
 });
+
+test('Download DXF saves the plot in millimetres at full size, and says so beside the button', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await page.getByLabel('Show', { exact: true }).fill('Main stage');
+  await page.getByLabel('Origin (P0)').fill('DSE');
+  const plot = page.getByTestId('plot-preview');
+  await expect(plot.getByText('DXF units are millimetres at full size (1:1).')).toBeVisible();
+  const [download] = await Promise.all([page.waitForEvent('download'), plot.getByRole('button', { name: 'Download DXF' }).click()]);
+  expect(savedName(download)).toBe('Main stage.dxf');
+  const text = readFileSync(await download.path(), 'ascii');
+  const lines = text.split('\r\n');
+  // Group code and value pairs from the first comment to the end of file.
+  expect(lines[0]).toBe('999');
+  expect(lines.slice(-3, -1)).toEqual(['0', 'EOF']);
+  const at = lines.indexOf('$INSUNITS');
+  expect(lines.slice(at, at + 3)).toEqual(['$INSUNITS', '70', '4']);
+  expect(lines).toContain('Soundvision origin: DSE');
+  expect(lines).toContain('ARRAYS');
+});
