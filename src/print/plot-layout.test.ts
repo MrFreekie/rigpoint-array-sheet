@@ -12,7 +12,6 @@ import {
   CHECK_BAR_TEXT,
   chooseRatio,
   dotRadiusMm,
-  heightText,
   layoutPlotPages,
   markerSizeMm,
   PLOT_H_MM,
@@ -58,15 +57,6 @@ function rectHitsSegment(r: { x0: number; y0: number; x1: number; y1: number }, 
   }
   return false;
 }
-
-describe('heightText', () => {
-  it('prints two decimals, with the offset-corrected figure in brackets only when an offset is set', () => {
-    expect(heightText(9.4, 0.5)).toBe('9.40 m (8.90 m)');
-    expect(heightText(9.4, 0)).toBe('9.40 m');
-    expect(heightText(9.4, null)).toBe('9.40 m');
-    expect(heightText(9.4, undefined)).toBe('9.40 m');
-  });
-});
 
 describe('scale', () => {
   it('takes the largest standard ratio that fits', () => {
@@ -187,15 +177,10 @@ describe('the plot page', () => {
     expect(t).toContain('Stacked array Position');
   });
 
-  it('shows the height of a stack only when it is off the ground, as the report prints it', () => {
-    const c = pages('c', (d) => (d.job.defaultOffset = '0.5'));
-    const t = texts(c.pages[0]!.ops);
-    // KARA II 2 to 5 stand 1.70 m up; the offset is not taken off a stack's height.
-    expect(t.filter((x) => x === 'Position Z 1.70 m').length).toBe(4);
-    expect(t.some((x) => x === 'Position Z 0.00 m')).toBe(false);
+  it('labels an array with its name alone, with no Top site and no Position Z', () => {
+    const t = texts(pages('c').pages[0]!.ops);
     expect(t).toContain('KS28 1');
-    // A flown array still shows the offset-corrected height.
-    expect(t).toContain('Position Z 11.50 m (11.00 m)');
+    expect(t.some((x) => /^Top site|^Position Z/.test(x))).toBe(false);
   });
 
   it('leaves the stack keys out when no stack is drawn', () => {
@@ -218,20 +203,16 @@ describe('the plot page', () => {
     expect((radius('a') as { r: number }).r).toBeLessThan((radius('e') as { r: number }).r);
   });
 
-  it('labels each pickup once with its number, load and heights', () => {
+  it('labels each pickup once with its number and load, and shows no height anywhere', () => {
     const t = texts(pages('c', (d) => (d.job.defaultOffset = '0.5')).pages[0]!.ops);
     expect(t.filter((x) => x.startsWith('PA5 '))).toEqual(['PA5  379.4 kg']);
-    expect(t).toContain('11.68 m (11.18 m)');
-    expect(t).toContain('Position Z 11.50 m (11.00 m)');
-    const none = texts(pages('c').pages[0]!.ops);
-    expect(none).toContain('11.68 m');
-    expect(none.some((x) => /m \(/.test(x))).toBe(false);
+    expect(t.some((x) => /^-?\d+\.\d\d m( \(|$)/.test(x) || /^Position Z|^Top site/.test(x))).toBe(false);
   });
 
-  it('labels the line between front and rear pickups with the stated total weight', () => {
+  it('labels the line between front and rear pickups with the stated total weight and the plan spacing', () => {
     const t = texts(pages('c').pages[0]!.ops);
-    expect(t).toContain('1332.6 kg');
-    expect(t).toContain('732.6 kg');
+    expect(t).toContain('1332.6 kg, 1.01 m');
+    expect(t).toContain('732.6 kg, 0.90 m');
   });
 
   it('labels an array with one pickup once', () => {
@@ -250,7 +231,7 @@ describe('the plot page', () => {
   it('lists every point in the table with X and Y from the origin', () => {
     const { content, pages: p } = pages('c');
     const t = texts(p[0]!.ops);
-    for (const h of ['Point', 'Array', 'Pickup', 'Load kg', 'Symbol', 'X (m)', 'Y (m)']) expect(t).toContain(h);
+    for (const h of ['Point', 'Array', 'Pickup', 'Load kg', 'Symbol', 'X (m)', 'Y (m)', 'Spacing', '(m)']) expect(t).toContain(h);
     for (const pt of content.points) expect(t).toContain(pt.label);
     expect(t).toContain('45.31');
   });
@@ -308,7 +289,7 @@ describe('the plot page', () => {
     // label or two there may sit across an origin line. Nothing else may clash, and reports A and E have none at all.
     const rest = problems.filter((m) => !(m.startsWith('c:') && m.includes('an origin line')));
     expect(rest).toEqual([]);
-    expect(problems.filter((m) => m.startsWith('c:')).length).toBeLessThanOrEqual(3);
+    expect(problems.filter((m) => m.startsWith('c:')).length).toBeLessThanOrEqual(2);
   });
 
   it('keeps every leader line off the labels, the origin lines and other leaders on reports A, C and E', () => {
@@ -317,24 +298,26 @@ describe('the plot page', () => {
       const d = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number) => (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
       return d(p.x1, p.y1, p.x2, p.y2, q.x1, q.y1) * d(p.x1, p.y1, p.x2, p.y2, q.x2, q.y2) < -1e-9 && d(q.x1, q.y1, q.x2, q.y2, p.x1, p.y1) * d(q.x1, q.y1, q.x2, q.y2, p.x2, p.y2) < -1e-9;
     };
+    let leaderCount = 0;
     for (const n of ['a', 'c', 'e'] as const) {
       const ops = pages(n).pages[0]!.ops;
       const leaders = ops.flatMap((o) => (o.op === 'line' && o.color === 'grey' && o.width === 0.12 ? [o] : []));
       const origin = ops.flatMap((o) => (o.op === 'line' && o.dash && o.dash.length === 4 ? [o] : []));
       const boxes = ops.flatMap((o) => (o.op === 'text' && o.size === 5.5 && o.x < 212 && o.y > 15 && o.y < 176 ? [{ t: o.text, ...textBox(o) }] : []));
-      expect(leaders.length).toBeGreaterThan(0);
+      leaderCount += leaders.length;
       leaders.forEach((l, i) => {
         for (const b of boxes) if (!(l.x1 >= b.x0 && l.x1 <= b.x1 && l.y1 >= b.y0 && l.y1 <= b.y1) && rectHitsSegment(b, l)) problems.push(`${n}: a leader (${l.x1.toFixed(1)},${l.y1.toFixed(1)} to ${l.x2.toFixed(1)},${l.y2.toFixed(1)}) crosses "${b.t}" at ${b.x0.toFixed(1)},${b.y0.toFixed(1)}`);
         for (const o of origin) if (crossing(l, o)) problems.push(`${n}: a leader at ${l.x1.toFixed(1)},${l.y1.toFixed(1)} crosses an origin line`);
         for (const m of leaders.slice(i + 1)) if (crossing(l, m)) problems.push(`${n}: leaders at ${l.x1.toFixed(1)},${l.y1.toFixed(1)} and ${m.x1.toFixed(1)},${m.y1.toFixed(1)} cross`);
       });
     }
-    // A row of ten arrays 12 mm apart (report A) leaves no clean route for one leader. Report C at 1:400 packs ten stacks, each
+    // Reports A and E have no leader that crosses anything. Report C at 1:400 packs ten stacks, each
     // beside another array of the same name pattern, into a few millimetres of the origin lines, so several leaders there cross
     // an origin line or a neighbouring label. Report E has room for all of them.
     const count = (n: string) => new Set(problems.filter((m) => m.startsWith(`${n}:`)).map((m) => m.match(/\(([^)]*)\)|at ([\d.,]+)/)?.[0])).size;
+    expect(leaderCount).toBeGreaterThan(0);
     expect(count('e')).toBe(0);
-    expect(count('a')).toBeLessThanOrEqual(1);
+    expect(count('a')).toBe(0);
     expect(count('c')).toBeLessThanOrEqual(10);
   });
 

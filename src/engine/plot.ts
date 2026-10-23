@@ -1,6 +1,7 @@
 // The geometry behind the rigging plot: where each flown or stacked array sits on the plan and which pickup gets which number.
 // It reads the report's Position, Spatial dimensions and Azimuth as printed and turns them into a box on the plan.
-// Nothing here works out a load, an angle or a height.
+// Nothing here works out a load, an angle or a height. The one figure it derives is the plan distance between an array's
+// front and rear pickups, from their X and Y only.
 
 import type { ArraySource, Pickup, Point3 } from './types';
 
@@ -22,7 +23,6 @@ export interface PlotArray {
   position: Point3;
   /** Front left, front right, rear right, rear left, as seen looking the way the array points. */
   corners: [Pt2, Pt2, Pt2, Pt2];
-  topSite: number | null;
   pickups: Pickup[];
   frontMotorLoad: number | null;
   rearMotorLoad: number | null;
@@ -41,6 +41,13 @@ export interface PlotPoint {
   pickupPosition: number;
   at: Point3;
   load: number | null;
+  /** On a front pickup whose array also has a rear one: the plan distance between the two, in metres to 2 decimals. */
+  spacing: number | null;
+}
+
+/** The distance between two pickups on the plan, from X and Y only (never Z), rounded to 2 decimals. */
+export function planSpacing(a: Pt2, b: Pt2): number {
+  return Math.round(Math.hypot(a.x - b.x, a.y - b.y) * 100) / 100;
 }
 
 /**
@@ -87,7 +94,6 @@ export function plotArrays(sources: readonly ArraySource[], include?: ReadonlySe
       kind: s.mounting,
       position: s.position,
       corners,
-      topSite: s.topSite,
       pickups: s.pickups,
       frontMotorLoad: s.weights.frontMotorLoad,
       rearMotorLoad: s.weights.rearMotorLoad,
@@ -118,6 +124,8 @@ export function numberPickups(arrays: readonly PlotArray[], toleranceM = BAND_TO
   for (const band of bands) {
     for (const a of band.sort((p, q) => q.position.x - p.position.x)) {
       const ordered = [...a.pickups].sort((p, q) => (p.which === q.which ? 0 : p.which === 'front' ? -1 : 1));
+      const front = ordered.find((p) => p.which === 'front');
+      const rear = ordered.find((p) => p.which === 'rear');
       for (const p of ordered) {
         const number = points.length + 1;
         points.push({
@@ -129,6 +137,7 @@ export function numberPickups(arrays: readonly PlotArray[], toleranceM = BAND_TO
           pickupPosition: p.position,
           at: p.at,
           load: p.which === 'front' ? a.frontMotorLoad : a.rearMotorLoad,
+          spacing: p === front && rear ? planSpacing(front.at, rear.at) : null,
         });
       }
     }

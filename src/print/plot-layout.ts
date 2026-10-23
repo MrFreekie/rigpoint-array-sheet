@@ -2,7 +2,6 @@
 // the print view, the on-screen preview and the PDF draw the same thing. The page is printed turned a quarter turn
 // anticlockwise onto the portrait sheet; the renderers do that turn, nothing here knows about it.
 
-import { minus } from '../engine/sheet';
 import { type PlotArray, type PlotPoint, type Pt2 } from '../engine/plot';
 import { NOT_STATED } from '../ui/format';
 import { clipMiddle, clipToWidth, wrap, type Measure } from './array-image';
@@ -43,9 +42,10 @@ export const DOWNLOAD_NOTE = 'For the right scale, print the file from Download 
 // The page, in millimetres.
 const FRAME = { x0: 0, y0: 15, x1: 210, y1: 176 };
 const COLUMN = { x0: 214, w: 70 };
-const COLUMN_WIDTHS = [7, 23, 8.2, 9, 7.6, 7.6, 7.6];
-const COLUMN_HEADS = ['Point', 'Array', 'Pickup', 'Load kg', 'Symbol', 'X (m)', 'Y (m)'];
+const COLUMN_WIDTHS = [6.5, 15.6, 7.6, 8.7, 7.6, 7.6, 7.6, 8.8];
+const COLUMN_HEADS: readonly (readonly string[])[] = [['Point'], ['Array'], ['Pickup'], ['Load kg'], ['Symbol'], ['X (m)'], ['Y (m)'], ['Spacing', '(m)']];
 const ROW_MM = 4;
+const HEAD_MM = 6;
 /** An array name that needs a second line adds this much to its row. */
 const TABLE_LINE_MM = 2.1;
 const TABLE_PT = 5;
@@ -59,8 +59,6 @@ export interface PlotInput {
   points: readonly PlotPoint[];
   /** Flown arrays left out because the report lacks a position, size or azimuth. */
   notDrawn: readonly string[];
-  /** Ground offset by position in the report, in metres. Null when what was typed is not a number. */
-  offsets: Readonly<Record<number, number | null>>;
   /** The note typed as Origin (P0), e.g. "DSE". */
   origin: string;
   /** Name the sides of the plan (House left, House right, Stage, Audience). Off for a show in the round. */
@@ -79,14 +77,6 @@ export interface PlotPage {
   ratio: number;
   /** True when the drawing does not fit even at the smallest scale, or the side column runs out of room. */
   overflow: boolean;
-}
-
-/** Metres, two decimals, with the ground-offset height in brackets when an offset is set. */
-export function heightText(z: number, offset: number | null | undefined): string {
-  const base = `${z.toFixed(2)} m`;
-  if (offset === null || offset === undefined || offset === 0) return base;
-  const corrected = minus(z, offset);
-  return corrected === null ? base : `${base} (${corrected.toFixed(2)} m)`;
 }
 
 export function chooseRatio(widthM: number, heightM: number, availWMm: number, availHMm: number): { ratio: number; fits: boolean } {
@@ -230,9 +220,9 @@ function placeLabels(requests: readonly LabelRequest[], occupied: Rect[], soft: 
     const clashes = (c: { box: Rect; far: boolean }): number => {
       // Covering another label or marker is worst, crossing a line next, sitting in an array's bounding box (which a turned box over-states) least.
       let n = 0;
-      for (const o of occupied) if (!req.ignore?.includes(o) && overlap(c.box, o)) n += soft.has(o) ? 1 : 10;
+      for (const o of occupied) if (!req.ignore?.includes(o) && overlap(c.box, o)) n += soft.has(o) ? 1 : 30;
       const padded = inflate(c.box, 0.25);
-      n += segments.filter((sg) => segmentHitsRect(sg, padded)).reduce((sum, sg) => sum + (sg.kind === 'leader' ? 9 : sg.kind === 'origin' ? 6 : 3), 0);
+      n += segments.filter((sg) => segmentHitsRect(sg, padded)).reduce((sum, sg) => sum + (sg.kind === 'leader' ? 9 : sg.kind === 'origin' ? 12 : 3), 0);
       if (c.far) {
         const l = leaderFor(c.box);
         const startsIn = (o: Rect) => cx >= o.x0 && cx <= o.x1 && cy >= o.y0 && cy <= o.y1;
@@ -321,7 +311,7 @@ function footerOps(input: PlotInput, page: number, measure: Measure): PlotOp[] {
 
 /** The table rows as strings. */
 export function tableRow(p: PlotPoint): string[] {
-  return [p.label, p.source, p.which === 'front' ? 'Front' : 'Rear', p.load === null ? NOT_STATED : String(p.load), '1 t', p.at.x.toFixed(2), p.at.y.toFixed(2)];
+  return [p.label, p.source, p.which === 'front' ? 'Front' : 'Rear', p.load === null ? NOT_STATED : String(p.load), '1 t', p.at.x.toFixed(2), p.at.y.toFixed(2), p.spacing === null ? '' : p.spacing.toFixed(2)];
 }
 
 /** The array name on at most two lines, cut in the middle of the second if it is still too long. */
@@ -342,8 +332,8 @@ function tableOps(rows: readonly PlotPoint[], x0: number, y0: number, measure: M
     ops.push(text(right(i) ? (xs[i + 1] ?? 0) - 0.6 : (xs[i] ?? 0) + 0.6, y + 0.9, clipped, TABLE_PT, { bold, align: right(i) ? 'right' : 'left' }));
   };
   let y = y0;
-  COLUMN_HEADS.forEach((h, i) => cell(i, h, y, true));
-  y += ROW_MM;
+  COLUMN_HEADS.forEach((h, i) => h.forEach((t, k) => cell(i, t, y + k * TABLE_LINE_MM, true)));
+  y += HEAD_MM;
   ops.push(line(x0, y, x0 + COLUMN.w, y, 0.3, 'ink'));
   for (const p of rows) {
     const names = tableNameLines(p.source, measure);
@@ -533,28 +523,23 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
     const f = list.find((p) => p.which === 'front');
     const r = list.find((p) => p.which === 'rear');
     const total = arrays.find((a) => a.index === f?.arrayIndex)?.totalWeight;
-    if (!f || !r || total === null || total === undefined) continue;
+    const spacing = f?.spacing ?? null;
+    if (!f || !r || ((total === null || total === undefined) && spacing === null)) continue;
     const mx = (X(f.at.x) + X(r.at.x)) / 2;
     const my = (Y(f.at.y) + Y(r.at.y)) / 2;
-    weightRequests.push({ anchor: rectAround(mx, my, 0.3), lines: [{ text: `${total} kg`, bold: false }], gap: 1.6 });
+    weightRequests.push({ anchor: rectAround(mx, my, 0.3), lines: [{ text: [total === null || total === undefined ? null : `${total} kg`, spacing === null ? null : `${spacing.toFixed(2)} m`].filter((t) => t !== null).join(', '), bold: false }], gap: 1.6 });
   }
   const weightLabels = placeLabels(weightRequests, occupied, softRects, segments, bounds, measure);
   const requests: LabelRequest[] = points.map((p, i) => ({
     anchor: markerRects[i] as Rect,
     ignore: [boxRects.get(p.arrayIndex)].filter((r): r is Rect => !!r),
-    lines: [
-      { text: `${p.label}  ${p.load === null ? 'load not stated' : `${p.load} kg`}`, bold: true },
-      { text: heightText(p.at.z, input.offsets[p.arrayIndex]), bold: false },
-    ],
+    lines: [{ text: `${p.label}  ${p.load === null ? 'load not stated' : `${p.load} kg`}`, bold: true }],
   }));
   const pointLabels = placeLabels(requests, occupied, softRects, segments, bounds, measure);
   // Flown arrays are labelled first and the stacks, which often stand under them, find room around those.
   const arrayRequest = (a: PlotArray): LabelRequest => {
+    // The name alone: the site angle and the heights are on the cards and the rigging summary.
     const lines = [{ text: a.name, bold: true }];
-    // A stack's height is shown as the report prints it, as the fixation positions are, with no ground offset taken off.
-    if (a.kind === 'flown' && a.topSite !== null) lines.push({ text: `Top site ${a.topSite}°`, bold: false });
-    // A stack on the ground (Z of 0) needs no height; one standing on a riser or a stage shows it.
-    if (a.kind === 'flown' || a.position.z !== 0) lines.push({ text: `Position Z ${heightText(a.position.z, a.kind === 'stacked' ? null : input.offsets[a.index])}`, bold: false });
     const own = boxRects.get(a.index) as Rect;
     return { anchor: own, ignore: [own], lines, gap: 1.2 };
   };

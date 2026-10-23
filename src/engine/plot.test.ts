@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
-import { footprint, numberPickups, plotArrays, type PlotArray } from './plot';
+import { footprint, numberPickups, planSpacing, plotArrays, type PlotArray } from './plot';
 import type { ArraySource } from './types';
 
 const near = (a: number, b: number) => expect(a).toBeCloseTo(b, 6);
@@ -128,7 +128,6 @@ function arr(index: number, x: number, y: number, pickups: ('front' | 'rear')[])
       { x, y },
       { x, y },
     ],
-    topSite: null,
     pickups: pickups.map((which, i) => ({ which, position: i + 1, at: { x, y, z: 5 } })),
     frontMotorLoad: 100,
     rearMotorLoad: 200,
@@ -165,5 +164,31 @@ describe('numberPickups', () => {
     const pts = numberPickups(drawn);
     expect(pts.slice(0, 4).map((p) => `${p.source}:${p.which}`)).toEqual(['K2 Left:front', 'K2 Left:rear', 'K2 Right:front', 'K2 Right:rear']);
     expect(pts.map((p) => p.number)).toEqual(pts.map((_, i) => i + 1));
+  });
+});
+
+describe('planSpacing', () => {
+  it('is the distance on the plan, rounded to 2 decimals', () => {
+    expect(planSpacing({ x: 11.4, y: 2.16 }, { x: 11.4, y: 1.15 })).toBe(1.01);
+    expect(planSpacing({ x: 0, y: 0 }, { x: 3, y: 4 })).toBe(5);
+    expect(planSpacing({ x: 0.001, y: 0 }, { x: 0, y: 0.002 })).toBe(0);
+  });
+
+  it('ignores height, and sits on the front pickup of an array that has both', () => {
+    const arrays = plotArrays(parseFixture('c').report.sources).drawn;
+    const pts = numberPickups(arrays);
+    const withBoth = arrays.filter((a) => a.pickups.length === 2);
+    expect(withBoth.length).toBeGreaterThan(0);
+    for (const a of withBoth) {
+      const f = pts.find((p) => p.arrayIndex === a.index && p.which === 'front')!;
+      const r = pts.find((p) => p.arrayIndex === a.index && p.which === 'rear')!;
+      expect(f.spacing).toBe(planSpacing(f.at, r.at));
+      expect(r.spacing).toBeNull();
+    }
+    // A pickup 45 m higher than the other changes nothing: only X and Y count.
+    const tall = arr(0, 0, 0, ['front', 'rear']);
+    tall.pickups = [{ which: 'front', position: 1, at: { x: 0, y: 0, z: 5 } }, { which: 'rear', position: 2, at: { x: 3, y: 4, z: 50 } }];
+    expect(numberPickups([tall])[0]!.spacing).toBe(5);
+    for (const a of arrays.filter((x) => x.pickups.length === 1)) expect(pts.find((p) => p.arrayIndex === a.index)!.spacing).toBeNull();
   });
 });
