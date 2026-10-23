@@ -19,9 +19,9 @@ const FOOTER = printFooter({
   verb: 'Exported',
 });
 
-function sampleDoc(name: 'a' | 'b' | 'e' = 'a'): Doc {
+function sampleDoc(name: 'a' | 'b' | 'c' | 'e' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `${name}.pdf`);
-  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '' };
+  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '', origin: 'DSE', sideLabels: true };
   return doc;
 }
 
@@ -53,20 +53,51 @@ describe('renderPdf', () => {
     expect(bytes.byteLength).toBeGreaterThan(5_000);
   });
 
-  it('puts four arrays on a page and the rigging summary last: report A is four pages', async () => {
+  it('puts four arrays on a page, then the rigging plot, then the rigging summary last: report A is five pages', async () => {
     const { pages, text } = await make(sampleDoc());
-    expect(pages).toBe(4); // 9 arrays = 4 + 4 + 1, then the rigging page
+    expect(pages).toBe(5); // 9 arrays = 4 + 4 + 1, then the plot, then the rigging page
     expect(text(1)).toContain('KARA II L Main');
     expect(text(1)).toContain('414.2 kg');
     expect(text(1)).toContain('SB28 L Rear');
     expect(text(2)).toContain('X8 2');
     expect(text(3)).toContain('X12 B L');
-    expect(text(4)).toContain('Rigging summary');
-    expect(text(4)).toContain('KARA II R Out');
+    expect(text(4)).toContain('Rigging plot');
+    expect(text(5)).toContain('Rigging summary');
+    expect(text(5)).toContain('KARA II R Out');
   });
 
-  it('report B is three pages', async () => {
-    expect((await make(sampleDoc('b'))).pages).toBe(3);
+  it('report B is four pages', async () => {
+    expect((await make(sampleDoc('b'))).pages).toBe(4);
+  });
+
+  it('puts the rigging plot just before the rigging summary, on a portrait page, turned a quarter turn', async () => {
+    const { bytes, items, text } = await make(sampleDoc('c'));
+    const pdf = await PDFDocument.load(bytes);
+    const pages = pdf.getPages();
+    const plot = pages.length - 2;
+    expect(pages[plot]!.getSize().width).toBeCloseTo(595.28, 1);
+    expect(pages[plot]!.getSize().height).toBeCloseTo(841.89, 1);
+    const t = text(plot + 1);
+    expect(t).toContain('Rigging plot');
+    expect(t).toContain('PA1');
+    expect(t).toContain('Soundvision origin: DSE');
+    expect(t).toContain('This plot is drawn only from the Soundvision report.');
+    expect(t).toContain(`Page ${plot + 1} of ${pages.length}`);
+    expect(text(plot + 2)).toContain('Rigging summary');
+    // The landscape top left corner lands at the portrait bottom left: the heading starts near the left edge and the foot of the sheet.
+    const title = items.find((i) => i.page === plot + 1 && i.text === 'Rigging plot')!;
+    expect(title.x).toBeLessThan(40);
+    expect(title.y).toBeLessThan(30);
+    // The footer, at the landscape bottom, is at the portrait right edge.
+    const footer = items.find((i) => i.page === plot + 1 && i.text.startsWith('RigPoint Array 0.1.0'))!;
+    expect(footer.x).toBeGreaterThan(550);
+  });
+
+  it('has no plot page when no chosen array can be drawn', async () => {
+    let doc = sampleDoc();
+    doc.result.report.sources.forEach((_, i) => (doc = withPrinted(doc, i, false)));
+    const { all } = await make(doc);
+    expect(all).not.toContain('Rigging plot');
   });
 
   it('says MIRRORED and the other array, with nothing else', async () => {
@@ -81,20 +112,24 @@ describe('renderPdf', () => {
     expect(page1.match(/RIGPOINT ARRAY/g)).toHaveLength(4);
     expect(page1.match(/Main stage · Grand Hall/g)).toHaveLength(4);
     expect(page1.match(/Z-axis zero: Arena floor/g)).toHaveLength(4);
-    expect(page1.match(/Page 1 of 4/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(page1.match(/Page 1 of 5/g)?.length).toBeGreaterThanOrEqual(4);
     expect(page1).toContain('RigPoint Array 0.1.0 · Soundvision 2026.3.1');
     expect(page1).toContain('(unsaved changes)'.replace('unsaved changes', 'not saved'));
   });
 
   it('marks a draft on every panel, and only a draft', async () => {
     const draft = await make(sampleDoc());
-    expect(draft.items.filter((i) => i.text === 'DRAFT').length).toBeGreaterThanOrEqual(10); // 9 panel watermarks and the rigging page
+    expect(draft.items.filter((i) => i.text === 'DRAFT').length).toBeGreaterThanOrEqual(11); // 9 panel watermarks, the plot and the rigging page
+    // The plot page carries the watermark as well as the status in its header.
+    const plotPage = draft.pages - 1;
+    expect(draft.items.filter((i) => i.page === plotPage && i.text === 'DRAFT')).toHaveLength(2); // the header and the watermark
     const issued = sampleDoc();
     issued.status = 'issued';
     issued.revision = 'B';
     const done = await make(issued);
     expect(done.items.some((i) => i.text === 'DRAFT')).toBe(false);
     expect(done.all).toContain('ISSUED REV B');
+    expect(done.items.filter((i) => i.page === done.pages - 1 && i.text === 'DRAFT')).toHaveLength(0);
   });
 
   it('prints only the arrays that are chosen, and only their pickups', async () => {
@@ -102,20 +137,20 @@ describe('renderPdf', () => {
     // Leave out the left main (and the right main it stands for), a sub pair and two fills: four cards remain.
     for (const i of [0, 4, 6, 8, 9]) doc = withPrinted(doc, i, false);
     const { pages, text, all } = await make(doc);
-    expect(pages).toBe(2);
+    expect(pages).toBe(3); // the cards, the plot, the rigging page
     expect(all).not.toContain('KARA II L Main');
     expect(text(1)).toContain('KARA II L Out');
     expect(text(1)).toContain('X12 B L');
-    expect(text(2)).toContain('KARA II L Out');
-    expect(text(2)).not.toContain('KARA II R Main');
+    expect(text(3)).toContain('KARA II L Out');
+    expect(text(3)).not.toContain('KARA II R Main');
   });
 
   it('has the QR address and the approved small print on the last page', async () => {
     const { text } = await make(sampleDoc());
     // The address is wrapped under the code, so join the pieces before looking for it.
-    expect(text(4).replace(/ /g, '')).toContain('https://mrfreekie.github.io/rigpoint-array-sheet/');
-    expect(text(4)).toContain('is provided as it is, without warranty');
-    expect(text(4)).toContain('Soundvision and L-Acoustics are trademarks of their owners.');
+    expect(text(5).replace(/ /g, '')).toContain('https://mrfreekie.github.io/rigpoint-array-sheet/');
+    expect(text(5)).toContain('is provided as it is, without warranty');
+    expect(text(5)).toContain('Soundvision and L-Acoustics are trademarks of their owners.');
   });
 
   it('lists the fixation positions of every printed array on the rigging page, and says so', async () => {
@@ -143,8 +178,8 @@ describe('renderPdf', () => {
 
   it('has no fixation table and keeps the old line when the report states no fixations', async () => {
     const { text } = await make(sampleDoc());
-    expect(text(4)).not.toContain('Fixation');
-    expect(text(4)).toContain('Every pickup is listed, including those of mirrored arrays, because their positions differ.');
+    expect(text(5)).not.toContain('Fixation');
+    expect(text(5)).toContain('Every pickup is listed, including those of mirrored arrays, because their positions differ.');
   });
 
   it('cuts the middle of an array name that is too long for its column, keeping its end, in both rigging tables', async () => {
@@ -166,7 +201,7 @@ describe('renderPdf', () => {
     const doc = sampleDoc();
     doc.job.show = 'Show Ω 日本';
     const { all, pages } = await make(doc);
-    expect(pages).toBe(4);
+    expect(pages).toBe(5);
     expect(all).toContain('Show ? ??');
   });
 
@@ -184,7 +219,7 @@ describe('renderPdf', () => {
 
   it('puts a 24-row array in a long column on the first page, ahead of the grid pages', async () => {
     const { pages, text } = await make(tallDoc({ 'KARA II L Main': 24 }));
-    expect(pages).toBe(4); // one long page, two grid pages of four, then the rigging page
+    expect(pages).toBe(5); // one long page, two grid pages of four, the plot, then the rigging page
     expect(text(1).match(/KARA II L Main/g)).toHaveLength(1);
     expect(text(1).match(/RIGPOINT ARRAY/g)).toHaveLength(1);
     expect(text(1).match(/KARA II/g)?.length).toBeGreaterThanOrEqual(24);
@@ -194,11 +229,11 @@ describe('renderPdf', () => {
 
   it('puts two 24-row arrays side by side on one long page, each with its own header and page number', async () => {
     const { pages, text } = await make(tallDoc({ 'KARA II L Main': 24, 'KARA II R Main': 24, 'KARA II L Out': 24, 'KARA II R Out': 24 }, false));
-    expect(pages).toBe(4); // two long columns on one page, then grid pages of four and three, then the rigging page
+    expect(pages).toBe(5); // two long columns on one page, then grid pages of four and three, the plot, then the rigging page
     expect(text(1)).toContain('KARA II L Main');
     expect(text(1)).toContain('KARA II L Out');
     expect(text(1).match(/RIGPOINT ARRAY/g)).toHaveLength(2);
-    expect(text(1).match(/Page 1 of 4/g)).toHaveLength(2);
+    expect(text(1).match(/Page 1 of 5/g)).toHaveLength(2);
     expect(text(2).match(/RIGPOINT ARRAY/g)).toHaveLength(4);
   });
 
@@ -212,17 +247,18 @@ describe('renderPdf', () => {
     expect(marks[1]).toEqual({ ticks: 0, dashed: 2 });
     expect(marks[2]).toEqual({ ticks: 0, dashed: 2 });
     expect(marks[pages - 1]).toEqual({ ticks: 0, dashed: 0 }); // the rigging page has no fold marks
+    expect(marks[pages - 2]).toEqual({ ticks: 0, dashed: 0 }); // nor has the plot
   });
 
   it('puts a 48-row array in a long column too, so the page count is the same', async () => {
     const { pages, text } = await make(tallDoc({ 'KARA II L Main': 48 }));
-    expect(pages).toBe(4);
+    expect(pages).toBe(5);
     expect(text(1).match(/KARA II/g)?.length).toBeGreaterThanOrEqual(48);
   });
 
   it('with the mirrored arrays shown, prints all eighteen', async () => {
     const { pages, all } = await make(sampleDoc(), true);
-    expect(pages).toBe(6); // 18 = 4 + 4 + 4 + 4 + 2, then rigging
+    expect(pages).toBe(7); // 18 = 4 + 4 + 4 + 4 + 2, then the plot, then rigging
     expect(all).toContain('KARA II R Main');
   });
 });

@@ -26,6 +26,13 @@ export const MIGRATIONS: Record<number, Migration> = {
   // Version 5 added the optional fixation positions of a stacked array. Nothing in an older file changes; the step makes
   // older copies of the app refuse every version 5 file, so they cannot open one with fixations and drop them.
   4: (file) => file,
+  // Version 6 added the origin note (P0) and the side labels choice for the rigging plot. Earlier files had a blank note
+  // and showed the side labels. An older copy of the app would
+  // drop the note when it saved, so it refuses version 6 files.
+  5: (file) => {
+    const job = file['job'];
+    return typeof job === 'object' && job !== null && !Array.isArray(job) ? { ...file, job: { ...job, origin: '', side_labels: true } } : file;
+  },
 };
 
 export function migrate(

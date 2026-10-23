@@ -57,14 +57,15 @@ test('save, reopen, approve and lock', async ({ page }) => {
   await expect(page.getByText('● Unsaved changes')).toBeVisible();
 
   await page.getByLabel('Show', { exact: true }).fill('Main stage');
+  await page.getByLabel('Origin (P0)').fill('Iron Line');
   await page.getByLabel('Ground offset for every array (m)').fill('0.3');
   const first = page.locator('.card').first();
   await expect(first.getByTestId('top-height')).toHaveText('9.1 m');
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/5', status: 'draft', revision: '' });
-  expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/6', status: 'draft', revision: '' });
+  expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
   // Reopen what was saved, in a fresh page.
@@ -72,6 +73,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Open a Soundvision report' })).toBeVisible();
   await openJson(page, 'Main stage.arraysheet.json', draft.text);
   await expect(page.getByLabel('Show', { exact: true })).toHaveValue('Main stage');
+  await expect(page.getByLabel('Origin (P0)')).toHaveValue('Iron Line');
   await expect(page.locator('.card').first().getByTestId('top-height')).toHaveText('9.1 m');
 
   // Approve it: still editable until saved, then read-only.
@@ -262,13 +264,14 @@ test('Download PDF makes the sheet in one click, with no print window', async ({
   const bytes = readFileSync(await download.path());
   expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
 
-  // Read it back: four arrays to a page, the show and venue on every panel, the rigging page last.
+  // Read it back: four arrays to a page, the show and venue on every panel, the plot, the rigging page last.
   const items = await readPdfItems(new Uint8Array(bytes));
-  expect(Math.max(...items.map((i) => i.page))).toBe(4);
+  expect(Math.max(...items.map((i) => i.page))).toBe(5);
   const text = (n: number) => items.filter((i) => i.page === n).map((i) => i.text).join(' ');
   expect(text(1)).toContain('KARA II L Main');
   expect(text(1).match(/Main stage · Grand Hall/g)).toHaveLength(4);
-  expect(text(4)).toContain('Rigging summary');
+  expect(text(4)).toContain('Rigging plot');
+  expect(text(5)).toContain('Rigging summary');
   await expect(page.getByText('Saved Main stage.pdf.')).toBeVisible();
 });
 
@@ -279,7 +282,7 @@ test('Download PDF follows the choice of arrays and is off when none is chosen',
   for (let i = 1; i < 8; i++) await cards.nth(i).getByLabel('Print this array').uncheck();
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
-  expect(Math.max(...items.map((i) => i.page))).toBe(2); // one card, then the rigging page
+  expect(Math.max(...items.map((i) => i.page))).toBe(3); // one card, the plot, then the rigging page
 
   await cards.nth(0).getByLabel('Print this array').uncheck();
   await expect(page.getByRole('button', { name: 'Download PDF' })).toBeDisabled();

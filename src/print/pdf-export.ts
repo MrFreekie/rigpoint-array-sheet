@@ -1,6 +1,6 @@
 // One-click PDF: the same sheet as the print view, made on this device with pdf-lib and downloaded.
 // Long pages first (one or two tall arrays, folded once), then four pocket cards to an A4 page (fold it
-// twice for A6 panels), then the rigging summary page.
+// twice for A6 panels), then the rigging plot (a landscape drawing turned onto the sheet), then the rigging summary page.
 // Text uses the PDF's built-in Helvetica, so nothing is fetched and no font is embedded.
 
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
@@ -26,6 +26,9 @@ import {
 } from './layout';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, ptToPx, riggingSubtitle, type Laid } from './pdf-layout';
+import { plotContent } from './plot-input';
+import { drawPlotOps } from './plot-pdf';
+import { layoutPlotPages, plotPageCount, PRINT_PALETTE } from './plot-layout';
 import { qrMatrix } from './qr';
 import { wrap } from './array-image';
 
@@ -195,7 +198,9 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
     .map((e) => ({ item: layoutPocketCard(cardContent(e, ctx), measure) }))
     .map((c) => ({ item: c.item, heightPx: ptToPx(c.item.height) }));
   const plan = planPages(cards);
-  const total = plan.length + 1;
+  const plotData = plotContent(doc, model);
+  const plotCount = plotData ? plotPageCount(plotData.points.length) : 0;
+  const total = plan.length + plotCount + 1;
   const draft = doc.status === 'draft';
   const footerFor = (n: number) => pageFooterText(footer, checks, n, total);
 
@@ -220,6 +225,16 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
       });
     }
   });
+
+  // The rigging plot, turned onto the portrait sheet, before the rigging summary.
+  if (plotData) {
+    const pages = layoutPlotPages({ ...plotData, footer: (i) => footerFor(plan.length + i + 1) }, measure);
+    for (const plotPage of pages) {
+      const page = pdf.addPage([A4.w, A4.h]);
+      if (draft) drawWatermark(page, fonts.bold, margin, margin, pageW, mm(PAGE_H_MM), 90);
+      drawPlotOps(page, fonts, safe, plotPage.ops, PRINT_PALETTE);
+    }
+  }
 
   // The rigging summary page, last.
   const rigging = layoutRiggingPage(

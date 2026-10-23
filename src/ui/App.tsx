@@ -27,6 +27,7 @@ import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
 import { RecentFilesDialog } from './RecentFilesDialog';
+import { RiggingPlotPreview } from './RiggingPlotPreview';
 import { RiggingSummary } from './RiggingSummary';
 import { sheetModel, type SheetEntry, type SheetModel } from './sheet-model';
 import { ThemeButton } from './ThemeButton';
@@ -711,6 +712,7 @@ function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, o
               ))}
             </div>
           </section>
+          <RiggingPlotPreview doc={doc} model={model} />
           <RiggingSummary rows={riggingRows(report.sources)} fixations={riggingFixations(report.sources)} />
         </>
       ) : null}

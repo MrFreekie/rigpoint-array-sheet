@@ -1,4 +1,4 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/5").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/6").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
@@ -16,8 +16,11 @@ import { REVISION_PATTERN } from '../files/revision';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 5;
+export const FORMAT_VERSION = 6;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
+
+/** The longest Origin (P0) note the file accepts. */
+export const ORIGIN_MAX = 100;
 
 const text = (what: string, max = 500) => z.string({ error: `${what} must be text` }).max(max, { error: `${what} is too long` });
 
@@ -38,6 +41,8 @@ export const ArrayFileSchema = z
       company: text('Company'),
       z_axis_zero: text('Z-axis zero'),
       default_offset: text('Ground offset', 20),
+      origin: text('Origin (P0)', ORIGIN_MAX),
+      side_labels: z.boolean({ error: 'Side labels must be true or false' }),
     }),
     offsets: z.array(text('Ground offset', 20), { error: 'Offsets must be a list' }),
     print: z.array(z.boolean({ error: 'Print must be true or false' }), { error: 'Print choices must be a list' }),

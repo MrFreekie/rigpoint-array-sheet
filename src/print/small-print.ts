@@ -24,3 +24,10 @@ export const SMALL_PRINT: { label: string | null; text: string }[] = [
     text: 'Soundvision and L-Acoustics are trademarks of their owners. This project is independent and is not made, approved or supported by them.',
   },
 ];
+
+/**
+ * The small print on the rigging plot page, in the owner's approved words. small-print.test.ts holds the literal text.
+ * The page carries the ordinary small print on the last page as well. Change this only with the owner's approval.
+ */
+export const PLOT_SMALL_PRINT =
+  'This plot is drawn only from the Soundvision report. It shows array positions, pickups and loads as the report states them. It does not include shackles, slings, bridles, spreaders, trusses, motors or any other rigging component. Marker symbols show a nominal rating and are a guide only. Use this plot as a visual guide when developing the final rigging plot, check the scale bar against a ruler, and check every figure against the Soundvision report. It is a design aid, not a definitive CAD drawing.';

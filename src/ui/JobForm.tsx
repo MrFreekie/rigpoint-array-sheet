@@ -1,4 +1,5 @@
 import { cleanRevision } from '../files/revision';
+import { ORIGIN_MAX } from '../schema/array-file';
 import { effectiveOffset, STATUS_LABELS, STATUSES, type Doc, type Job, type Status } from './document';
 
 interface Props {
@@ -60,6 +61,26 @@ export function JobForm({ doc, locked, onJob, onStatus, onRevision }: Props) {
             {badDefault ? 'Enter a number of metres, such as 0.3.' : 'Taken off the report heights. Each array can have its own.'}
           </span>
         </label>
+        <label className="field">
+          <span>Origin (P0)</span>
+          <input
+            type="text"
+            value={doc.job.origin}
+            disabled={locked}
+            maxLength={ORIGIN_MAX}
+            onChange={(e) => onJob({ origin: e.target.value })}
+            placeholder="e.g. DSE, Iron Line, Arena Centre"
+            autoComplete="off"
+          />
+          <span className="field-hint">Where the Soundvision origin is. Printed on the rigging plot.</span>
+        </label>
+        <div className="field">
+          <label className="check-field">
+            <input type="checkbox" checked={doc.job.sideLabels} disabled={locked} onChange={(e) => onJob({ sideLabels: e.target.checked })} />
+            <span>Show side labels on the rigging plot</span>
+          </label>
+          <span className="field-hint">Names House left, House right, Stage and Audience. Turn off for a show in the round.</span>
+        </div>
         <label className="field">
           <span>Status</span>
           <select value={doc.status} disabled={locked} onChange={(e) => onStatus(e.target.value as Status)}>

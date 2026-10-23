@@ -92,11 +92,11 @@ A card that stands for a pair says only `MIRRORED` and the name of the other arr
 
 ## Saved files
 
-A saved file is JSON in the format `arraysheet/5`. It holds the report as read from the PDF (not the PDF), the problems found, the show details, one ground offset and one print choice per array, the status, the revision, the name of the PDF and the time it was saved. The schema is `src/schema/array-file.ts`.
+A saved file is JSON in the format `arraysheet/6`. It holds the report as read from the PDF (not the PDF), the problems found, the show details, one ground offset and one print choice per array, the status, the revision, the name of the PDF and the time it was saved. The schema is `src/schema/array-file.ts`.
 
 Every opened file is treated as untrusted. In order, it must pass the size limit (8 MB), parse as JSON, say it is an `arraysheet` file, be no newer than this version, and pass the schema. The schema also caps the number of arrays, enclosures, pickups (8), fixations (16) and warnings, and the length of text, a fixation name included. Anything wrong stops the open with a plain-English message that names the field. Nothing is partly opened.
 
-Each version has a migration to the next in `src/files/migrations.ts`. There are four steps so far. Version 2 added the print choices, so the first step turns a version 1 file into version 2 by choosing every array for printing, which is what a version 1 file did. Version 3 added the venue, so the second step gives a version 2 file an empty venue. Version 4 added the optional column of an enclosure row, and version 5 added the optional fixations of an array. Neither changes an older file, so the steps from 3 and from 4 only change the format number. Their purpose is to make older copies of the app refuse a file that may hold columns or fixations, because they would drop them without saying so. A file from a newer version is refused, not opened and silently trimmed.
+Each version has a migration to the next in `src/files/migrations.ts`. There are five steps so far. Version 2 added the print choices, so the first step turns a version 1 file into version 2 by choosing every array for printing, which is what a version 1 file did. Version 3 added the venue, so the second step gives a version 2 file an empty venue. Version 4 added the optional column of an enclosure row, and version 5 added the optional fixations of an array. Neither changes an older file, so the steps from 3 and from 4 only change the format number. Their purpose is to make older copies of the app refuse a file that may hold columns or fixations, because they would drop them without saying so. Version 6 added the origin note (P0) that the rigging plot prints, so the last step gives an older file a blank one and turns the side labels on; an older copy of the app would drop the note, so it refuses version 6 files. A file from a newer version is refused, not opened and silently trimmed.
 
 Because the file holds the report as read, it reopens exactly as saved, whatever the PDF reader does later.
 
@@ -155,6 +155,18 @@ Each pocket panel has a header (`panelHeader` in `src/print/panel-header.ts`) an
 The footer is `printFooter`. It says which version, which Soundvision report, which file and when. A file that has changed since it was saved is marked. The last page carries the small print from `src/print/small-print.ts`. It is the approved wording of `DISCLAIMER.md`, and a test fails if the two differ by a word. Change them together, and only with the owner's approval.
 
 The Playwright PDF tests check three things: the number of PDF pages, that every card sits inside its panel and every footer inside its page, and that the text is what the screen shows. PDF output is a Chromium feature, so those run on Chromium only.
+
+## The rigging plot
+
+The plot is a plan view of the flown arrays chosen for printing, drawn on a landscape A4 area and turned a quarter turn anticlockwise onto the portrait sheet, so it reads when the sheet is turned clockwise. It sits after the card pages and before the rigging summary, and a table longer than 24 points continues on further pages. A report with no drawable flown array has no plot page.
+
+`src/engine/plot.ts` holds the geometry. `footprint` puts the middle of the front edge at Position and runs the box rearward by the depth, turned by the azimuth read as a compass bearing, clockwise from +Y. In samples A, C and E every pickup lies on the centre line of its box to within 0.02 m, and the front pickup lies forward of the rear one along the array axis; a test locks both. That shows the azimuth direction agrees with the report's own figures, but the distance of the front pickup from the front edge is not yet checked against a real hung array. `numberPickups` numbers the pickups: arrays are grouped in rows by Position Y, highest first, a row being arrays within 1 m of the first one in it; inside a row the highest X comes first; a front pickup comes before the rear one of its array. An array with no Position, spatial dimensions or azimuth is left off and named under the plot.
+
+`src/print/plot-layout.ts` is one pure function, `layoutPlotPages`, that returns drawing steps in millimetres (lines, circles and text with colour roles). `PlotSvg.tsx` draws them for the print view (rotated) and the on-screen preview, and `plot-pdf.ts` draws them with pdf-lib, so the three agree. The screen palette has red and green axes and a red Position dot; the print palette is black and grey. The scale is the largest standard ratio (1:50 to 1:2500) at which everything, the origin included, fits. A pickup symbol is 250 mm across at scale but never under 2 mm on paper. Labels try the right of the marker first, then left, above and below, then further out with a thin leader line. The small print is `PLOT_SMALL_PRINT` in `small-print.ts`, locked by a test.
+
+Known label clashes: labels keep clear of lines, markers, boxes and each other, but placement is greedy. In sample A one leader still runs through the label of a neighbouring array, because ten arrays sit about 12 mm apart. In sample C, at 1:400, the leader of one label crosses the origin line and clips the origin note, and a second leader also crosses the origin line. Sample E has none. A test allows exactly these leaders, so a new clash fails it.
+
+Phase one draws the 1 ton circle with a cross on every pickup. Choosing other symbols, custom values, and the two print ticks come later.
 
 ## Choosing what to print
 

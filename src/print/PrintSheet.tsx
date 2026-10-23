@@ -12,6 +12,9 @@ import { cardContent, FIXATION_COLUMNS, warningText, type CardContent } from './
 import { pageFooterText } from './footer';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { qrMatrix, qrPath, qrSize } from './qr';
+import { PlotSvg } from './PlotSvg';
+import { plotContent } from './plot-input';
+import { layoutPlotPages, plotPageCount, PRINT_PALETTE } from './plot-layout';
 import { SMALL_PRINT } from './small-print';
 import { canvasMeasurePt } from './array-image';
 import { CARD_W_MM, FULL_H_MM, MIN_FULL_SCALE, PAGE_W_MM, fitScale, planPages } from './layout';
@@ -163,9 +166,16 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
   const overflow = plan.some((p) => p.kind === 'long' && p.cards.some((c) => c.overflow)) || riggingFit.overflow;
   useEffect(() => onOverflow?.(overflow), [overflow, onOverflow]);
 
-  const total = plan.length + 1;
+  const plotData = useMemo(() => plotContent(doc, model), [doc, model]);
+  const plotCount = plotData ? plotPageCount(plotData.points.length) : 0;
+  const total = plan.length + plotCount + 1;
   const draft = doc.status === 'draft';
   const footerText = (n: number) => pageFooterText(footer, checks, n, total);
+  // The plot is laid out from the same steps the PDF draws, so the two cannot disagree.
+  const plotPages = useMemo(
+    () => (plotData ? layoutPlotPages({ ...plotData, footer: (i) => pageFooterText(footer, checks, plan.length + i + 1, total) }, canvasMeasurePt()) : []),
+    [plotData, footer, checks, plan.length, total],
+  );
   const pageFooter = (n: number) => <p className="as-footer">{footerText(n)}</p>;
   const header = useMemo(() => panelHeader(doc), [doc]);
   const watermark = draft ? (
@@ -307,6 +317,13 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
               {p.cards.map((c) => panel(c, n + 1))}
             </div>
           )}
+        </section>
+      ))}
+
+      {plotPages.map((p, i) => (
+        <section key={`plot${i}`} className="as-page as-plot-page" data-testid="print-page">
+          {watermark}
+          <PlotSvg page={p} palette={PRINT_PALETTE} rotated testId="print-plot" />
         </section>
       ))}
 

@@ -8,6 +8,13 @@ import { parseFixture } from '../testing/fixtures';
 import { App } from './App';
 import { ArrayCard } from './ArrayCard';
 import { ProblemsPanel } from './ProblemsPanel';
+import { PlotSvg } from '../print/PlotSvg';
+import { plotContent } from '../print/plot-input';
+import { layoutPlotPages, PRINT_PALETTE, SCREEN_PALETTE } from '../print/plot-layout';
+import { estimateWidth } from '../print/array-image';
+import { RiggingPlotPreview, PLOT_DEVELOPMENT_NOTE } from './RiggingPlotPreview';
+import { newDoc } from './document';
+import { sheetModel } from './sheet-model';
 import { RiggingSummary } from './RiggingSummary';
 
 const a = parseFixture('a').report.sources;
@@ -183,5 +190,28 @@ describe('App', () => {
     expect(html).toContain('Open a Soundvision report');
     expect(html).toContain('does not calculate loads or check that a rig is safe');
     expect(html).toContain('Nothing is uploaded');
+  });
+});
+
+describe('rigging plot', () => {
+  const doc = newDoc(parseFixture('c'), 'c.pdf');
+  const page = layoutPlotPages({ ...plotContent(doc, sheetModel(doc, false))!, footer: () => 'footer' }, estimateWidth)[0]!;
+
+  it('draws the page as plain SVG, with the screen colours on screen and a quarter turn in print', () => {
+    const screen = renderToStaticMarkup(<PlotSvg page={page} palette={SCREEN_PALETTE} />);
+    expect(screen).toContain('viewBox="0 0 284 198"');
+    expect(screen).toContain('stroke="#d00000"');
+    expect(screen).not.toContain('foreignObject');
+    const print = renderToStaticMarkup(<PlotSvg page={page} palette={PRINT_PALETTE} rotated />);
+    expect(print).toContain('viewBox="0 0 198 284"');
+    expect(print).toContain('matrix(0 -1 1 0 0 284)');
+    expect(print).not.toContain('#d00000');
+    expect(print).not.toContain('#0a8a0a');
+  });
+
+  it('shows the under development note above the plot', () => {
+    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} />);
+    expect(html).toContain(PLOT_DEVELOPMENT_NOTE);
+    expect(html).toContain('data-testid="plot-svg"');
   });
 });

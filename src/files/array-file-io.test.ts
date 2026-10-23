@@ -10,7 +10,7 @@ const NOW = new Date('2026-10-22T10:30:00.000Z');
 
 function sample(name: 'a' | 'b' | 'd' | 'e' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `report-${name}.pdf`);
-  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3' };
+  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3', origin: 'Iron Line', sideLabels: false };
   doc.offsets = { 0: '1.5', 4: '-0.2' };
   doc.revision = 'B';
   doc.status = 'issued';
@@ -18,6 +18,46 @@ function sample(name: 'a' | 'b' | 'd' | 'e' = 'a'): Doc {
 }
 
 const roundTrip = (doc: Doc) => openFileText(serialiseDoc(doc, '0.1.0', NOW), 'name.arraysheet.json');
+
+describe('side labels', () => {
+  it('are saved and opened again', () => {
+    expect(roundTrip(sample()).doc.job.sideLabels).toBe(false);
+    expect(JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)).job.side_labels).toBe(false);
+  });
+
+  it('are shown in a version 5 file', () => {
+    const v5 = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { format: string; job: Record<string, unknown> };
+    v5.format = 'arraysheet/5';
+    delete v5.job['side_labels'];
+    expect(openFileText(JSON.stringify(v5), null).doc.job.sideLabels).toBe(true);
+  });
+
+  it('are refused when they are not true or false', () => {
+    const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { job: Record<string, unknown> };
+    f.job['side_labels'] = 'no';
+    expect(() => openFileText(JSON.stringify(f), null)).toThrow(/Side labels must be true or false/);
+  });
+});
+
+describe('origin', () => {
+  it('is saved and opened again', () => {
+    expect(roundTrip(sample()).doc.job.origin).toBe('Iron Line');
+    expect(JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)).job.origin).toBe('Iron Line');
+  });
+
+  it('is blank in a version 5 file', () => {
+    const v5 = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { format: string; job: Record<string, unknown> };
+    v5.format = 'arraysheet/5';
+    delete v5.job['origin'];
+    expect(openFileText(JSON.stringify(v5), null).doc.job.origin).toBe('');
+  });
+
+  it('is refused when it is not text', () => {
+    const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { job: Record<string, unknown> };
+    f.job['origin'] = 5;
+    expect(() => openFileText(JSON.stringify(f), null)).toThrow(/Origin \(P0\) must be text/);
+  });
+});
 
 describe('print choices', () => {
   it('are saved with the file and come back', () => {
@@ -146,7 +186,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/5');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/6');
   });
 
   it('writes one offset per array, blank where none was typed', () => {

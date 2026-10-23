@@ -61,15 +61,15 @@ test('page counting works (sanity check for the tests below)', async ({ page }) 
   expect(pdfPages(await page.pdf({ preferCSSPageSize: true }))).toBe(3);
 });
 
-test('report A: nine arrays print four to a page, then the rigging page', async ({ page }) => {
+test('report A: nine arrays print four to a page, then the plot and the rigging page', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
   await expect(page.locator('.card')).toHaveCount(9);
 
   const pdf = await printToPdf(page, 'report-a.pdf');
-  // 9 arrays = 4 + 4 + 1, then the rigging summary.
-  expect(pdfPages(pdf)).toBe(4);
-  await expect(pages(page)).toHaveCount(4);
+  // 9 arrays = 4 + 4 + 1, then the rigging plot, then the rigging summary.
+  expect(pdfPages(pdf)).toBe(5);
+  await expect(pages(page)).toHaveCount(5);
   await expect(cardsOnPaper(page)).toHaveCount(9);
   await expectNothingClipped(page);
 
@@ -87,12 +87,12 @@ test('report A: nine arrays print four to a page, then the rigging page', async 
   await expect(first).toContainText('Tipping hazard');
 
   // A draft is marked on every pocket panel (nine of them), so each folded card carries it, and once
-  // on the rigging page. The grid pages themselves carry no page-wide word that the folds would cut.
+  // on the plot page and on the rigging page. The grid pages themselves carry no page-wide word that the folds would cut.
   await expect(page.locator('.as-cell .as-watermark')).toHaveCount(9);
-  await expect(page.locator('.as-watermark')).toHaveCount(10);
-  await expect(page.locator('[data-testid=print-page] > .as-watermark')).toHaveCount(1);
+  await expect(page.locator('.as-watermark')).toHaveCount(11);
+  await expect(page.locator('[data-testid=print-page] > .as-watermark')).toHaveCount(2);
   await expect(pages(page).nth(2).locator('.as-panel-footer')).toHaveText(
-    /^RigPoint Array \d+\.\d+\.\d+ · Soundvision 2026\.3\.1 · .+\.arraysheet\.json \(not saved\) · Printed \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} · Page 3 of 4$/,
+    /^RigPoint Array \d+\.\d+\.\d+ · Soundvision 2026\.3\.1 · .+\.arraysheet\.json \(not saved\) · Printed \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} · Page 3 of 5$/,
   );
   // Every pocket panel says whose it is and which file it came from, so a folded card still has an identity.
   await expect(page.locator('.as-cell .as-panel-head')).toHaveCount(9);
@@ -115,7 +115,7 @@ test('report B: eight arrays make two pages of cards and the rigging page', asyn
   await start(page);
   await openPdf(page, samplePdf('b'));
   await expect(page.locator('.card')).toHaveCount(8);
-  expect(pdfPages(await printToPdf(page, 'report-b.pdf'))).toBe(3);
+  expect(pdfPages(await printToPdf(page, 'report-b.pdf'))).toBe(4);
   await expect(cardsOnPaper(page)).toHaveCount(8);
   await expectNothingClipped(page);
   await expect(pages(page).last()).toContainText('Front');
@@ -128,8 +128,8 @@ test('showing the mirrored arrays prints them too', async ({ page }) => {
   await openPdf(page, samplePdf('a'));
   await page.getByRole('checkbox', { name: /Show the 9 mirrored arrays/ }).check();
   await expect(page.locator('.card')).toHaveCount(18);
-  // 18 = 4 + 4 + 4 + 4 + 2, then the rigging page.
-  expect(pdfPages(await printToPdf(page, 'report-a-all.pdf'))).toBe(6);
+  // 18 = 4 + 4 + 4 + 4 + 2, then the plot, then the rigging page.
+  expect(pdfPages(await printToPdf(page, 'report-a-all.pdf'))).toBe(7);
   await expectNothingClipped(page);
 });
 
@@ -152,13 +152,13 @@ test('approved: no watermark; ground offsets show in the printed heights', async
   await expect(first).toContainText('Ground offset0.4 m');
   await expect(first).toContainText('Top height9 m'); // 9.4 - 0.4
   await expect(first).toContainText('Bottom height5.35 m'); // 5.75 - 0.4
-  expect(pdfPages(await printToPdf(page, 'approved.pdf'))).toBe(4);
+  expect(pdfPages(await printToPdf(page, 'approved.pdf'))).toBe(5);
 });
 
 /** The kind of each printed page, in order. */
 const pageKinds = (page: Page) =>
   page.evaluate(() =>
-    [...document.querySelectorAll('[data-testid=print-page]')].map((p) => (p.querySelector('.as-grid') ? 'grid' : p.querySelector('.as-long') ? 'long' : 'rigging')),
+    [...document.querySelectorAll('[data-testid=print-page]')].map((p) => (p.classList.contains('as-plot-page') ? 'plot' : p.querySelector('.as-grid') ? 'grid' : p.querySelector('.as-long') ? 'long' : 'rigging')),
   );
 
 test('an array too tall for a pocket card goes in a long column, on a page before the grid pages', async ({ page }) => {
@@ -173,7 +173,7 @@ test('an array too tall for a pocket card goes in a long column, on a page befor
   await expect(page.locator('.card')).not.toHaveCount(0);
   await page.emulateMedia({ media: 'print' });
   // The cards are measured just after the page loads, so wait for the plan to settle.
-  await expect.poll(() => pageKinds(page)).toEqual(['long', 'grid', 'rigging']);
+  await expect.poll(() => pageKinds(page)).toEqual(['long', 'grid', 'plot', 'rigging']);
   const kinds = await pageKinds(page);
   const pdfFile = await printToPdf(page, 'tall.pdf');
   expect(pdfPages(pdfFile)).toBe(kinds.length);
@@ -193,7 +193,7 @@ test('two tall arrays share one long page: two columns, a dashed centre line, a 
   await openPdf(page, pdf);
   await expect(page.locator('.card')).not.toHaveCount(0);
   await page.emulateMedia({ media: 'print' });
-  await expect.poll(() => pageKinds(page)).toEqual(['long', 'grid', 'rigging']);
+  await expect.poll(() => pageKinds(page)).toEqual(['long', 'grid', 'plot', 'rigging']);
 
   const long = pages(page).first();
   await expect(long.locator('.as-cell')).toHaveCount(2);
@@ -201,7 +201,7 @@ test('two tall arrays share one long page: two columns, a dashed centre line, a 
   await expect(long.locator('.as-cell .as-watermark')).toHaveCount(2);
   await expect(long.locator('.as-cell .as-panel-head')).toHaveCount(2);
   await expect(long.locator('.as-cell .as-panel-footer')).toHaveCount(2);
-  await expect(long.locator('.as-panel-footer').first()).toContainText('Page 1 of 3');
+  await expect(long.locator('.as-panel-footer').first()).toContainText('Page 1 of 4');
   const borders = await long.locator('.as-cell').evaluateAll((cells) =>
     cells.map((c) => {
       const st = getComputedStyle(c);
@@ -223,7 +223,7 @@ test('two tall arrays share one long page: two columns, a dashed centre line, a 
   expect(Math.abs(fold.height - fold.pageHeight)).toBeLessThan(1);
   expect(Math.abs(fold.x - fold.centre)).toBeLessThan(0.5);
 
-  expect(pdfPages(await printToPdf(page, 'two-long.pdf'))).toBe(3);
+  expect(pdfPages(await printToPdf(page, 'two-long.pdf'))).toBe(4);
   await expectNothingClipped(page);
 });
 
@@ -248,7 +248,7 @@ test('only the arrays that are chosen print, and only their pickups are listed',
   await page.emulateMedia({ media: 'print' });
   await expect(cards.nth(0).getByLabel('Print this array')).not.toBeChecked();
   await expect(cards).toHaveCount(9); // the screen still shows every array
-  expect(pdfPages(await printToPdf(page, 'chosen.pdf'))).toBe(2); // one page of four cards, then the rigging page
+  expect(pdfPages(await printToPdf(page, 'chosen.pdf'))).toBe(3); // one page of four cards, then the plot, then the rigging page
   await expect(cardsOnPaper(page)).toHaveCount(4);
   await expectNothingClipped(page);
   const printed = await page.getByTestId('print-card').allInnerTexts();
@@ -317,9 +317,9 @@ test('a 24-row array prints at full size in a long column', async ({ page }) => 
   await openPdf(page, withRows(24));
   await expect.poll(() => firstCard(page)).toEqual({ panel: false, scale: 1 });
   await page.emulateMedia({ media: 'print' });
-  await expect.poll(() => pageKinds(page)).toEqual(['long', 'grid', 'rigging']);
+  await expect.poll(() => pageKinds(page)).toEqual(['long', 'grid', 'plot', 'rigging']);
   await expectNothingClipped(page);
-  expect(pdfPages(await printToPdf(page, 'rows-24.pdf'))).toBe(3); // the long page, one page of cards, then the rigging page
+  expect(pdfPages(await printToPdf(page, 'rows-24.pdf'))).toBe(4); // the long page, one page of cards, the plot, then the rigging page
 });
 
 // Near the 119.5 mm line (CELL_H_MM) the print view and the downloaded PDF must put the array on the same page.
@@ -524,3 +524,74 @@ test('a long Frame value wraps, and the rendered card is as tall as the plan say
   expect(card!.valueHeight).toBeGreaterThan(card!.lineHeight * 1.5); // it did wrap
   expect(Math.abs(card!.rendered - card!.planned)).toBeLessThan(0.5 * (96 / 25.4));
 });
+
+test('the rigging plot is previewed on screen with its note, and typing the origin changes the plot', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('c'));
+  const preview = page.getByTestId('plot-preview');
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText('The rigging plot is under development and may include errors. Check it against the Soundvision report.');
+  await expect(preview.getByTestId('plot-svg')).toBeVisible();
+  await expect(preview).toContainText('Soundvision origin');
+  await page.getByLabel('Origin (P0)').fill('Iron Line');
+  await expect(preview).toContainText('Soundvision origin: Iron Line');
+});
+
+test('unticking the side labels takes the four side names off the plot in the preview and in Download PDF', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('e'));
+  const preview = page.getByTestId('plot-preview');
+  await expect(preview).toContainText('House left');
+  await page.getByLabel('Show side labels on the rigging plot').uncheck();
+  for (const side of ['House left', 'House right', 'Stage', 'Audience']) await expect(preview).not.toContainText(side);
+  await expect(preview).toContainText('Soundvision origin');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+  const text = items.map((i) => i.text);
+  expect(text).toContain('Rigging plot');
+  for (const side of ['House left', 'House right', 'Stage', 'Audience']) expect(text).not.toContain(side);
+});
+
+for (const name of ['a', 'c', 'e'] as const) {
+  test(`report ${name}: the plot sits before the rigging page, with a 100 mm check bar, and Download PDF agrees on its page`, async ({ page }) => {
+    await start(page);
+    await openPdf(page, samplePdf(name));
+    await page.getByLabel('Origin (P0)').fill('DSE');
+    await page.emulateMedia({ media: 'print' });
+    await expect.poll(async () => (await pageKinds(page)).slice(-2)).toEqual(['plot', 'rigging']);
+    const kinds = await pageKinds(page);
+    const plotAt = kinds.indexOf('plot');
+    const sheet = pages(page).nth(plotAt);
+    await expect(sheet).toContainText('Rigging plot');
+    await expect(sheet).toContainText('Soundvision origin: DSE');
+    await expect(sheet).toContainText('PA1');
+    await expect(sheet).toContainText('This plot is drawn only from the Soundvision report.');
+    await expect(sheet.locator('.as-footer')).toHaveCount(0);
+
+    // The check bar is 100 mm long on the paper, whichever way the page is turned.
+    const barMm = await sheet.evaluate((el) => {
+      const lines = [...el.querySelectorAll('line[stroke-width="0.6"]')] as SVGLineElement[];
+      return Math.max(...lines.map((l) => (Math.max(l.getBoundingClientRect().width, l.getBoundingClientRect().height) * 25.4) / 96));
+    });
+    expect(Math.round(barMm * 10) / 10).toBeGreaterThanOrEqual(99.9);
+    expect(barMm).toBeLessThanOrEqual(100.4);
+
+    // The portrait box holds the turned page.
+    const box = await sheet.locator('svg').first().boundingBox();
+    expect(box!.height).toBeGreaterThan(box!.width);
+
+    const printed = await sheet.locator('svg text').allInnerTexts();
+    await expectNothingClipped(page);
+
+    await page.emulateMedia({ media: 'screen' });
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+    const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+    const count = Math.max(...items.map((i) => i.page));
+    expect(count).toBe(kinds.length);
+    const text = items.filter((i) => i.page === plotAt + 1).map((i) => i.text);
+    expect(text).toContain('Rigging plot');
+    expect(text).toContain('Soundvision origin: DSE');
+    // Every point label in the print view is also on the PDF page.
+    for (const label of printed.filter((t) => /^PA\d+ /.test(t))) expect(text).toContain(label);
+  });
+}

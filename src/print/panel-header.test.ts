@@ -17,7 +17,7 @@ describe('panelHeader', () => {
 
   it('puts the show first and keeps the project, engineer, company and Z-axis zero beneath it', () => {
     const d = doc();
-    d.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '' };
+    d.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '', origin: 'DSE', sideLabels: true };
     d.status = 'issued';
     d.revision = 'B';
     expect(panelHeader(d)).toEqual({

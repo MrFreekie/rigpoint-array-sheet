@@ -16,6 +16,8 @@ const FIELD_NAMES: Record<string, string> = {
   company: 'Company',
   z_axis_zero: 'Z-axis zero',
   default_offset: 'Ground offset for every array',
+  origin: 'Origin (P0)',
+  side_labels: 'Side labels',
   offsets: 'Ground offsets',
   print: 'Print choices',
   report: 'Report',

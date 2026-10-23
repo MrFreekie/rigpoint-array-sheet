@@ -23,6 +23,10 @@ export interface Job {
   zAxisZero: string;
   /** Ground offset used by every array that has none of its own, in metres, as typed. */
   defaultOffset: string;
+  /** What the Soundvision origin (P0) is, e.g. "DSE" or "Iron Line". Text only; the rigging plot prints it. */
+  origin: string;
+  /** Whether the rigging plot names the sides (House left, House right, Stage, Audience). Off suits a show in the round. */
+  sideLabels: boolean;
 }
 
 export interface Doc {
@@ -53,7 +57,7 @@ export interface Doc {
   printOverride: Record<number, boolean> | null;
 }
 
-export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '' };
+export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true };
 
 export function newDoc(result: ParseResult, sourceName: string): Doc {
   return {

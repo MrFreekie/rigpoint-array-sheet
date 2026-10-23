@@ -56,6 +56,19 @@ describe('effectiveOffset with a mirrored array', () => {
   });
 });
 
+describe('editKey', () => {
+  it('changes when the origin note changes', () => {
+    const doc = fresh();
+    const before = editKey(doc);
+    expect(editKey({ ...doc, job: { ...doc.job, origin: 'DSE' } })).not.toBe(before);
+  });
+
+  it('changes when the side labels are turned off', () => {
+    const doc = fresh();
+    expect(editKey({ ...doc, job: { ...doc.job, sideLabels: false } })).not.toBe(editKey(doc));
+  });
+});
+
 describe('markSaved', () => {
   it('locks the document when an approved file was written, even if it changed during the save', () => {
     const doc = fresh();
