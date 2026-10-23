@@ -32,6 +32,10 @@ export function unreadableCell(row: number, column: string, text: string): strin
   return `Enclosure #${row}, ${column}: could not read "${text}" as a number. ${CHECK_PDF}`;
 }
 
+export function missingColumn(column: string): string {
+  return `The enclosure table has no "${column}" column. ${CHECK_PDF}`;
+}
+
 export function missingCell(row: number, column: string): string {
   return `Enclosure #${row}, ${column}: nothing was found. ${CHECK_PDF}`;
 }

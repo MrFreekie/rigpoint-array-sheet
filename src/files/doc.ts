@@ -80,6 +80,29 @@ export function isLocked(doc: Doc): boolean {
   return doc.locked;
 }
 
+/** True when `cur` is still the report that `snapshot` was taken from, so a late save result belongs to it. */
+export function sameDocument(cur: Doc, snapshot: Doc): boolean {
+  return cur.result === snapshot.result && cur.sourceName === snapshot.sourceName;
+}
+
+/**
+ * True when the file handle a save returned still belongs to `cur`. It does not if another document was opened
+ * meanwhile, or if the status went back from approved or superseded to something editable while the file was
+ * written: that file is read-only, so the next Save must ask where.
+ */
+export function keepsHandle(cur: Doc, snapshot: Doc): boolean {
+  return sameDocument(cur, snapshot) && (!statusLocks(snapshot.status) || statusLocks(cur.status));
+}
+
+/**
+ * The document after a save wrote `key` to `name`. Anything changed since stays unsaved. A different document
+ * is returned as it was. The lock is applied only while the status still locks, as it did when saved.
+ */
+export function markSaved(cur: Doc, snapshot: Doc, name: string, key: string): Doc {
+  if (!sameDocument(cur, snapshot)) return cur;
+  return { ...cur, fileName: name, savedKey: key, locked: statusLocks(snapshot.status) && statusLocks(cur.status) ? true : cur.locked };
+}
+
 /** A string that changes whenever anything worth saving changes. */
 export function editKey(doc: Doc): string {
   const offsets = Object.entries(doc.offsets)

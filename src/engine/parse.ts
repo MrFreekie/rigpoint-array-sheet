@@ -170,6 +170,7 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
   let section: Section = 'document';
   let source: ArraySource | null = null;
   let layout: TableLayout | null = null;
+  let tableLacksAngle = false;
   let inWarnings = false;
   let warning: SoundvisionWarning | null = null;
   const groupStack: { n: number; name: string }[] = [];
@@ -284,7 +285,8 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     const cabinet: Cabinet = {
       number,
       type: typeParts.join(' '),
-      angle: hasAngles ? read('angle', 'angle', false) : null,
+      // Only the first row of a flown array may have no angle (a K1 hang leaves it blank).
+      angle: hasAngles ? read('angle', 'angle', src.mounting === 'flown' && src.cabinets.length > 0) : null,
       site,
       topZ: read('topZ', 'top height', true),
       bottomZ: read('bottomZ', 'bottom height', true),
@@ -339,6 +341,7 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     } else if (section === 'physical' && source) {
       if (isTableHeader(line)) {
         layout = layoutOf(line);
+        tableLacksAngle = !layout.columns.some((c) => c.key === 'angle');
         inWarnings = false;
       } else if (layout && /^#\d+$/.test(line.cells[0]?.text ?? '')) {
         tableRow(line, source, layout);
@@ -368,14 +371,18 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     const s = source;
     const note = (level: Problem['level'], message: string) => problems.push({ level, source: s.name, message });
     layout = null;
+    const lacksAngle = tableLacksAngle;
+    tableLacksAngle = false;
 
     if (s.configuration === null) note('check', msg.missingField('"Configuration"'));
     if (s.weights.total === null) note('check', msg.missingField('"Total weight (Enclosures + Frames)"'));
     if (s.site === null) note('check', msg.missingField('"Site"'));
+    if ((s.mounting === 'flown' || s.mounting === 'stacked') && s.position === null) note('check', msg.missingField('"Position"'));
     if (s.cabinets.length === 0) {
       note('check', msg.noEnclosureTable());
     } else {
       checkTable(s, note);
+      if (lacksAngle && s.mounting === 'flown' && s.cabinets.length > 1) note('check', msg.missingColumn('Angle'));
     }
     if (s.motors !== null && s.pickups.length !== s.motors) note('check', msg.pickupCount(s.motors, s.pickups.length));
     source = null;

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { editKey, isDirty, isLocked, isPrinted, STATUSES, statusLocks, withPrinted } from '../files/doc';
+import { editKey, isDirty, isLocked, isPrinted, keepsHandle, markSaved, sameDocument, STATUSES, statusLocks, withPrinted } from '../files/doc';
 import { parseFixture } from '../testing/fixtures';
 import { effectiveOffset, newDoc, showTitle } from './document';
 
-const fresh = () => newDoc(parseFixture('a'), 'a.pdf');
+const fresh = (fixture: 'a' | 'b' = 'a') => newDoc(parseFixture(fixture), fixture + '.pdf');
 
 describe('effectiveOffset', () => {
   it('is 0 when nothing is typed', () => {
@@ -53,6 +53,43 @@ describe('effectiveOffset with a mirrored array', () => {
     const doc = fresh();
     doc.offsets[0] = 'x';
     expect(effectiveOffset(doc, 1, 0)).toEqual({ value: null, badField: 'array' });
+  });
+});
+
+describe('markSaved', () => {
+  it('locks the document when an approved file was written, even if it changed during the save', () => {
+    const doc = fresh();
+    doc.status = 'approved';
+    const key = editKey(doc);
+    const edited = { ...doc, job: { ...doc.job, company: 'Typed during the save' } };
+    const after = markSaved(edited, doc, 'a.arraysheet.json', key);
+    expect(isLocked(after)).toBe(true);
+    expect(after.job.company).toBe('Typed during the save');
+    expect(isDirty(after)).toBe(true);
+    expect(after.savedKey).toBe(key);
+    expect(keepsHandle(edited, doc)).toBe(true);
+  });
+
+  it('leaves a draft unlocked', () => {
+    const doc = fresh();
+    expect(isLocked(markSaved(doc, doc, 'a.arraysheet.json', editKey(doc)))).toBe(false);
+  });
+
+  it('leaves the document unlocked, and drops the handle, if the status went back to draft during an approved save', () => {
+    const doc = fresh();
+    doc.status = 'approved';
+    const reverted = { ...doc, status: 'draft' as const };
+    expect(isLocked(markSaved(reverted, doc, 'a.arraysheet.json', editKey(doc)))).toBe(false);
+    expect(keepsHandle(reverted, doc)).toBe(false);
+  });
+
+  it('gives a different document nothing from the save', () => {
+    const doc = fresh();
+    doc.status = 'approved';
+    const other = fresh('b');
+    expect(sameDocument(other, doc)).toBe(false);
+    expect(markSaved(other, doc, 'a.arraysheet.json', editKey(doc))).toBe(other);
+    expect(keepsHandle(other, doc)).toBe(false);
   });
 });
 

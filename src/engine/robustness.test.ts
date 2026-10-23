@@ -67,6 +67,32 @@ describe('bad input', () => {
     expect(r.problems.some((p) => p.source === 'KARA II L Main' && p.message.includes('site angle does not equal'))).toBe(true);
   });
 
+  it('flags a missing angle on any row of a flown array but the first', () => {
+    const items = loadItems('a').filter((i) => !(i.page === 2 && i.y === 562.14 && i.text === '2'));
+    const r = parseSoundvision(items);
+    expect(r.problems.some((p) => p.level === 'check' && p.message.includes('Enclosure #2, angle: nothing was found'))).toBe(true);
+  });
+
+  it('reports an unreadable angle once, not also as missing', () => {
+    const items = loadItems('a').map((i) => (i.page === 2 && i.y === 562.14 && i.text === '2' ? { ...i, text: '2?' } : i));
+    const r = parseSoundvision(items).problems.filter((p) => p.message.includes('Enclosure #2, angle'));
+    expect(r).toHaveLength(1);
+    expect(r[0]?.message).toContain('could not read "2?"');
+  });
+
+  it('gives one check about the column when a flown table has lost its Angle heading', () => {
+    const items = loadItems('a').map((i) => (i.text.startsWith('Angles') ? { ...i, text: 'Lost' } : i));
+    const r = parseSoundvision(items).problems.filter((p) => p.source === 'KARA II L Main' && /angle/i.test(p.message));
+    expect(r.map((p) => p.message.split('.')[0])).toEqual(['The enclosure table has no "Angle" column']);
+  });
+
+  it('flags a flown or stacked array with no Position line', () => {
+    const items = loadItems('a');
+    const first = items.find((i) => i.text.startsWith('Position (X; Y; Z, m)'));
+    const r = parseSoundvision(items.filter((i) => i !== first));
+    expect(r.problems.some((p) => p.level === 'check' && p.source === 'KARA II L Main' && p.message.includes('"Position" was not found'))).toBe(true);
+  });
+
   it('flags a motor count that does not match the pickup positions', () => {
     let changed = false;
     const items = loadItems('b').map((i) => {

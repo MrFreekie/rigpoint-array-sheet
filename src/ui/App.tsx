@@ -5,7 +5,7 @@ import { riggingRows } from '../engine/sheet';
 import type { ParseResult } from '../engine/types';
 import { openFileText, serialiseDoc } from '../files/array-file-io';
 import { browserStore, readAutosave, writeAutosave, type Restorable } from '../files/autosave';
-import { editKey, isDirty, isLocked, statusLocks } from '../files/doc';
+import { editKey, isDirty, isLocked, keepsHandle, markSaved, sameDocument, statusLocks } from '../files/doc';
 import { downloadBlob } from '../files/download';
 import { suggestedFileName, suggestedImageName, suggestedPdfName } from '../files/file-name';
 import { ensurePermission, fsAccessSupported, pickFileToOpen } from '../files/fs-access';
@@ -57,6 +57,7 @@ export function App() {
   const [recentOpen, setRecentOpen] = useState(false);
   const fsAccess = useMemo(fsAccessSupported, []);
   const openInput = useRef<HTMLInputElement>(null);
+  const docRef = useRef<Doc | null>(null);
   const openRef = useRef<(file: File, handle: FileSystemFileHandle | null) => void>(() => undefined);
   const updateInput = useRef<HTMLInputElement>(null);
 
@@ -203,6 +204,8 @@ export function App() {
         setHandle(null);
       }
       setCompare(null);
+      // The opened file replaces whatever the kept copy was for, and the offer must not block autosave.
+      setRestore(null);
       void browserStore.clear();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'That file could not be read.');
@@ -215,6 +218,7 @@ export function App() {
     return addRecent(idbStore, h, sameHandle).then(setRecent);
   }
 
+  docRef.current = doc;
   openRef.current = (file, h) => void openFile(file, h);
 
   /** Open: the browser's own picker where it has one (so Save can write back), a file input elsewhere. */
@@ -244,14 +248,22 @@ export function App() {
         setError(`The browser did not allow the app to write to ${outcome.name}. Nothing was saved. Try Save As.`);
         return;
       }
-      const lockNow = statusLocks(snapshot.status);
+      const cur = docRef.current;
+      if (!cur || !sameDocument(cur, snapshot)) {
+        // Another file was opened while this one was being written: leave the new document alone.
+        if (outcome.kind === 'handle') void remember(outcome.handle);
+        setNotice(`Saved ${outcome.kind === 'handle' ? 'to' : 'as'} ${outcome.name}.`);
+        return;
+      }
       const key = editKey(snapshot);
       // Anything typed while a picker was open stays unsaved: only what was written counts as saved.
-      setDoc((cur) => (cur ? { ...cur, fileName: outcome.name, savedKey: key, locked: cur === snapshot ? lockNow : cur.locked } : cur));
+      // A file written as approved or superseded locks the document if its status still says so.
+      const lockNow = statusLocks(snapshot.status) && statusLocks(cur.status);
+      setDoc((c) => (c ? markSaved(c, snapshot, outcome.name, key) : c));
       void browserStore.clear();
       if (outcome.kind === 'handle') {
-        setHandle(outcome.handle);
         void remember(outcome.handle);
+        setHandle(keepsHandle(cur, snapshot) ? outcome.handle : null);
       } else {
         setHandle(null);
       }
@@ -507,8 +519,12 @@ export function App() {
               <button
                 type="button"
                 className="button primary"
+                disabled={busy}
                 onClick={() => {
                   setDoc(restore.doc);
+                  // The kept copy was never written to a file, so Save must ask where.
+                  setHandle(null);
+                  setCompare(null);
                   setRestore(null);
                 }}
               >

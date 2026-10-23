@@ -115,6 +115,23 @@ test('unsaved work is offered back after a reload, and a discarded copy is gone'
   await expect(page.getByRole('heading', { name: /Restore unsaved changes to/ })).toHaveCount(0);
 });
 
+test('opening another file while the restore offer shows removes the offer and keeps autosave working', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await page.getByLabel('Company').fill('Acme Audio');
+  await page.waitForTimeout(1500);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Restore unsaved changes to/ })).toBeVisible();
+  await openPdf(page, samplePdf('b'));
+  await expect(page.getByRole('heading', { name: /Restore unsaved changes to/ })).toHaveCount(0);
+  await page.getByLabel('Company').fill('Other Co');
+  await page.waitForTimeout(1500);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Restore unsaved changes to/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Restore' }).click();
+  await expect(page.getByLabel('Company')).toHaveValue('Other Co');
+});
+
 test('update from a newer PDF: nothing to update, then a list of differences', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));

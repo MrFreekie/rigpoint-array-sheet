@@ -60,7 +60,7 @@ Two levels of problem come back with the report.
 
 An error means the figures cannot be relied on: no text, not a Soundvision report, or units other than kilograms and metres.
 
-A check means something looks wrong and should be compared with the PDF: a line the parser did not understand, an unreadable cell, a motor count that does not match the pickups, or enclosures out of order. For flown arrays it also compares figures the PDF prints against each other. Each site angle should equal the one above minus its angle, and each top height should match the bottom of the row above. Stacked arrays in the samples break those two rules legitimately, so only their numbering and top and bottom site are checked.
+A check means something looks wrong and should be compared with the PDF: a line the parser did not understand, an unreadable cell, a motor count that does not match the pickups, or enclosures out of order. A flown or stacked array with no Position line is also flagged. For flown arrays the parser compares figures the PDF prints against each other. Each site angle should equal the one above minus its angle, and the first and last site angles should match the top and bottom site. Every row except the first needs an angle, and a table that has lost its Angle column gets one check about the column. Heights are not compared, because with large splays the front edges of enclosures do not meet. Stacked arrays follow different rules, so only their numbering is checked.
 
 ## Tests
 
@@ -78,7 +78,7 @@ The two Panflex figures are added together. When they differ, the wider side is 
 
 ## Inputs on top of the report
 
-The PDF does not hold the show name, system engineer, company, Z-axis zero or a ground offset, so the interface asks for them. The offset can be set for every array and overridden per array. Heights on the sheet are the report's heights minus the offset, rounded to 0.01 m. An array's Position Z is its top height and its Bottom elevation is its bottom height. If an offset is not a number, the heights are hidden and the field says why. Nothing is ever shown as 0 because it was missing.
+The PDF does not hold the show name, venue, system engineer, company, Z-axis zero or a ground offset, so the interface asks for them. The offset can be set for every array and overridden per array. Heights on the sheet are the report's heights minus the offset, rounded to 0.01 m. An array's Position Z is its top height and its Bottom elevation is its bottom height. If an offset is not a number, the heights are hidden and the field says why. Nothing is ever shown as 0 because it was missing.
 
 ## Mirrored arrays
 
@@ -88,11 +88,11 @@ A card that stands for a pair says only `MIRRORED` and the name of the other arr
 
 ## Saved files
 
-A saved file is JSON in the format `arraysheet/2`. It holds the report as read from the PDF (not the PDF), the problems found, the show details, one ground offset and one print choice per array, the status, the revision, the name of the PDF and the time it was saved. The schema is `src/schema/array-file.ts`.
+A saved file is JSON in the format `arraysheet/3`. It holds the report as read from the PDF (not the PDF), the problems found, the show details, one ground offset and one print choice per array, the status, the revision, the name of the PDF and the time it was saved. The schema is `src/schema/array-file.ts`.
 
 Every opened file is treated as untrusted. In order, it must pass the size limit (8 MB), parse as JSON, say it is an `arraysheet` file, be no newer than this version, and pass the schema. The schema also caps the number of arrays, enclosures, pickups, warnings and the length of text. Anything wrong stops the open with a plain-English message that names the field. Nothing is partly opened.
 
-Each version has a migration to the next in `src/files/migrations.ts`. Version 2 added the print choices, so the one step so far turns a version 1 file into version 2 by choosing every array for printing, which is what a version 1 file did. A file from a newer version is refused, not opened and silently trimmed.
+Each version has a migration to the next in `src/files/migrations.ts`. There are two steps so far. Version 2 added the print choices, so the first step turns a version 1 file into version 2 by choosing every array for printing, which is what a version 1 file did. Version 3 added the venue, so the second step gives a version 2 file an empty venue. A file from a newer version is refused, not opened and silently trimmed.
 
 Because the file holds the report as read, it reopens exactly as saved, whatever the PDF reader does later.
 
@@ -118,7 +118,7 @@ The Playwright tests cannot drive a native picker, so they replace the two picke
 
 ## Install, offline and updates
 
-`vite-plugin-pwa` builds the manifest and precaches the app with Workbox, using our own service worker in `src/sw.ts` (strategy `injectManifest`). The precache includes the PDF reader's worker, so a PDF opens with no network. The icons in `public/` are rendered from `favicon.svg` by `npm run icons` and committed, so builds need no browser.
+`vite-plugin-pwa` builds the manifest and precaches the app with Workbox, using a custom service worker in `src/sw.ts` (strategy `injectManifest`). The precache includes the PDF reader's worker, so a PDF opens with no network. The icons in `public/` are rendered from `favicon.svg` by `npm run icons` and committed, so builds need no browser.
 
 The service worker waits. A new version is used only after the person presses Reload in the update prompt (`src/ui/UpdatePrompt.tsx`), and the prompt mentions that unsaved changes are kept by autosave. The app checks for a new version every hour while it is open.
 
@@ -194,5 +194,4 @@ Card content (`src/print/card-content.ts`) is plain data that both the print car
 - The update prompt is not covered by an automated test, because it needs two deployed versions. It is covered by hand before a release.
 - The sample fly sheet's Btm Height + 1 row is deliberately left out.
 - The cabling and folding sheets from other tools are out of scope.
-- pdf.js needs its worker file bundled when the interface exists. Phase 2 decides how.
 - Only Soundvision is supported. Other tools would need their own reader.

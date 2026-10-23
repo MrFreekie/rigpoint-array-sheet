@@ -20,7 +20,7 @@ function swapPanflex(p: string | null): string | null {
 
 /** True when `b` is `a` reflected across the centre line (X = 0). */
 export function isMirror(a: ArraySource, b: ArraySource): boolean {
-  if (a.position !== null && a.position.x === 0) return false;
+  if (a.position === null || b.position === null || a.position.x === 0) return false;
   if (a.groups.length !== b.groups.length || a.groups.some((g, i) => g !== b.groups[i])) return false;
   if (a.configuration !== b.configuration || a.bumper !== b.bumper || a.motors !== b.motors) return false;
   if (!mirroredPoint(a.position, b.position)) return false;

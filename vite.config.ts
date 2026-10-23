@@ -42,11 +42,11 @@ export default defineConfig({
     react(),
     contentSecurityPolicy(),
     VitePWA({
-      // Our own service worker (src/sw.ts): it also receives Android shares.
+      // A custom service worker (src/sw.ts): it also receives Android shares.
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
-      // Never update mid-edit: the app shows "Update available - reload" instead.
+      // Never update mid-edit: the app shows "Update available, reload" instead.
       registerType: 'prompt',
       // Registered from the app (virtual:pwa-register/react), so no inline script is needed.
       injectRegister: false,

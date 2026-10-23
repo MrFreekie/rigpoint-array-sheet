@@ -24,7 +24,7 @@ Save image on a card saves that array as a PNG. Save selected as images saves on
 
 In Chrome or Edge, click the install icon at the end of the address bar and choose Install. On Android, use Add to home screen. On iPhone, use Share, then Add to Home Screen.
 
-Once you have opened the app once, it works offline, installed or not, including opening a Soundvision PDF. When there is a new version, the app shows "Update available – reload". Press Reload when it suits you. The app never updates in the middle of an edit, and unsaved changes are offered back after the reload.
+Once you have opened the app once, it works offline, installed or not, including opening a Soundvision PDF. When there is a new version, the app shows "Update available, reload". Press Reload when it suits you. The app never updates in the middle of an edit, and unsaved changes are offered back after the reload.
 
 See the [user guide](docs/user-guide.md) for a short walk through. A plan for printing one array on a small battery receipt printer is in [docs/receipt-printer-plan.md](docs/receipt-printer-plan.md).
 

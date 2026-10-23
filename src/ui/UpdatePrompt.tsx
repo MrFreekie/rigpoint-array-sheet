@@ -40,7 +40,7 @@ export function UpdatePrompt({ dirty }: { dirty: boolean }) {
   if (needRefresh) {
     return (
       <section className="banner banner-check" aria-labelledby="update-heading" role="status">
-        <h2 id="update-heading">Update available – reload</h2>
+        <h2 id="update-heading">Update available, reload</h2>
         <p>A new version of the app is ready. It will be used after you reload.</p>
         <p className="banner-actions">
           <button type="button" className="button primary" onClick={reload}>

@@ -57,6 +57,14 @@ describe('findMirrors on the sample reports', () => {
   });
 });
 
+describe('isMirror without a position', () => {
+  it('never pairs arrays that have no position', () => {
+    const main = a.find((s) => s.name === 'KARA II L Main')!;
+    const m = { ...mirrorOf(main), position: null };
+    expect(isMirror({ ...structuredClone(main), position: null }, m)).toBe(false);
+  });
+});
+
 describe('isMirror', () => {
   const main = a.find((s) => s.name === 'KARA II L Main')!;
 
