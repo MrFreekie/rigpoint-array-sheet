@@ -9,5 +9,6 @@ export const MAX_SOURCES = 500;
 export const MAX_CABINETS_PER_SOURCE = 200;
 export const MAX_WARNINGS_PER_SOURCE = 50;
 export const MAX_PICKUPS_PER_SOURCE = 8;
+export const MAX_FIXATIONS_PER_SOURCE = 16;
 export const MAX_PROBLEMS = 2000;
 export const MAX_TEXT_LENGTH = 2000;

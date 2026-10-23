@@ -6,6 +6,7 @@ import type { ArraySource } from './types';
 
 const a = parseFixture('a').report.sources;
 const b = parseFixture('b').report.sources;
+const e = parseFixture('e').report.sources;
 const names = (list: ArraySource[]) => [...findMirrors(list)].map(([i, j]) => [list[i]!.name, list[j]!.name]);
 
 /** The left-right mirror image of an array, as Soundvision would print it. */
@@ -135,5 +136,44 @@ describe('findMirrors with stacks laid out in columns', () => {
     const right = mirrorOf(left);
     right.cabinets[1] = { ...right.cabinets[1]!, column: 3 };
     expect(isMirror(left, right)).toBe(false);
+  });
+});
+
+describe('report E and fixations', () => {
+  it('pairs the flown hangs, the subs and the two fills that mirror left to right', () => {
+    expect(names(e)).toEqual([
+      ['YZ Sym of Left', 'YZ Sym of YZ Sym of Left'],
+      ['XZ Sym of YZ Sym of Left', 'XZ Sym of Left'],
+      ['KS28 4', 'KS28 3'],
+      ['KARA II 2', 'KARA II 1'],
+    ]);
+  });
+
+  const fill = e.find((s) => s.name === 'KARA II 2')!;
+  const other = e.find((s) => s.name === 'KARA II 1')!;
+
+  it('needs the fixations to mirror too: Fr to Fl and Rr to Rl, with X negated', () => {
+    expect(isMirror(fill, other)).toBe(true);
+    const moved = structuredClone(other);
+    moved.fixations![0]!.at.y += 0.01;
+    expect(isMirror(fill, moved)).toBe(false);
+    const missing = structuredClone(other);
+    delete missing.fixations;
+    delete missing.fixationCount;
+    expect(isMirror(fill, missing)).toBe(false);
+  });
+
+  it('matches repeated names one to one: two Fr against Fl and a different Fl is not a mirror', () => {
+    const at = (x: number, y: number, z: number) => ({ x, y, z });
+    const one = { ...structuredClone(fill), fixationCount: 2, fixations: [{ name: 'Fr', at: at(1, 2, 3) }, { name: 'Fr', at: at(1, 2, 3) }] };
+    const twin = { ...structuredClone(other), fixationCount: 2, fixations: [{ name: 'Fl', at: at(-1, 2, 3) }, { name: 'Fl', at: at(9, 9, 9) }] };
+    expect(isMirror(one, twin)).toBe(false);
+    twin.fixations[1] = { name: 'Fl', at: at(-1, 2, 3) };
+    expect(isMirror(one, twin)).toBe(true);
+  });
+
+  it('does not pair a fill with a copy that has the same fixations unmirrored', () => {
+    const same = { ...structuredClone(fill), position: { ...fill.position!, x: -fill.position!.x } };
+    expect(isMirror(fill, same)).toBe(false);
   });
 });

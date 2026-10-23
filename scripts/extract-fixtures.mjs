@@ -10,6 +10,7 @@ const SAMPLES = [
   { pdf: 'reference/soundvision_report_B.pdf', out: 'fixtures/soundvision-b.items.json', venue: 'Example Theatre' },
   { pdf: 'reference/soundvision_report_C.pdf', out: 'fixtures/soundvision-c.items.json', venue: 'Example Festival' },
   { pdf: 'reference/soundvision_report_D.pdf', out: 'fixtures/soundvision-d.items.json', venue: 'Example Theatre Two' },
+  { pdf: 'reference/soundvision_report_E.pdf', out: 'fixtures/soundvision-e.items.json', venue: 'Example Arena Two' },
 ];
 
 for (const { pdf, out, venue } of SAMPLES) {

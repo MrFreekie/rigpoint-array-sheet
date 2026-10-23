@@ -3,14 +3,16 @@
 // The PDF is the source of truth: never edit an expected value to make a test pass. Raise it.
 
 import { describe, expect, it } from 'vitest';
-import { parseFixture } from '../testing/fixtures';
+import { loadItems, parseFixture } from '../testing/fixtures';
 import { parseSoundvision } from './parse';
-import type { ArraySource } from './types';
+import { flySheetColumn } from './sheet';
+import type { ArraySource, TextItem } from './types';
 
 const a = parseFixture('a');
 const b = parseFixture('b');
 const c = parseFixture('c');
 const d = parseFixture('d');
+const e = parseFixture('e');
 
 function find(result: typeof a, name: string): ArraySource {
   const s = result.report.sources.find((x) => x.name === name);
@@ -334,5 +336,126 @@ describe('numbering of a stack laid out in columns', () => {
     const r = report(['C0 #1']);
     expect(r.report.sources[0]?.cabinets).toEqual([]);
     expect(r.problems.some((x) => /not understood/.test(x.message))).toBe(true);
+  });
+});
+
+describe('report E (flown hangs, subs, and stacked fills with fixations)', () => {
+  const fills = e.report.sources.filter((s) => s.name.includes('KARA II ') && s.mounting === 'stacked');
+
+  it('reads cleanly with nothing to check', () => {
+    expect(e.problems).toEqual([]);
+    expect(e.ok).toBe(true);
+  });
+
+  it('finds 18 sources: 6 flown with 19 or 20 rows, and 12 stacked', () => {
+    const flown = e.report.sources.filter((s) => s.mounting === 'flown');
+    expect(e.report.sources).toHaveLength(18);
+    expect(flown).toHaveLength(6);
+    expect(flown.map((s) => s.cabinets.length).sort()).toEqual([19, 19, 20, 20, 20, 20]);
+    expect(e.report.sources.filter((s) => s.mounting === 'stacked')).toHaveLength(12);
+  });
+
+  it('reads the count and the four positions of a stacked fill, as printed', () => {
+    const s = find(e, 'KARA II 2');
+    expect(s.fixationCount).toBe(4);
+    expect(s.fixations).toEqual([
+      { name: 'Fr', at: { x: -2.84, y: 4.6, z: 1 } },
+      { name: 'Fl', at: { x: -2.16, y: 4.6, z: 1 } },
+      { name: 'Rr', at: { x: -2.84, y: 3.9, z: 1 } },
+      { name: 'Rl', at: { x: -2.16, y: 3.9, z: 1 } },
+    ]);
+  });
+
+  it('reads negative Y positions', () => {
+    expect(find(e, 'XZ Sym of KARA II 2').fixations?.map((f) => f.at.y)).toEqual([-4.6, -4.6, -3.9, -3.9]);
+  });
+
+  it('gives the 8 KARA II stacks four fixations each, and no other array any', () => {
+    expect(fills).toHaveLength(8);
+    for (const s of fills) expect(s.fixations).toHaveLength(4);
+    for (const s of e.report.sources.filter((x) => !fills.includes(x))) {
+      expect(s.fixationCount).toBeUndefined();
+      expect(s.fixations).toBeUndefined();
+    }
+  });
+
+  it('leaves the arrays of the earlier reports without fixations', () => {
+    for (const r of [a, b, c, d]) for (const s of r.report.sources) expect('fixations' in s || 'fixationCount' in s).toBe(false);
+  });
+});
+
+describe('fixation lines', () => {
+  const items = loadItems('e');
+  const parse = (change: (all: TextItem[]) => TextItem[]) => parseSoundvision(change(structuredClone(items)));
+  const firstFixationLine = (all: TextItem[]) => all.findIndex((i) => i.text.startsWith('Rear left fixation position'));
+
+  it('says so when the count is more than the positions found', () => {
+    const r = parse((all) => all.filter((_, i) => i !== firstFixationLine(all)));
+    expect(r.problems).toEqual([
+      {
+        level: 'check',
+        source: 'KARA II 2',
+        message: 'The report says 4 fixations but 3 fixation positions were found. Check this against the PDF.',
+      },
+    ]);
+  });
+
+  it('says so when the count is less than the positions found', () => {
+    const r = parse((all) => all.map((i, n) => (n === firstFixationLine(all) - 4 && i.text === '# fixations: 4' ? { ...i, text: '# fixations: 1' } : i)));
+    expect(r.problems.map((p) => p.message)).toEqual(['The report says 1 fixation but 4 fixation positions were found. Check this against the PDF.']);
+  });
+
+  it('does not understand a fixation-shaped line it does not know', () => {
+    const r = parse((all) => all.map((i, n) => (n === firstFixationLine(all) ? { ...i, text: 'Middle fixation position (X; Y; Z, m): M (1; 2; 3)' } : i)));
+    const messages = r.problems.map((p) => p.message);
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toContain('A line was not understood and is not shown: "Middle fixation position (X; Y; Z, m): M (1; 2; 3)"');
+    expect(messages[1]).toContain('The report says 4 fixations but 3 fixation positions were found');
+  });
+
+  it('says so when an array lists the fixation count twice, and keeps the positions', () => {
+    const r = parse((all) => {
+      const at = all.findIndex((i) => i.text === '# fixations: 4');
+      return [...all.slice(0, at + 1), { ...all[at]!, y: all[at]!.y - 8, text: '# fixations: 4' }, ...all.slice(at + 1)];
+    });
+    expect(r.problems).toEqual([
+      {
+        level: 'check',
+        source: 'KARA II 2',
+        message: 'The report lists the fixation count more than once for one array, so only the last count is used. Check this against the PDF.',
+      },
+    ]);
+    expect(r.report.sources.find((s) => s.name === 'KARA II 2')?.fixations).toHaveLength(4);
+  });
+
+  it('says so when a fixation name appears twice, and keeps both positions', () => {
+    const r = parse((all) => all.map((i, n) => (n === firstFixationLine(all) ? { ...i, text: 'Rear left fixation position (X; Y; Z, m): Fr (7; 8; 9)' } : i)));
+    expect(r.problems).toEqual([
+      {
+        level: 'check',
+        source: 'KARA II 2',
+        message: 'The same fixation name appears twice: "Fr". Both positions are kept. Check this against the PDF.',
+      },
+    ]);
+    const kept = r.report.sources.find((s) => s.name === 'KARA II 2')?.fixations;
+    expect(kept?.map((f) => f.name)).toEqual(['Fr', 'Fl', 'Rr', 'Fr']);
+    expect(kept?.[3]?.at).toEqual({ x: 7, y: 8, z: 9 });
+  });
+
+  it('reads fixation lines on a flown array too, and shows them', () => {
+    const r = parse((all) => {
+      const at = firstFixationLine(all);
+      const config = all.map((i, n) => (n < at && i.text.startsWith('Configuration:') ? n : -1)).filter((n) => n >= 0).pop()!;
+      return all.map((i, n) => (n === config ? { ...i, text: 'Configuration: vertical, flown array' } : i));
+    });
+    const s = r.report.sources.find((x) => x.name === 'KARA II 2')!;
+    expect(s.mounting).toBe('flown');
+    expect(s.fixations).toHaveLength(4);
+    expect(flySheetColumn(s).fixations.map((f) => f.name)).toEqual(['Fr', 'Fl', 'Rr', 'Rl']);
+  });
+
+  it('does not understand a position with a figure missing', () => {
+    const r = parse((all) => all.map((i, n) => (n === firstFixationLine(all) ? { ...i, text: 'Rear left fixation position (X; Y; Z, m): Rl (-2.16; 3.9)' } : i)));
+    expect(r.problems.some((p) => p.message.includes('was not understood'))).toBe(true);
   });
 });

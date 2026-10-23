@@ -10,6 +10,7 @@ const ctx = { show: 'Main stage', venue: 'Grand Hall', status: 'issued' as const
 const docA = newDoc(parseFixture('a'), 'a.pdf');
 const docB = newDoc(parseFixture('b'), 'b.pdf');
 const docD = newDoc(parseFixture('d'), 'd.pdf');
+const docE = newDoc(parseFixture('e'), 'e.pdf');
 const content = (doc: typeof docA, name: string) => cardContent(sheetModel(doc, true).entries.find((e) => e.column.name === name)!, ctx);
 const options = { footer: 'RigPoint Array 0.1.0 · a.arraysheet.json · Exported 22/10/2026 09:05', draft: false };
 const texts = (ops: DrawOp[]) => ops.flatMap((o) => (o.op === 'text' ? [o.text] : []));
@@ -130,5 +131,44 @@ describe('image file names', () => {
 
   it('drops the Soundvision extension and unsafe characters', () => {
     expect(suggestedImageName('Example Arena - Example Show.xmlp', 'SB28 L/R')).toBe('Example Arena - Example Show - SB28 L R.png');
+  });
+});
+
+describe('fixations on the card', () => {
+  const stack = content(docE, 'KARA II 2');
+
+  it('turns the printed fixations into one row each, as the report prints them', () => {
+    expect(stack.fixations).toEqual([
+      ['Fr', '-2.84', '4.6', '1'],
+      ['Fl', '-2.16', '4.6', '1'],
+      ['Rr', '-2.84', '3.9', '1'],
+      ['Rl', '-2.16', '3.9', '1'],
+    ]);
+    expect(content(docE, 'KS28 4').fixations).toEqual([]);
+    expect(content(docA, 'KARA II L Main').fixations).toEqual([]);
+  });
+
+  it('draws the heading and every fixation in the image, under the facts and above the enclosures', () => {
+    const layout = layoutCardImage(stack, options);
+    const t = texts(layout.ops);
+    for (const word of ['Fixations', 'X (m)', 'Y (m)', 'Z (m)', 'Fr', 'Fl', 'Rr', 'Rl', '-2.84', '-2.16', '4.6', '3.9']) expect(t).toContain(word);
+    const at = (text: string) => layout.ops.find((o) => o.op === 'text' && o.text === text) as Extract<DrawOp, { op: 'text' }>;
+    expect(at('Fixations').y).toBeGreaterThan(at('Position X, Y, Z').y);
+    expect(at('Fixations').y).toBeLessThan(at('Type').y);
+  });
+
+  it('cuts a very long fixation name so it stays in its column', () => {
+    const long = { ...docE.result, report: structuredClone(docE.result.report) };
+    long.report.sources.find((s) => s.name === 'KARA II 2')!.fixations![0]!.name = 'W'.repeat(80);
+    const row = content({ ...docE, result: long }, 'KARA II 2').fixations[0]!;
+    expect(row[0]).toBe(`${'W'.repeat(11)}…`);
+    expect(row.slice(1)).toEqual(['-2.84', '4.6', '1']);
+  });
+
+  it('adds five rows of height, and nothing for a card without fixations', () => {
+    const without = layoutCardImage({ ...stack, fixations: [] }, options).height;
+    expect(layoutCardImage(stack, options).height - without).toBe(5 * 25 + 14);
+    const plain = content(docA, 'X8 2');
+    expect(texts(layoutCardImage(plain, options).ops)).not.toContain('Fixations');
   });
 });

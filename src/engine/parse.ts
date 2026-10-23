@@ -7,6 +7,7 @@ import { enclosureLabel } from './types';
 import type {
   ArraySource,
   Cabinet,
+  Fixation,
   ParseResult,
   Pickup,
   Point3,
@@ -172,6 +173,7 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
 
   let section: Section = 'document';
   let source: ArraySource | null = null;
+  let repeatedFixationCount = false;
   let layout: TableLayout | null = null;
   let tableLacksAngle = false;
   let inWarnings = false;
@@ -228,6 +230,15 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
       if (at && position !== null) {
         const pickup: Pickup = { which: m[1] === 'Front' ? 'front' : 'rear', position, at };
         src.pickups.push(pickup);
+      } else return false;
+    } else if ((m = t.match(/^# fixations:\s*(\d+)$/))) {
+      if (src.fixationCount !== undefined) repeatedFixationCount = true;
+      src.fixationCount = Number(m[1]);
+    } else if ((m = t.match(new RegExp(`^(?:Front|Rear) (?:right|left) fixation position \\(X; Y; Z, m\\):\\s*(\\S+) \\(${POINT}\\)$`)))) {
+      const at = point(m, 2);
+      if (at) {
+        const fixation: Fixation = { name: m[1] ?? '', at };
+        (src.fixations ??= []).push(fixation);
       } else return false;
     } else if ((m = t.match(new RegExp(`^Position \\(X; Y; Z, m\\):\\s*${POINT}$`)))) {
       src.position = point(m, 1);
@@ -391,6 +402,16 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
       if (lacksAngle && s.mounting === 'flown' && s.cabinets.length > 1) note('check', msg.missingColumn('Angle'));
     }
     if (s.motors !== null && s.pickups.length !== s.motors) note('check', msg.pickupCount(s.motors, s.pickups.length));
+    if (s.fixationCount !== undefined && (s.fixations?.length ?? 0) !== s.fixationCount) {
+      note('check', msg.fixationCount(s.fixationCount, s.fixations?.length ?? 0));
+    }
+    if (repeatedFixationCount) note('check', msg.repeatedFixationLine());
+    repeatedFixationCount = false;
+    const fixationNames = new Set<string>();
+    for (const f of s.fixations ?? []) {
+      if (fixationNames.has(f.name)) note('check', msg.repeatedFixationName(f.name));
+      fixationNames.add(f.name);
+    }
     source = null;
   }
 

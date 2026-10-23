@@ -5,6 +5,7 @@ import type { Report } from './types';
 
 const a = () => structuredClone(parseFixture('a').report);
 const b = () => structuredClone(parseFixture('b').report);
+const e = () => structuredClone(parseFixture('e').report);
 
 describe('compareReports', () => {
   it('finds nothing when the reports are the same', () => {
@@ -100,5 +101,46 @@ describe('matchByName', () => {
     const m = matchByName(a(), next);
     expect(m.has(0)).toBe(false);
     expect(m.get(1)).toBe(0);
+  });
+});
+
+describe('compareReports and fixations', () => {
+  it('finds nothing when the reports are the same', () => {
+    expect(compareReports(e(), e())).toEqual([]);
+  });
+
+  it('names a fixation that moved', () => {
+    const next = e();
+    next.sources[10]!.fixations![0]!.at.x = -2.9;
+    expect(compareReports(e(), next)).toEqual([
+      { kind: 'changed', array: 'KARA II 2', what: 'Fixation Fr', saved: '-2.84, 4.6, 1', now: '-2.9, 4.6, 1' },
+    ]);
+  });
+
+  it('lists a change to either of two fixations that share a name', () => {
+    const twice = (second: number) => {
+      const r = e();
+      r.sources[10]!.fixations = [{ name: 'Fr', at: { x: 1, y: 2, z: 3 } }, { name: 'Fr', at: { x: second, y: 5, z: 6 } }];
+      return r;
+    };
+    expect(compareReports(twice(4), twice(4))).toEqual([]);
+    expect(compareReports(twice(4), twice(7))).toEqual([
+      { kind: 'changed', array: 'KARA II 2', what: 'Fixation Fr #2', saved: '4, 5, 6', now: '7, 5, 6' },
+    ]);
+    const first = twice(4);
+    first.sources[10]!.fixations![0]!.at.x = 7;
+    expect(compareReports(twice(4), first)).toEqual([
+      { kind: 'changed', array: 'KARA II 2', what: 'Fixation Fr', saved: '1, 2, 3', now: '7, 2, 3' },
+    ]);
+  });
+
+  it('names a fixation that is gone, and the count', () => {
+    const next = e();
+    next.sources[10]!.fixations!.pop();
+    next.sources[10]!.fixationCount = 3;
+    expect(compareReports(e(), next)).toEqual([
+      { kind: 'changed', array: 'KARA II 2', what: 'Fixations', saved: '4', now: '3' },
+      { kind: 'removed', array: 'KARA II 2', what: 'Fixation Rl', saved: '-2.16, 3.9, 1', now: null },
+    ]);
   });
 });

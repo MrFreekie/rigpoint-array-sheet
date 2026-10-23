@@ -1,11 +1,12 @@
-import type { RiggingRow } from '../engine/sheet';
+import { riggingNote, type FixationRow, type RiggingRow } from '../engine/sheet';
 import { num } from './format';
 
-export function RiggingSummary({ rows }: { rows: readonly RiggingRow[] }) {
+export function RiggingSummary({ rows, fixations = [] }: { rows: readonly RiggingRow[]; fixations?: readonly FixationRow[] }) {
+  const note = riggingNote(rows.length > 0, fixations.length > 0);
   return (
     <section className="panel" aria-labelledby="rigging-heading">
       <h2 id="rigging-heading">Rigging summary</h2>
-      <p className="muted">Every pickup is listed, including those of mirrored arrays, because their positions differ.</p>
+      {note ? <p className="muted">{note}</p> : null}
       {rows.length === 0 ? (
         <p className="muted">No flown array in this report has a pickup position.</p>
       ) : (
@@ -39,6 +40,33 @@ export function RiggingSummary({ rows }: { rows: readonly RiggingRow[] }) {
           </table>
         </div>
       )}
+      {fixations.length > 0 ? (
+        <div className="table-wrap" data-testid="rigging-fixations">
+          <table>
+            <caption className="visually-hidden">Fixation positions, as listed in the report</caption>
+            <thead>
+              <tr>
+                <th scope="col">Array</th>
+                <th scope="col">Fixation</th>
+                <th scope="col">X (m)</th>
+                <th scope="col">Y (m)</th>
+                <th scope="col">Z (m)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fixations.map((f, i) => (
+                <tr key={i}>
+                  <th scope="row">{f.source}</th>
+                  <td>{f.name}</td>
+                  <td className="n">{f.x}</td>
+                  <td className="n">{f.y}</td>
+                  <td className="n">{f.z}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </section>
   );
 }

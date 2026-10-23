@@ -43,6 +43,8 @@ export const ArraySourceSchema = z.object({
     }),
     { error: 'Pickups must be a list' },
   ),
+  fixationCount: z.number({ error: 'Fixations must be a number' }).int({ error: 'Fixations must be a whole number' }).nonnegative({ error: 'Fixations must not be negative' }).optional(),
+  fixations: z.array(z.object({ name: text(), at: Point3Schema }), { error: 'Fixations must be a list' }).optional(),
   position: Point3Schema.nullable(),
   site: num().nullable(),
   azimuth: num().nullable(),

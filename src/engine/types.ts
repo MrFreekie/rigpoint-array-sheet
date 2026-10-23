@@ -22,6 +22,12 @@ export interface Pickup {
   at: Point3;
 }
 
+export interface Fixation {
+  /** The name as printed, e.g. "Fr" in "Front right fixation position (X; Y; Z, m): Fr (-2.84; 4.6; 1)". */
+  name: string;
+  at: Point3;
+}
+
 export interface Cabinet {
   /** The number in the first column, "#1" is 1. */
   number: number;
@@ -71,6 +77,10 @@ export interface ArraySource {
   bumper: string | null;
   motors: number | null;
   pickups: Pickup[];
+  /** "# fixations:" as printed. Absent when the array has no such line. */
+  fixationCount?: number | undefined;
+  /** The fixation positions of a stacked array, as printed. Absent when the array has none. */
+  fixations?: Fixation[] | undefined;
   position: Point3 | null;
   site: number | null;
   azimuth: number | null;

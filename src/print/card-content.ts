@@ -23,9 +23,21 @@ export interface CardContent {
   /** "MIRRORED: " and the name of the other array, when this card stands for a mirror image or is one. */
   mirrorNote: string | null;
   facts: [label: string, value: string][];
+  /** One row per fixation: name, X, Y, Z as the report prints them. Empty when the report states none. */
+  fixations: string[][];
   warnings: { severity: string; title: string; message: string }[];
   columns: string[];
   rows: string[][];
+}
+
+/** Heading of the fixation block and its columns. Z is the report's own, with no ground offset taken off. */
+export const FIXATION_COLUMNS = ['Fixations', 'X (m)', 'Y (m)', 'Z (m)'];
+
+/** Longest fixation name drawn in full. The report's are two letters; a longer one is cut so it stays in its column and the row keeps its height. */
+const FIXATION_NAME_MAX = 12;
+
+export function fixationName(name: string): string {
+  return name.length > FIXATION_NAME_MAX ? `${name.slice(0, FIXATION_NAME_MAX - 1)}…` : name;
 }
 
 /** One Soundvision warning as a sentence, the same on the screen card, the print preview, the PNG and the PDF. */
@@ -75,6 +87,7 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
     context: [ctx.show.trim(), ctx.venue.trim(), status, ctx.zAxisZero.trim() ? `Z-axis zero: ${ctx.zAxisZero.trim()}` : ''].filter(Boolean).join(' · '),
     mirrorNote: entry.coversMirror ? `MIRRORED: ${entry.coversMirror}` : entry.mirrorOf ? `MIRRORED: ${entry.mirrorOf}` : null,
     facts,
+    fixations: c.fixations.map((f) => [fixationName(f.name), String(f.at.x), String(f.at.y), String(f.at.z)]),
     warnings: c.warnings.map((w) => ({ ...w })),
     columns,
     rows,

@@ -371,6 +371,125 @@ test('a card table row is 14.0625 px high, and a rendered card is as tall as the
   for (const c of measured.cards) expect(Math.abs(c.rendered - c.planned), c.title).toBeLessThan(0.5 * (96 / 25.4));
 });
 
+// Report E has stacked arrays with fixation positions. The block under the facts must be a table row high per position
+// in the browser, and the card must still be as tall as the plan says, or the PDF and the print view would disagree.
+test('report E: a stacked card shows its fixations, and is as tall as the plan says', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('e'));
+  const card = page.locator('.card', { has: page.getByRole('heading', { name: 'KARA II 2', exact: true }) });
+  await expect(card.getByRole('table', { name: /Fixation positions of KARA II 2/ })).toBeVisible();
+  await expect(card.locator('.fixations tbody tr')).toHaveCount(4);
+  await expect(card.locator('.fixations tbody tr').first()).toHaveText('Fr-2.844.61');
+  await expect(page.locator('.card', { has: page.getByRole('heading', { name: 'KS28 4', exact: true }) }).locator('.fixations')).toHaveCount(0);
+
+  await expect.poll(() => page.locator('.as-fit[data-planned-height]').count()).toBeGreaterThan(0);
+  const measured = await page.evaluate(() => ({
+    rows: [...document.querySelectorAll<HTMLElement>('.as-fit[data-planned-height] .pc-fix tr')].map((tr) => tr.getBoundingClientRect().height),
+    cards: [...document.querySelectorAll<HTMLElement>('.as-fit[data-planned-height]')].map((fit) => ({
+      title: fit.querySelector('.pc-title')?.textContent ?? '',
+      fixations: fit.querySelectorAll('.pc-fix').length,
+      rendered: (fit.querySelector('.pc') as HTMLElement).offsetHeight,
+      planned: Number(fit.dataset['plannedHeight']),
+    })),
+  }));
+  expect(measured.rows).toHaveLength(5 * 7); // the heading row and four positions on each of the seven stacks printed
+  for (const h of measured.rows) expect(h).toBeCloseTo(14.0625, 2);
+  expect(measured.cards.filter((c) => c.fixations > 0)).toHaveLength(7);
+  for (const c of measured.cards) expect(Math.abs(c.rendered - c.planned), c.title).toBeLessThan(0.5 * (96 / 25.4));
+  await expectNothingClipped(page);
+});
+
+// The rigging page lists the fixations of every printed array under the pickups. The print view measures it and the PDF
+// calculates it, so they must agree on the page count, and the page must still sit inside A4.
+test('report E: the rigging page lists the fixations, and the print view and Download PDF agree on the pages', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('e'));
+  await expect(page.locator('.card')).not.toHaveCount(0);
+  await page.emulateMedia({ media: 'print' });
+
+  const last = pages(page).last();
+  const table = last.getByTestId('print-fixations');
+  await expect(table.locator('thead th')).toHaveText(['Array', 'Fixation', 'X (m)', 'Y (m)', 'Z (m)']);
+  await expect(table.locator('tbody tr')).toHaveCount(8 * 4); // eight stacks, the one that collapses into a mirror included
+  await expect(table.locator('tbody tr').filter({ has: page.locator('td:first-child', { hasText: /^KARA II 2$/ }) }).first().locator('td')).toHaveText(['KARA II 2', 'Fr', '-2.84', '4.6', '1']);
+  await expect(last.getByTestId('print-pickups')).toBeVisible();
+  await expect(last).toContainText('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
+  await expect(last.getByTestId('print-qr')).toBeVisible();
+  await expect(last.getByTestId('print-small-print')).toBeVisible();
+  await expect(last).not.toHaveClass(/as-page-overflow/);
+  await expectNothingClipped(page);
+
+  // The fixation rows are a pocket card's height, and the page shrinks about as little as the PDF's plan says (0.975).
+  const rigging = await page.evaluate(() => {
+    const root = document.querySelectorAll('[data-testid=print-page]');
+    const lastPage = root[root.length - 1] as HTMLElement;
+    const fit = lastPage.querySelector('.as-fit') as HTMLElement;
+    return {
+      scale: new DOMMatrix(getComputedStyle(fit).transform).a,
+      fixationRows: [...lastPage.querySelectorAll<HTMLElement>('[data-testid=print-fixations] tr')].map((r) => r.offsetHeight),
+      pickupRow: (lastPage.querySelector('[data-testid=print-pickups] tbody tr') as HTMLElement).offsetHeight,
+    };
+  });
+  // Every array name of the report fits the wider Array column, in the print view and the PDF.
+  const names = await last.locator('[data-testid=print-fixations] tbody td:first-child').allInnerTexts();
+  expect(names).toHaveLength(8 * 4);
+  expect(names.filter((t) => t.includes('…'))).toEqual([]);
+  expect(rigging.fixationRows).toHaveLength(8 * 4 + 1);
+  for (const h of rigging.fixationRows) expect(h).toBeCloseTo(14.0625, 0);
+  expect(rigging.pickupRow).toBeGreaterThan(rigging.fixationRows[1] ?? 0);
+  expect(Math.abs(rigging.pickupRow - (13 * 96) / 72)).toBeLessThanOrEqual(1); // the PDF draws the pickup rows 13 pt high
+  expect(rigging.scale).toBeGreaterThan(0.95);
+  expect(rigging.scale).toBeLessThan(1);
+
+  const printPages = pdfPages(await printToPdf(page, 'fixations.pdf'));
+  await page.emulateMedia({ media: 'screen' });
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+  expect(Math.max(...items.map((i) => i.page))).toBe(printPages);
+  const lastText = items.filter((i) => i.page === printPages).map((i) => i.text);
+  expect(lastText).toContain('Fixation');
+  expect(lastText.filter((t) => t === 'Fr')).toHaveLength(8);
+  expect(lastText.filter((t) => t.includes('…'))).toEqual([]);
+});
+
+test('a report without fixations has no fixation table on the rigging page', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await expect(page.locator('.card')).not.toHaveCount(0);
+  await page.emulateMedia({ media: 'print' });
+  await expect(pages(page).last().getByTestId('print-fixations')).toHaveCount(0);
+  await expect(pages(page).last()).toContainText('Every pickup is listed, including those of mirrored arrays, because their positions differ.');
+});
+
+test('a long array name is cut in the middle, keeping its end, in both rigging tables, in the print view and the PDF', async ({ page }) => {
+  const long = 'Delay hang left of the upstage truss with the long name and a long run of extra words before the end 2';
+  await start(page);
+  await openPdf(
+    page,
+    changedPdf((sources) => {
+      sources.find((s) => s.name === 'KARA II 2')!.name = long;
+      return sources;
+    }, 'e'),
+  );
+  await expect(page.locator('.card')).not.toHaveCount(0);
+  await page.emulateMedia({ media: 'print' });
+  const last = pages(page).last();
+  const cells = await last.locator('.as-table td:first-child').allInnerTexts();
+  const cut = cells.filter((t) => t.startsWith('Delay hang') && t.includes('…') && t.endsWith('the end 2'));
+  expect(cut.length).toBe(4);
+  expect(cells).not.toContain(long);
+  // No cell's text runs past its column.
+  const overflowing = await last.locator('.as-table td').evaluateAll((tds) => tds.filter((td) => td.scrollWidth > td.clientWidth + 1).length);
+  expect(overflowing).toBe(0);
+
+  await page.emulateMedia({ media: 'screen' });
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+  const final = Math.max(...items.map((i) => i.page));
+  const pdfCut = items.filter((i) => i.page === final && i.text.startsWith('Delay hang') && i.text.includes('…') && i.text.endsWith('the end 2'));
+  expect(pdfCut).toHaveLength(4);
+});
+
 // A long fact value wraps in the sheet, so the plan has to count the extra lines or the card would be taller than planned.
 test('a long Frame value wraps, and the rendered card is as tall as the plan says', async ({ page }) => {
   await start(page);

@@ -12,9 +12,9 @@ You can open a Soundvision PDF and see a fly sheet card for every array plus a r
 
 Download PDF makes the PDF in one click, with no print window. Print / PDF opens the print window instead, for printing on paper straight away.
 
-Type the show, the venue, the engineer and the company once, and they go on every pocket card. Every array card has a Print this array checkbox, ticked to begin with. Only the ticked arrays are printed or saved as images, and the rigging page lists only their pickups. The choice is saved with the file.
+Type the show, the venue, the engineer and the company once, and they go on every pocket card. Every array card has a Print this array checkbox, ticked to begin with. Only the ticked arrays are printed or saved as images, and the rigging page lists only their pickups and fixation positions. The choice is saved with the file.
 
-Each A4 page holds four arrays in a two by two grid, in the order of the report. Fold the page in half twice and every array is on its own A6 panel, small enough for a pocket. Dashed lines mark the folds. An array taller than a panel goes in a long column instead. A panel holds 16 rows with a mirror note, and long warnings, a long frame name or a long title can cost a row or two. A long column is the full height of the page, two to a page, folded once, with small tick marks at the fold. Long pages come first, then the pages of four, and the last page is the rigging summary, with a QR code that opens this app.
+Each A4 page holds four arrays in a two by two grid, in the order of the report. Fold the page in half twice and every array is on its own A6 panel, small enough for a pocket. Dashed lines mark the folds. An array taller than a panel goes in a long column instead. A panel holds 16 rows with a mirror note, and long warnings, a long frame name or a long title can cost a row or two. A stacked array with fixation positions costs about five more rows and a gap, so a tall stack may need a long column. A long column is the full height of the page, two to a page, folded once, with small tick marks at the fold. Long pages come first, then the pages of four, and the last page is the rigging summary, with a QR code that opens this app. It lists the pickups, then the fixation positions, of the arrays chosen for printing and of the mirrors their cards stand for. The rigging summary on screen lists every array.
 
 Every pocket panel carries its own header and footer, so a folded card still says whose it is. The header has the app name, the status and revision, the show, and the Soundvision project with the engineer, company and Z-axis zero. The footer has the app version, the Soundvision version, the file name (marked when it is unsaved), the time it was printed and the page number. Drafts carry a DRAFT watermark on every pocket panel, so each folded card is marked. The sheet is black on white whatever theme the screen is in.
 
@@ -47,6 +47,7 @@ Soundvision reports from L-Acoustics, version 2026.3.1 so far. For each array (S
 - the array name, the groups it sits in, and whether it is flown or stacked
 - the enclosure type, angle, site angle and top and bottom heights of each row, plus the Panflex setting
 - the bumper, the number of motors, each pickup position and its coordinates
+- the fixation positions of a stacked array, when the report states them
 - the position, site, azimuth, size, bottom elevation, top site and bottom site
 - the total weight, the enclosure weight and the motor loads
 - the mechanical warnings Soundvision prints

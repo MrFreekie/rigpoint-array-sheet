@@ -4,18 +4,27 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { APP_URL } from '../app-info';
-import { riggingRows } from '../engine/sheet';
+import { riggingFixations, riggingNote, riggingRows } from '../engine/sheet';
 import type { Doc } from '../files/doc';
 import { num } from '../ui/format';
 import type { SheetModel } from '../ui/sheet-model';
-import { cardContent, warningText, type CardContent } from './card-content';
+import { cardContent, FIXATION_COLUMNS, warningText, type CardContent } from './card-content';
 import { pageFooterText } from './footer';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { qrMatrix, qrPath, qrSize } from './qr';
 import { SMALL_PRINT } from './small-print';
 import { canvasMeasurePt } from './array-image';
 import { CARD_W_MM, FULL_H_MM, MIN_FULL_SCALE, PAGE_W_MM, fitScale, planPages } from './layout';
-import { layoutPocketCard, ptToPx } from './pdf-layout';
+import {
+  RIGGING_FIXATION_COLUMNS,
+  RIGGING_FIXATION_WIDTHS_MM,
+  RIGGING_PICKUP_COLUMNS,
+  RIGGING_PICKUP_WIDTHS_MM,
+  clipRiggingCell,
+  riggingSubtitle,
+  layoutPocketCard,
+  ptToPx,
+} from './pdf-layout';
 
 function CardView({ content }: { content: CardContent }) {
   return (
@@ -40,6 +49,26 @@ function CardView({ content }: { content: CardContent }) {
           </div>
         ))}
       </dl>
+      {content.fixations.length > 0 ? (
+        <table className="pc-fix">
+          <thead>
+            <tr>
+              {FIXATION_COLUMNS.map((c) => (
+                <th key={c}>{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {content.fixations.map((row, i) => (
+              <tr key={i}>
+                {row.map((cell, j) => (
+                  <td key={j}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
       <table className="pc-table">
         <thead>
           <tr>
@@ -96,6 +125,11 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
   );
   const contents = useMemo(() => model.entries.filter((e) => e.print).map((e) => ({ index: e.index, content: cardContent(e, ctx) })), [model, ctx]);
   const rigging = useMemo(() => riggingRows(doc.result.report.sources, model.printedSources), [doc.result.report.sources, model.printedSources]);
+  const fixations = useMemo(() => riggingFixations(doc.result.report.sources, model.printedSources), [doc.result.report.sources, model.printedSources]);
+  const note = riggingNote(rigging.length > 0, fixations.length > 0);
+  // Names too long for their column are cut with an ellipsis, by the same rule as the PDF.
+  const rigMeasure = useMemo(() => canvasMeasurePt(), []);
+  const cell = (text: string, column: number, widthsMm: number[], size = 8) => clipRiggingCell(text, widthsMm[column] ?? 0, false, rigMeasure, size);
   const qr = useMemo(() => {
     const matrix = qrMatrix(APP_URL);
     return { path: qrPath(matrix), size: qrSize(matrix) };
@@ -118,7 +152,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [rigging]);
+  }, [rigging, fixations]);
 
   const sized = useMemo(() => {
     const measure = canvasMeasurePt();
@@ -169,7 +203,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
         <div>
           <h2>Rigging summary</h2>
           <p className="as-rigging-sub">
-            {[doc.job.show.trim(), doc.job.zAxisZero.trim() ? `Z-axis zero: ${doc.job.zAxisZero.trim()}` : ''].filter(Boolean).join(' · ')}
+            {riggingSubtitle(doc.job)}
           </p>
         </div>
         <div className="as-qr" data-testid="print-qr">
@@ -188,10 +222,15 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
         <p className="as-rigging-note">No flown array in this report has a pickup position.</p>
       ) : (
         <>
-          <table className="as-table">
+          <table className="as-table" data-testid="print-pickups">
+            <colgroup>
+              {RIGGING_PICKUP_WIDTHS_MM.map((w, i) => (
+                <col key={i} style={{ width: `${(w / 192) * 100}%` }} />
+              ))}
+            </colgroup>
             <thead>
               <tr>
-                {['Array', 'Pickup', 'Position no.', 'X (m)', 'Y (m)', 'Z (m)', 'Load (kg)'].map((h) => (
+                {RIGGING_PICKUP_COLUMNS.map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -199,7 +238,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
             <tbody>
               {rigging.map((r, i) => (
                 <tr key={i}>
-                  <td>{r.source}</td>
+                  <td>{cell(r.source, 0, RIGGING_PICKUP_WIDTHS_MM)}</td>
                   <td>{r.location}</td>
                   <td className="n">{r.pickupPosition}</td>
                   <td className="n">{r.x}</td>
@@ -210,9 +249,36 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
               ))}
             </tbody>
           </table>
-          <p className="as-rigging-note">Every pickup is listed, including those of mirrored arrays, because their positions differ.</p>
         </>
       )}
+      {fixations.length > 0 ? (
+        <table className="as-table as-table-second" data-testid="print-fixations">
+          <colgroup>
+            {RIGGING_FIXATION_WIDTHS_MM.map((w, i) => (
+              <col key={i} style={{ width: `${(w / 192) * 100}%` }} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr>
+              {RIGGING_FIXATION_COLUMNS.map((h) => (
+                <th key={h}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {fixations.map((f, i) => (
+              <tr key={i}>
+                <td>{cell(f.source, 0, RIGGING_FIXATION_WIDTHS_MM, 7)}</td>
+                <td>{cell(f.name, 1, RIGGING_FIXATION_WIDTHS_MM, 7)}</td>
+                <td className="n">{f.x}</td>
+                <td className="n">{f.y}</td>
+                <td className="n">{f.z}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      {note ? <p className="as-rigging-note">{note}</p> : null}
       <div className="as-small-print" data-testid="print-small-print">
         {SMALL_PRINT.map((p, i) => (
           <p key={i}>

@@ -38,6 +38,8 @@ const FIELD_NAMES: Record<string, string> = {
   enclosures: 'Enclosure weight',
   panflex: 'Panflex',
   pickups: 'Pickups',
+  fixations: 'Fixations',
+  fixationCount: 'Number of fixations',
   warnings: 'Warnings',
 };
 

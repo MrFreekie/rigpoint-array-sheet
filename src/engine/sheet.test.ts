@@ -4,11 +4,12 @@
 import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
 import { rng } from '../testing/random';
-import { flySheetColumn, minus, parseOffset, riggingRows } from './sheet';
+import { flySheetColumn, minus, parseOffset, riggingFixations, riggingNote, riggingRows } from './sheet';
 import type { ArraySource } from './types';
 
 const a = parseFixture('a').report.sources;
 const b = parseFixture('b').report.sources;
+const e = parseFixture('e').report.sources;
 const named = (list: ArraySource[], name: string) => {
   const s = list.find((x) => x.name === name);
   if (!s) throw new Error(name);
@@ -118,4 +119,63 @@ describe('parseOffset', () => {
   ])('reads %j as %j', (text, expected) => expect(parseOffset(text)).toBe(expected));
 
   it.each(['abc', '1,5', '1.', '.5', '1e3', '--1', '1 m'])('rejects %j', (text) => expect(parseOffset(text)).toBeNull());
+});
+
+describe('riggingFixations, report E', () => {
+  const index = (name: string) => e.findIndex((s) => s.name === name);
+
+  it('lists the four positions of every stack, as printed and in report order', () => {
+    const rows = riggingFixations(e);
+    const stacks = e.filter((s) => (s.fixations?.length ?? 0) > 0);
+    expect(rows).toHaveLength(stacks.length * 4);
+    expect(rows.slice(0, 4).map((r) => [r.source, r.name, r.x, r.y, r.z])).toEqual(
+      (stacks[0]?.fixations ?? []).map((f) => [stacks[0]?.name, f.name, f.at.x, f.at.y, f.at.z]),
+    );
+    expect(rows.filter((r) => r.source === 'KARA II 2')).toEqual([
+      { source: 'KARA II 2', name: 'Fr', x: -2.84, y: 4.6, z: 1 },
+      { source: 'KARA II 2', name: 'Fl', x: -2.16, y: 4.6, z: 1 },
+      { source: 'KARA II 2', name: 'Rr', x: -2.84, y: 3.9, z: 1 },
+      { source: 'KARA II 2', name: 'Rl', x: -2.16, y: 3.9, z: 1 },
+    ]);
+  });
+
+  it('includes the stack that collapses into a mirror, with its own four positions', () => {
+    const rows = riggingFixations(e).filter((r) => r.source === 'KARA II 1');
+    expect(rows.map((r) => r.name)).toEqual(['Fr', 'Fl', 'Rr', 'Rl']);
+    expect(rows.map((r) => r.x)).toEqual((named(e, 'KARA II 1').fixations ?? []).map((f) => f.at.x));
+  });
+
+  it('lists only the arrays chosen, and nothing for an array without fixations', () => {
+    expect(new Set(riggingFixations(e, new Set([index('KARA II 2')])).map((r) => r.source))).toEqual(new Set(['KARA II 2']));
+    expect(riggingFixations(e, new Set([index('KS28 4')]))).toEqual([]);
+    expect(riggingFixations(e, new Set())).toEqual([]);
+    expect(riggingFixations(a)).toEqual([]);
+  });
+});
+
+describe('riggingNote', () => {
+  it('names only what is listed', () => {
+    expect(riggingNote(true, true)).toBe('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
+    expect(riggingNote(true, false)).toBe('Every pickup is listed, including those of mirrored arrays, because their positions differ.');
+    expect(riggingNote(false, true)).toBe('Every fixation is listed, including those of mirrored arrays, because their positions differ.');
+    expect(riggingNote(false, false)).toBeNull();
+  });
+});
+
+describe('flySheetColumn fixations, report E', () => {
+  it('copies the fixations as printed, and does not take the ground offset off their Z', () => {
+    const c = flySheetColumn(named(e, 'KARA II 2'), 0.3);
+    expect(c.fixations).toEqual([
+      { name: 'Fr', at: { x: -2.84, y: 4.6, z: 1 } },
+      { name: 'Fl', at: { x: -2.16, y: 4.6, z: 1 } },
+      { name: 'Rr', at: { x: -2.84, y: 3.9, z: 1 } },
+      { name: 'Rl', at: { x: -2.16, y: 3.9, z: 1 } },
+    ]);
+    expect(c.topHeight).toBe(0.7);
+  });
+
+  it('has none for an array that states none', () => {
+    expect(flySheetColumn(named(e, 'KS28 4')).fixations).toEqual([]);
+    expect(flySheetColumn(named(a, 'X8 2')).fixations).toEqual([]);
+  });
 });

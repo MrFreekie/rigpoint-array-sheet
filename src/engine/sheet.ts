@@ -4,7 +4,7 @@
 // report's heights. That subtraction, rounded to the 0.01 m the report prints, is the only sum here.
 
 import { panflexLabel, type PanflexLabel } from './panflex';
-import type { ArraySource, Pickup, SoundvisionWarning } from './types';
+import type { ArraySource, Fixation, Pickup, SoundvisionWarning } from './types';
 
 export interface SheetRow {
   number: number;
@@ -38,6 +38,8 @@ export interface FlySheetColumn {
   bumper: string | null;
   motors: number | null;
   pickups: Pickup[];
+  /** The fixation positions as the report prints them, with no ground offset taken off. Empty when it states none. */
+  fixations: Fixation[];
   position: ArraySource['position'];
   rows: SheetRow[];
   warnings: SoundvisionWarning[];
@@ -68,6 +70,7 @@ export function flySheetColumn(source: ArraySource, groundOffset = 0): FlySheetC
     bumper: source.bumper,
     motors: source.motors,
     pickups: source.pickups,
+    fixations: source.fixations ?? [],
     position: source.position,
     rows: source.cabinets.map((c) => ({
       number: c.number,
@@ -115,6 +118,35 @@ export function riggingRows(sources: readonly ArraySource[], include?: ReadonlyS
     }
   }
   return rows;
+}
+
+export interface FixationRow {
+  source: string;
+  /** The fixation name as the report prints it, e.g. Fr. */
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * One row per fixation of every array that states them, in report order, with the numbers as printed (no ground
+ * offset). `include` works as for riggingRows.
+ */
+export function riggingFixations(sources: readonly ArraySource[], include?: ReadonlySet<number>): FixationRow[] {
+  const rows: FixationRow[] = [];
+  for (const [index, s] of sources.entries()) {
+    if (include && !include.has(index)) continue;
+    for (const f of s.fixations ?? []) rows.push({ source: s.name, name: f.name, x: f.at.x, y: f.at.y, z: f.at.z });
+  }
+  return rows;
+}
+
+/** The line under the rigging tables. Null when there is nothing listed. */
+export function riggingNote(pickups: boolean, fixations: boolean): string | null {
+  if (!pickups && !fixations) return null;
+  const what = pickups && fixations ? 'pickup and fixation' : pickups ? 'pickup' : 'fixation';
+  return `Every ${what} is listed, including those of mirrored arrays, because their positions differ.`;
 }
 
 /** A ground offset typed by the user: blank means 0, anything that is not a number is rejected. */

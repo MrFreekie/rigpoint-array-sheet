@@ -1,10 +1,11 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/4").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/5").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
 import { STATUSES } from '../files/doc';
 import {
   MAX_CABINETS_PER_SOURCE,
+  MAX_FIXATIONS_PER_SOURCE,
   MAX_PICKUPS_PER_SOURCE,
   MAX_PROBLEMS,
   MAX_SOURCES,
@@ -15,7 +16,7 @@ import { REVISION_PATTERN } from '../files/revision';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 4;
+export const FORMAT_VERSION = 5;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 const text = (what: string, max = 500) => z.string({ error: `${what} must be text` }).max(max, { error: `${what} is too long` });
@@ -66,11 +67,17 @@ export const ArrayFileSchema = z
       if (s.pickups.length > MAX_PICKUPS_PER_SOURCE) {
         ctx.addIssue({ code: 'custom', path: [...at, 'pickups'], message: `There are more than ${MAX_PICKUPS_PER_SOURCE} pickups` });
       }
+      if ((s.fixations?.length ?? 0) > MAX_FIXATIONS_PER_SOURCE) {
+        ctx.addIssue({ code: 'custom', path: [...at, 'fixations'], message: `There are more than ${MAX_FIXATIONS_PER_SOURCE} fixations` });
+      }
       const long: [string, string][] = [
         ['name', s.name],
         ['bumper', s.bumper ?? ''],
         ['configuration', s.configuration ?? ''],
       ];
+      s.fixations?.forEach((f, fi) => {
+        if (f.name.length > MAX_TEXT_LENGTH) ctx.addIssue({ code: 'custom', path: [...at, 'fixations', fi, 'name'], message: 'is too long' });
+      });
       for (const [key, value] of long) {
         if (value.length > MAX_TEXT_LENGTH) ctx.addIssue({ code: 'custom', path: [...at, key], message: 'is too long' });
       }

@@ -2,7 +2,7 @@
 // tested without a browser) and then drawn on a canvas. Drawing text on a canvas needs no markup, so
 // it works under the strict Content Security Policy.
 
-import { warningText, type CardContent } from './card-content';
+import { FIXATION_COLUMNS, warningText, type CardContent } from './card-content';
 
 export const IMAGE_W = 640;
 const PAD = 28;
@@ -41,6 +41,27 @@ export function canvasMeasurePt(): Measure {
 
 export function canvasFont(size: number, bold: boolean): string {
   return `${bold ? 'bold ' : ''}${size}px ${FONT}`;
+}
+
+/** Text on one line no wider than `max`: cut short with an ellipsis when it is too long. */
+export function clipToWidth(text: string, size: number, bold: boolean, max: number, measure: Measure): string {
+  if (measure(text, size, bold) <= max) return text;
+  let n = text.length - 1;
+  while (n > 0 && measure(`${text.slice(0, n).trimEnd()}…`, size, bold) > max) n--;
+  return `${text.slice(0, n).trimEnd()}…`;
+}
+
+/** Cuts the middle out of text that is wider than `max`, keeping the start and the end, which is where derived names differ. */
+export function clipMiddle(text: string, size: number, bold: boolean, max: number, measure: Measure): string {
+  if (measure(text, size, bold) <= max) return text;
+  const chars = Array.from(text);
+  const fits = (keep: number) => {
+    const head = Math.ceil(keep / 2);
+    return `${chars.slice(0, head).join('').trimEnd()}…${chars.slice(chars.length - (keep - head)).join('').trimStart()}`;
+  };
+  let keep = chars.length - 1;
+  while (keep > 1 && measure(fits(keep), size, bold) > max) keep--;
+  return fits(keep);
 }
 
 /** Breaks text into lines no wider than `max`, at spaces where possible and inside a word if it is too long. */
@@ -126,6 +147,23 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
     y += rowH;
   }
   y += 14;
+
+  // Fixations: a small table of the positions the report states, when it states any.
+  if (content.fixations.length > 0) {
+    const numberW = 90;
+    const fx = [PAD, IMAGE_W - PAD - 3 * numberW, IMAGE_W - PAD - 2 * numberW, IMAGE_W - PAD - numberW, IMAGE_W - PAD];
+    const fixationRow = (cells: string[], header: boolean) => {
+      if (header) ops.push({ op: 'rect', x: PAD, y, w: inner, h: rowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
+      cells.forEach((cell, i) => {
+        text(cell, 14, { bold: header || i === 0, x: i === 0 ? PAD + 8 : (fx[i + 1] ?? IMAGE_W - PAD) - 8, align: i === 0 ? 'left' : 'right', yy: y + 3 });
+      });
+      ops.push({ op: 'line', x1: PAD, y1: y + rowH, x2: IMAGE_W - PAD, y2: y + rowH, width: header ? 2 : 1, color: header ? '#000' : '#777' });
+      y += rowH;
+    };
+    fixationRow(FIXATION_COLUMNS, true);
+    for (const row of content.fixations) fixationRow(row, false);
+    y += 14;
+  }
 
   // Enclosure table. Type takes whatever the fixed columns leave.
   const fixed: Record<string, number> = { '#': 46, 'Col #': 92, Panflex: 110, Angle: 86, Site: 96 };

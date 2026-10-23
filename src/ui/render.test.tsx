@@ -2,7 +2,7 @@
 
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { flySheetColumn, riggingRows } from '../engine/sheet';
+import { flySheetColumn, riggingFixations, riggingNote, riggingRows } from '../engine/sheet';
 import type { Problem } from '../engine/types';
 import { parseFixture } from '../testing/fixtures';
 import { App } from './App';
@@ -25,6 +25,28 @@ describe('ArrayCard', () => {
     expect(html).toContain('Col #');
     expect(html).toContain('C1 #1');
     expect(html).toContain('C2 #1');
+  });
+
+  it('shows the fixations of a stacked array as the report prints them, under the facts', () => {
+    const html = card('KARA II 2', parseFixture('e').report.sources);
+    expect(html).toContain('Fixation positions of KARA II 2');
+    for (const text of ['Fixations', 'X (m)', 'Y (m)', 'Z (m)', 'Fr', 'Fl', 'Rr', 'Rl', '-2.84', '-2.16', '4.6', '3.9']) expect(html).toContain(text);
+    expect(html.indexOf('Position X, Y, Z')).toBeLessThan(html.indexOf('Fixations'));
+    expect(card('KS28 4', parseFixture('e').report.sources)).not.toContain('Fixations');
+    expect(card('KARA II L Main')).not.toContain('Fixations');
+  });
+
+  it('draws fixations that share a name, and cuts a very long name', () => {
+    const sources = structuredClone(parseFixture('e').report.sources);
+    const fill = sources.find((s) => s.name === 'KARA II 2')!;
+    fill.fixations = [
+      { name: 'Fr', at: { x: 1, y: 2, z: 3 } },
+      { name: 'Fr', at: { x: 4, y: 5, z: 6 } },
+      { name: 'F'.repeat(60), at: { x: 7, y: 8, z: 9 } },
+    ];
+    const html = card('KARA II 2', sources);
+    expect(html.match(/<th scope="row" title=/g)).toHaveLength(3);
+    expect(html).toContain(`>${'F'.repeat(11)}…</th>`);
   });
 
   it('shows a flown array as the report states it', () => {
@@ -131,6 +153,23 @@ describe('RiggingSummary', () => {
     expect(html).toContain('>Rear<');
     expect(html).toContain('182.7');
     expect(html).toContain('3.08');
+  });
+
+  it('names only pickups in its line when the report states no fixations, and shows no fixation table', () => {
+    const html = renderToStaticMarkup(<RiggingSummary rows={riggingRows(b)} fixations={riggingFixations(b)} />);
+    expect(html).toContain(riggingNote(true, false));
+    expect(html).not.toContain('rigging-fixations');
+  });
+
+  it('lists the fixations of report E under the pickups, with the line that covers both', () => {
+    const e = parseFixture('e').report.sources;
+    const html = renderToStaticMarkup(<RiggingSummary rows={riggingRows(e)} fixations={riggingFixations(e)} />);
+    expect(html).toContain('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
+    expect(html).toContain('rigging-fixations');
+    expect(html).toContain('>Fixation<');
+    expect(html).toContain('<td>Fr</td><td class="n">-2.84</td><td class="n">4.6</td><td class="n">1</td>');
+    expect(html.match(/<td>Fr<\/td>/g)).toHaveLength(riggingFixations(e).filter((f) => f.name === 'Fr').length);
+    expect(html.indexOf('Pickup positions')).toBeLessThan(html.indexOf('Fixation positions'));
   });
 
   it('says so when there is nothing to list', () => {

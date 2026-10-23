@@ -490,6 +490,10 @@ input {
 
 /* Tables */
 
+.fixations {
+  margin-top: 0.75rem;
+}
+
 .table-wrap {
   overflow-x: auto;
 }

@@ -51,6 +51,11 @@ export function renderReport(document: ReportDocument, sources: RenderedSource[]
     line(`${s.number}. 1. Physical configuration`);
     if (s.configuration) line(`Configuration: ${s.configuration}`);
     if (s.bumper) line(`Bumper: ${s.bumper}`);
+    if (s.fixationCount !== undefined) line(`# fixations: ${s.fixationCount}`);
+    for (const x of s.fixations ?? []) {
+      const side = `${x.name.startsWith('F') ? 'Front' : 'Rear'} ${x.name.endsWith('r') ? 'right' : 'left'}`;
+      line(`${side} fixation position (X; Y; Z, m): ${x.name} (${f(x.at.x)}; ${f(x.at.y)}; ${f(x.at.z)})`);
+    }
     if (s.motors !== null) line(`# motors: ${s.motors}`);
     for (const p of s.pickups) {
       line(`${p.which === 'front' ? 'Front' : 'Rear'} pickup position (X; Y; Z, m): ${p.position} (${f(p.at.x)}; ${f(p.at.y)}; ${f(p.at.z)})`);

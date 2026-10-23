@@ -34,6 +34,14 @@ function facts(s: ArraySource): Map<string, string> {
   m.set('Front motor load', show(s.weights.frontMotorLoad));
   m.set('Rear motor load', show(s.weights.rearMotorLoad));
   for (const p of s.pickups) m.set(`${p.which === 'front' ? 'Front' : 'Rear'} pickup`, `${p.position} at ${point(p.at)}`);
+  if (s.fixationCount !== undefined) m.set('Fixations', show(s.fixationCount));
+  // A name that repeats is told apart by its occurrence, so a change to any of them is listed.
+  const seen = new Map<string, number>();
+  for (const f of s.fixations ?? []) {
+    const n = (seen.get(f.name) ?? 0) + 1;
+    seen.set(f.name, n);
+    m.set(n === 1 ? `Fixation ${f.name}` : `Fixation ${f.name} #${n}`, show(point(f.at)));
+  }
   for (const c of s.cabinets) {
     m.set(
       c.column ? `Enclosure C${c.column} #${c.number}` : `Enclosure #${c.number}`,

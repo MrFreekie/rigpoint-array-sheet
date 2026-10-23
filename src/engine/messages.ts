@@ -73,6 +73,18 @@ export function pickupCount(motors: number, found: number): string {
   return `The report says ${motors} motor${motors === 1 ? '' : 's'} but ${found} pickup position${found === 1 ? '' : 's'} ${found === 1 ? 'was' : 'were'} found. ${CHECK_PDF}`;
 }
 
+export function fixationCount(count: number, found: number): string {
+  return `The report says ${count} fixation${count === 1 ? '' : 's'} but ${found} fixation position${found === 1 ? '' : 's'} ${found === 1 ? 'was' : 'were'} found. ${CHECK_PDF}`;
+}
+
+export function repeatedFixationLine(): string {
+  return `The report lists the fixation count more than once for one array, so only the last count is used. ${CHECK_PDF}`;
+}
+
+export function repeatedFixationName(name: string): string {
+  return `The same fixation name appears twice: "${name}". Both positions are kept. ${CHECK_PDF}`;
+}
+
 export function groupNumbering(line: string): string {
   return `The group numbering at "${line}" could not be followed, so group names may be wrong. ${CHECK_PDF}`;
 }

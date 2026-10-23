@@ -5,7 +5,7 @@
 
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import { APP_URL } from '../app-info';
-import { riggingRows } from '../engine/sheet';
+import { riggingFixations, riggingRows } from '../engine/sheet';
 import type { Doc } from '../files/doc';
 import type { SheetModel } from '../ui/sheet-model';
 import type { DrawOp, Measure } from './array-image';
@@ -25,7 +25,7 @@ import {
   planPages,
 } from './layout';
 import { panelHeader, type PanelHeader } from './panel-header';
-import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, ptToPx, type Laid } from './pdf-layout';
+import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, ptToPx, riggingSubtitle, type Laid } from './pdf-layout';
 import { qrMatrix } from './qr';
 import { wrap } from './array-image';
 
@@ -226,7 +226,8 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
   const rigging = layoutRiggingPage(
     {
       rows: riggingRows(doc.result.report.sources, model.printedSources),
-      subtitle: [doc.job.show.trim(), doc.job.venue.trim(), doc.job.zAxisZero.trim() ? `Z-axis zero: ${doc.job.zAxisZero.trim()}` : ''].filter(Boolean).join(' · '),
+      fixations: riggingFixations(doc.result.report.sources, model.printedSources),
+      subtitle: riggingSubtitle(doc.job),
       qr: qrMatrix(APP_URL),
       qrUrl: APP_URL,
     },

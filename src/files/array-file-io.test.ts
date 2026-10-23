@@ -8,7 +8,7 @@ import { parseFixture } from '../testing/fixtures';
 
 const NOW = new Date('2026-10-22T10:30:00.000Z');
 
-function sample(name: 'a' | 'b' | 'd' = 'a'): Doc {
+function sample(name: 'a' | 'b' | 'd' | 'e' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `report-${name}.pdf`);
   doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3' };
   doc.offsets = { 0: '1.5', 4: '-0.2' };
@@ -57,6 +57,52 @@ describe('print choices', () => {
     expect(doc.result.report.sources[4]?.cabinets.map((c) => c.column)).toEqual([1, 2]);
   });
 
+  it('an older (version 4) file opens as saved, with the fixations of its stacks neither stripped nor invented', () => {
+    const saved = sample('e');
+    const v4 = JSON.parse(serialiseDoc(saved, '0.1.0', NOW)) as { format: string };
+    v4.format = 'arraysheet/4';
+    const { doc } = openFileText(JSON.stringify(v4), 'old.arraysheet.json');
+    expect(doc.job.show).toBe('Main stage');
+    expect(doc.result.report.sources.map((s) => s.fixations)).toEqual(saved.result.report.sources.map((s) => s.fixations));
+    expect(doc.result.report.sources.filter((s) => s.fixations !== undefined)).toHaveLength(8);
+  });
+
+  it('a file saved before fixations existed opens with none on any array', () => {
+    const old = JSON.parse(serialiseDoc(sample('d'), '0.1.0', NOW)) as { format: string; report: { sources: Record<string, unknown>[] } };
+    for (const s of old.report.sources) {
+      delete s['fixations'];
+      delete s['fixationCount'];
+    }
+    old.format = 'arraysheet/3';
+    const { doc } = openFileText(JSON.stringify(old), 'old.arraysheet.json');
+    expect(doc.result.report.sources).toHaveLength(parseFixture('d').report.sources.length);
+    expect(doc.result.report.sources.some((s) => s.fixations !== undefined || s.fixationCount !== undefined)).toBe(false);
+  });
+
+  it('fixations come back exactly as saved', () => {
+    const { doc } = roundTrip(sample('e'));
+    expect(doc.result.report.sources[10]?.fixationCount).toBe(4);
+    expect(doc.result.report.sources[10]?.fixations).toEqual([
+      { name: 'Fr', at: { x: -2.84, y: 4.6, z: 1 } },
+      { name: 'Fl', at: { x: -2.16, y: 4.6, z: 1 } },
+      { name: 'Rr', at: { x: -2.84, y: 3.9, z: 1 } },
+      { name: 'Rl', at: { x: -2.16, y: 3.9, z: 1 } },
+    ]);
+    expect(doc.result.report.sources[0]?.fixations).toBeUndefined();
+  });
+
+  it('refuses a fixation name that is too long', () => {
+    const file = JSON.parse(serialiseDoc(sample('e'), '0.1.0', NOW)) as { report: { sources: { fixations: { name: string }[] }[] } };
+    file.report.sources[10]!.fixations[0]!.name = 'F'.repeat(2001);
+    expect(() => openFileText(JSON.stringify(file), 'x.arraysheet.json')).toThrow(/too long/);
+  });
+
+  it('refuses a file that holds too many fixations for an array', () => {
+    const file = JSON.parse(serialiseDoc(sample('e'), '0.1.0', NOW)) as { report: { sources: { fixations: unknown[] }[] } };
+    file.report.sources[10]!.fixations = Array.from({ length: 17 }, () => ({ name: 'Fr', at: { x: 0, y: 0, z: 0 } }));
+    expect(() => openFileText(JSON.stringify(file), 'x.arraysheet.json')).toThrow(/more than 16 fixations/);
+  });
+
   it('an older (version 1) file opens with every array chosen for printing', () => {
     const v1 = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as Record<string, unknown>;
     delete v1['print'];
@@ -70,7 +116,7 @@ describe('print choices', () => {
 });
 
 describe('saving and opening', () => {
-  it.each(['a', 'b'] as const)('report %s comes back exactly as saved', (name) => {
+  it.each(['a', 'b', 'e'] as const)('report %s comes back exactly as saved', (name) => {
     const doc = sample(name);
     const { doc: back, savedAt } = roundTrip(doc);
     expect(savedAt).toBe(NOW.toISOString());
@@ -100,7 +146,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/4');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/5');
   });
 
   it('writes one offset per array, blank where none was typed', () => {

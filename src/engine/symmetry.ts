@@ -12,6 +12,9 @@ function mirroredPoint(a: Point3 | null, b: Point3 | null): boolean {
   return a.x === -b.x && a.y === b.y && a.z === b.z;
 }
 
+/** Fr and Fl, Rr and Rl change places in a mirror image. */
+const swapSide = (name: string) => name.replace(/[rl]$/, (c) => (c === 'r' ? 'l' : 'r'));
+
 function swapPanflex(p: string | null): string | null {
   if (p === null) return null;
   const m = /^(.+)\/(.+)$/.exec(p);
@@ -36,6 +39,22 @@ export function isMirror(a: ArraySource, b: ArraySource): boolean {
     const p = a.pickups[i];
     const q = b.pickups[i];
     if (!p || !q || p.which !== q.which || p.position !== q.position || !mirroredPoint(p.at, q.at)) return false;
+  }
+
+  const fa = a.fixations ?? [];
+  const fb = b.fixations ?? [];
+  if (fa.length !== fb.length || (a.fixationCount ?? null) !== (b.fixationCount ?? null)) return false;
+  // Names can repeat, so compare the two lists sorted, A's seen in the mirror, instead of looking each one up by name.
+  const seenInMirror = fa.map((f) => ({ name: swapSide(f.name), x: 0 - f.at.x, y: f.at.y, z: f.at.z }));
+  const theirs = fb.map((f) => ({ name: f.name, x: f.at.x, y: f.at.y, z: f.at.z }));
+  type Row = (typeof theirs)[number];
+  const order = (p: Row, q: Row) => (p.name < q.name ? -1 : p.name > q.name ? 1 : p.x - q.x || p.y - q.y || p.z - q.z);
+  seenInMirror.sort(order);
+  theirs.sort(order);
+  for (let i = 0; i < theirs.length; i++) {
+    const p = seenInMirror[i];
+    const q = theirs[i];
+    if (!p || !q || p.name !== q.name || p.x !== q.x || p.y !== q.y || p.z !== q.z) return false;
   }
 
   if (a.cabinets.length !== b.cabinets.length) return false;

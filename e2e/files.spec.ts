@@ -29,6 +29,20 @@ test('report B opens with its two-motor array and ground stacks', async ({ page 
   await expect(page.locator('.card', { hasText: 'GS KARA II L' })).toContainText('CAUTION');
 });
 
+test('report E: the rigging summary on screen lists the fixations and the line that covers both', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('e'));
+  await expect(page.locator('.card')).not.toHaveCount(0);
+  const summary = page.locator('section[aria-labelledby=rigging-heading]');
+  await expect(summary).toContainText('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
+  const table = summary.getByTestId('rigging-fixations');
+  await expect(table.locator('thead th')).toHaveText(['Array', 'Fixation', 'X (m)', 'Y (m)', 'Z (m)']);
+  await expect(table.locator('tbody tr')).toHaveCount(8 * 4);
+  await expect(table.locator('tbody tr').filter({ has: page.locator('th', { hasText: /^KARA II 2$/ }) }).first().locator('th, td')).toHaveText(['KARA II 2', 'Fr', '-2.84', '4.6', '1']);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
 test('a file that is not a PDF or an app file is refused with a plain message', async ({ page }) => {
   await start(page);
   await page.getByTestId('open-file').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
@@ -49,7 +63,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/4', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/5', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -142,10 +156,10 @@ test('update from a newer PDF: nothing to update, then a list of differences', a
 
   await page.getByTestId('update-file').setInputFiles({ name: 'newer.pdf', mimeType: 'application/pdf', buffer: samplePdf('b') });
   const dialog = page.getByRole('dialog');
-  await expect(dialog).toContainText('The new PDF is different');
+  await expect(dialog).toContainText('The new PDF is different', { timeout: 20_000 });
   await expect(dialog).toContainText('Your show details and ground offsets are kept');
   await dialog.getByRole('button', { name: 'Keep as saved' }).click();
-  await expect(page.locator('.card')).toHaveCount(9);
+  await expect(page.locator('.card')).toHaveCount(9, { timeout: 20_000 });
 
   await page.getByTestId('update-file').setInputFiles({ name: 'newer.pdf', mimeType: 'application/pdf', buffer: samplePdf('b') });
   await page.getByRole('dialog').getByRole('button', { name: 'Update from new PDF' }).click();

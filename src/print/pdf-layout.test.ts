@@ -4,16 +4,17 @@ import { newDoc } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
 import { canvasMeasurePt, estimateWidth, type DrawOp } from './array-image';
 import { cardContent } from './card-content';
-import { CELL_H_MM, LONG_H_MM, MIN_FULL_SCALE, PX_PER_MM, fitScale, planPages } from './layout';
-import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, ptToPx } from './pdf-layout';
+import { CELL_H_MM, FULL_H_MM, LONG_H_MM, MIN_FULL_SCALE, PX_PER_MM, fitScale, planPages } from './layout';
+import { PT_PER_MM, RIGGING_CELL_PAD_PT, RIGGING_FIXATION_WIDTHS_MM, RIGGING_PICKUP_WIDTHS_MM, clipRiggingCell, layoutPocketCard, layoutRiggingPage, ptToPx, riggingSubtitle } from './pdf-layout';
 import { qrMatrix } from './qr';
-import { riggingRows } from '../engine/sheet';
+import { riggingFixations, riggingRows } from '../engine/sheet';
 import { SMALL_PRINT } from './small-print';
 
 const ctx = { show: 'Main stage', venue: 'Grand Hall', status: 'issued' as const, revision: 'B', zAxisZero: 'Arena floor' };
 const docA = newDoc(parseFixture('a'), 'a.pdf');
 const docB = newDoc(parseFixture('b'), 'b.pdf');
 const docD = newDoc(parseFixture('d'), 'd.pdf');
+const docE = newDoc(parseFixture('e'), 'e.pdf');
 const content = (doc: typeof docA, name: string, mirrors = true) =>
   cardContent(sheetModel(doc, mirrors).entries.find((e) => e.column.name === name)!, ctx);
 const texts = (ops: DrawOp[]) => ops.flatMap((o) => (o.op === 'text' ? [o.text] : []));
@@ -91,8 +92,9 @@ describe('layoutPocketCard', () => {
 });
 
 describe('layoutRiggingPage', () => {
-  const input = (rows = riggingRows(docB.result.report.sources)) => ({
+  const input = (rows = riggingRows(docB.result.report.sources), fixations = riggingFixations(docB.result.report.sources)) => ({
     rows,
+    fixations,
     subtitle: 'Main stage · Grand Hall',
     qr: qrMatrix('https://example.com/'),
     qrUrl: 'https://example.com/',
@@ -135,6 +137,88 @@ describe('layoutRiggingPage', () => {
   it('says so when no array has a pickup', () => {
     const t = texts(layoutRiggingPage(input([]), estimateWidth).ops);
     expect(t).toContain('No flown array in this report has a pickup position.');
+  });
+
+  describe('with fixations, report E', () => {
+    const sources = docE.result.report.sources;
+    const withFixations = () => input(riggingRows(sources), riggingFixations(sources));
+
+    it('lists every fixation under the pickups, with the line that covers both', () => {
+      const t = texts(layoutRiggingPage(withFixations(), estimateWidth).ops);
+      expect(t).toContain('Fixation');
+      expect(t.filter((x) => x === 'Fr').length).toBe(riggingFixations(sources).filter((f) => f.name === 'Fr').length);
+      expect(t).toContain('-2.84');
+      expect(t).toContain('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
+    });
+
+    it('shows no fixation table when there are none', () => {
+      const t = texts(layoutRiggingPage(input(riggingRows(docB.result.report.sources), []), estimateWidth).ops);
+      expect(t).not.toContain('Fixation');
+      expect(t).toContain('Every pickup is listed, including those of mirrored arrays, because their positions differ.');
+    });
+
+    it('lists fixations alone with a line that names only fixations', () => {
+      const t = texts(layoutRiggingPage(input([], riggingFixations(sources)), estimateWidth).ops);
+      expect(t).toContain('Every fixation is listed, including those of mirrored arrays, because their positions differ.');
+    });
+
+    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.975 (fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
+      const laid = layoutRiggingPage(withFixations(), estimateWidth);
+      const fit = fitScale(pxHeight(laid.height), FULL_H_MM, MIN_FULL_SCALE);
+      expect(fit.overflow).toBe(false);
+      expect(fit.scale).toBe(0.975);
+    });
+
+    it('sets the fixation table in 7 pt text and keeps the pickup table at 8 pt', () => {
+      const ops = layoutRiggingPage(withFixations(), estimateWidth).ops;
+      const sizeOf = (s: string) => ops.flatMap((o) => (o.op === 'text' && o.text === s ? [o.size] : []))[0];
+      expect(sizeOf('Fixation')).toBe(7);
+      expect(sizeOf('Pickup')).toBe(8);
+    });
+
+    it('keeps a long array name inside its own column, with the 3 pt inset, in both tables', () => {
+      const long = 'W'.repeat(80);
+      const rows = riggingRows(docB.result.report.sources).map((r) => ({ ...r, source: long }));
+      const fixations = riggingFixations(sources).map((f) => ({ ...f, source: long, name: long }));
+      const laid = layoutRiggingPage(input(rows, fixations), estimateWidth);
+      const names = laid.ops.filter((o): o is Extract<DrawOp, { op: 'text' }> => o.op === 'text' && o.text.startsWith('WW'));
+      expect(names.length).toBe(rows.length + 2 * fixations.length);
+      const limit = (mmWidth: number) => mmWidth * PT_PER_MM - 3;
+      // Pickup array names come first in the ops, then each fixation row's array and fixation name.
+      names.forEach((o, i) => {
+        const column = i < rows.length ? RIGGING_PICKUP_WIDTHS_MM[0]! : RIGGING_FIXATION_WIDTHS_MM[(i - rows.length) % 2]!;
+        expect(o.text).toContain('…');
+        expect(o.text.endsWith('W')).toBe(true);
+        expect(estimateWidth(o.text, o.size, o.bold)).toBeLessThanOrEqual(limit(column));
+      });
+    });
+
+    it('fits every array name of report E in the Fixations Array column without clipping', () => {
+      const t = texts(layoutRiggingPage(withFixations(), estimateWidth).ops);
+      for (const f of riggingFixations(sources)) expect(t).toContain(f.source);
+    });
+  });
+
+  describe('clipRiggingCell', () => {
+    it('cuts the middle and keeps the end of a name', () => {
+      const name = 'YZ Sym of XZ Sym of Copy of KARA II 2';
+      const clipped = clipRiggingCell(name, 40, false, estimateWidth, 7);
+      expect(clipped.startsWith('YZ Sym')).toBe(true);
+      expect(clipped.endsWith('KARA II 2')).toBe(true);
+      expect(clipped).toContain('…');
+      expect(estimateWidth(clipped, 7, false)).toBeLessThanOrEqual(40 * PT_PER_MM - RIGGING_CELL_PAD_PT);
+    });
+
+    it('leaves a name that fits alone', () => {
+      expect(clipRiggingCell('KARA II 2', 80, false, estimateWidth, 7)).toBe('KARA II 2');
+    });
+  });
+
+  describe('riggingSubtitle', () => {
+    it('joins show, venue and Z-axis zero, trimmed, leaving out what is empty', () => {
+      expect(riggingSubtitle({ show: ' Main stage ', venue: 'Grand Hall', zAxisZero: 'Stage floor' })).toBe('Main stage · Grand Hall · Z-axis zero: Stage floor');
+      expect(riggingSubtitle({ show: 'Main stage', venue: ' ', zAxisZero: '' })).toBe('Main stage');
+    });
   });
 
   it('lists only the rows it is given', () => {
@@ -245,5 +329,34 @@ describe('canvasMeasurePt without a canvas', () => {
     const c = content(docA, 'KARA II L Main', false);
     expect(layoutPocketCard(c, measure)).toEqual(layoutPocketCard(c, estimateWidth));
     expect(planPages([{ item: 0, heightPx: ptToPx(layoutPocketCard(c, measure).height) }])[0]?.kind).toBe('grid');
+  });
+});
+
+describe('a stacked card with fixations', () => {
+  const stack = content(docE, 'KARA II 2');
+
+  it('draws the heading, the column names and every fixation', () => {
+    const t = texts(layoutPocketCard(stack, estimateWidth).ops);
+    for (const word of ['Fixations', 'X (m)', 'Y (m)', 'Z (m)', 'Fr', 'Fl', 'Rr', 'Rl', '-2.84', '-2.16', '4.6', '3.9']) expect(t).toContain(word);
+  });
+
+  it('is five table rows and 1 mm taller than the same card without them', () => {
+    const rows = ptToPx(layoutPocketCard(stack, estimateWidth).height) - ptToPx(layoutPocketCard({ ...stack, fixations: [] }, estimateWidth).height);
+    // One border pixel, five rows of 14.0625 px, and the 1 mm gap under the block.
+    expect(rows).toBeCloseTo(1 + 5 * 14.0625 + PX_PER_MM, 3);
+  });
+
+  it('stays in a pocket panel, as do all eight KARA II stacks', () => {
+    const entries = sheetModel(docE, true).entries.filter((e) => e.column.fixations.length > 0);
+    expect(entries).toHaveLength(8);
+    for (const e of entries) {
+      const px = ptToPx(layoutPocketCard(cardContent(e, ctx), estimateWidth).height);
+      expect(px, e.column.name).toBeLessThan(CELL_H_MM * PX_PER_MM);
+      expect(planPages([{ item: 0, heightPx: px }])[0]?.kind).toBe('grid');
+    }
+  });
+
+  it('leaves the fixation block off a flown array', () => {
+    expect(layoutPocketCard(content(docE, 'Copy of YZ Sym of Left'), estimateWidth).ops.some((o) => o.op === 'text' && o.text === 'Fixations')).toBe(false);
   });
 });

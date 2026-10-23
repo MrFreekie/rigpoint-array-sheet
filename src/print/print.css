@@ -258,20 +258,24 @@
 }
 
 .pc-table,
+.pc-fix,
 .as-table {
   width: 100%;
   border-collapse: collapse;
 }
 
 .pc-table th,
-.pc-table td {
+.pc-table td,
+.pc-fix th,
+.pc-fix td {
   padding: 0.25mm 0.8mm;
   border: 0.15mm solid #777;
   text-align: right;
   font-size: 7pt;
 }
 
-.pc-table th {
+.pc-table th,
+.pc-fix th {
   background: #e4e4e4;
   font-weight: 700;
 }
@@ -283,6 +287,26 @@
 
 .pc-table td.pc-no {
   font-weight: 700;
+}
+
+/* The fixation block under the facts: name on the left, X, Y and Z at a fixed width. */
+.pc-fix {
+  margin-bottom: 1mm;
+  table-layout: fixed;
+}
+
+.pc-fix th:first-child,
+.pc-fix td:first-child {
+  text-align: left;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pc-fix th:nth-child(n + 2),
+.pc-fix td:nth-child(n + 2) {
+  width: 14mm;
 }
 
 /* Rigging summary page */
@@ -300,6 +324,30 @@
 .as-rigging-note {
   margin: 2mm 0 0;
   font-size: 7pt;
+}
+
+/* Fixed columns (the shares the PDF uses) and one line per row; text that is too long has been cut with an ellipsis. */
+.as-rigging .as-table {
+  table-layout: fixed;
+}
+
+.as-table-second {
+  margin-top: 3mm;
+}
+
+/* The fixation list is long, so its rows are a pocket card's: 7 pt text in a row 10.5 pt high. */
+.as-rigging .as-table-second td,
+.as-rigging .as-table-second th {
+  padding: 0.25mm 1.2mm;
+  font-size: 7pt;
+}
+
+.as-rigging .as-table td,
+.as-rigging .as-table th {
+  white-space: nowrap;
+  overflow: hidden;
+  /* The PDF's rigging rows are 8 pt text on a 1.2 line; without this the page's own line height makes them a quarter taller. */
+  line-height: 1.2;
 }
 
 .as-table th,

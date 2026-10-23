@@ -2,6 +2,7 @@
 // wherever the page breaks fall, and reads without a single problem.
 
 import { describe, expect, it } from 'vitest';
+import { loadItems } from '../testing/fixtures';
 import { rng } from '../testing/random';
 import { renderReport, type RenderedSource } from '../testing/render-report';
 import { parseSoundvision } from './parse';
@@ -105,6 +106,14 @@ describe('random reports', () => {
       expect(result.report.document).toEqual(DOCUMENT);
     });
   }
+
+  it('reads the fixations of report E back exactly after they are drawn again', () => {
+    const { report } = parseSoundvision(loadItems('e'));
+    const fills = report.sources.filter((x) => x.fixations !== undefined).slice(0, 3).map((x) => ({ ...x, groups: [] }));
+    const result = parseSoundvision(renderReport(DOCUMENT, fills));
+    expect(result.problems).toEqual([]);
+    expect(result.report.sources).toEqual(fills);
+  });
 
   it('does put tables across page breaks', () => {
     const r = rng(7);

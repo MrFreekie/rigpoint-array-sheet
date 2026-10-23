@@ -5,7 +5,7 @@ import type { ArraySource, TextItem } from '../src/engine/types';
 import { makePdf } from '../src/testing/make-pdf';
 import { renderReport, type RenderedSource } from '../src/testing/render-report';
 
-const items = (name: 'a' | 'b'): TextItem[] =>
+const items = (name: 'a' | 'b' | 'e'): TextItem[] =>
   JSON.parse(readFileSync(new URL(`../fixtures/soundvision-${name}.items.json`, import.meta.url), 'utf8')) as TextItem[];
 
 function pdfFromItems(all: readonly TextItem[]): Buffer {
@@ -15,11 +15,11 @@ function pdfFromItems(all: readonly TextItem[]): Buffer {
 }
 
 /** A real PDF made from the committed, anonymised text of a sample report. */
-export const samplePdf = (name: 'a' | 'b'): Buffer => pdfFromItems(items(name));
+export const samplePdf = (name: 'a' | 'b' | 'e'): Buffer => pdfFromItems(items(name));
 
-/** A PDF of the report A arrays, changed by `change` before it is drawn. */
-export function changedPdf(change: (sources: ArraySource[]) => ArraySource[]): Buffer {
-  const { report } = parseSoundvision(items('a'));
+/** A PDF of the report A arrays (or another sample's), changed by `change` before it is drawn. */
+export function changedPdf(change: (sources: ArraySource[]) => ArraySource[], from: 'a' | 'b' | 'e' = 'a'): Buffer {
+  const { report } = parseSoundvision(items(from));
   return pdfFromItems(renderReport(report.document, change(structuredClone(report.sources)) as RenderedSource[]));
 }
 

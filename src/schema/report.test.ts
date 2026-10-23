@@ -4,7 +4,7 @@ import { formatIssues } from './errors';
 import { ParseResultSchema } from './report';
 
 describe('ParseResultSchema', () => {
-  it.each(['a', 'b'] as const)('accepts what the engine returns for report %s', (name) => {
+  it.each(['a', 'b', 'e'] as const)('accepts what the engine returns for report %s', (name) => {
     expect(ParseResultSchema.safeParse(parseFixture(name)).success).toBe(true);
   });
 
@@ -16,6 +16,14 @@ describe('ParseResultSchema', () => {
     if (!parsed.success) {
       expect(formatIssues(parsed.error)).toEqual(['Array 3, Enclosures, entry 2, Top height: must be a number']);
     }
+  });
+
+  it('names the array and field when a fixation is wrong', () => {
+    const bad = structuredClone(parseFixture('e'));
+    (bad.report.sources[10]!.fixations![1]!.at as unknown as Record<string, unknown>)['y'] = 'far';
+    const parsed = ParseResultSchema.safeParse(bad);
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) expect(formatIssues(parsed.error)).toEqual(['Array 11, Fixations, entry 2, at, y: must be a number']);
   });
 
   it('rejects a weight that is not a number', () => {

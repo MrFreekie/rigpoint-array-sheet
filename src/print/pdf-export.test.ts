@@ -19,7 +19,7 @@ const FOOTER = printFooter({
   verb: 'Exported',
 });
 
-function sampleDoc(name: 'a' | 'b' = 'a'): Doc {
+function sampleDoc(name: 'a' | 'b' | 'e' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `${name}.pdf`);
   doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '' };
   return doc;
@@ -118,6 +118,45 @@ describe('renderPdf', () => {
     expect(text(4)).toContain('Soundvision and L-Acoustics are trademarks of their owners.');
   });
 
+  it('lists the fixation positions of every printed array on the rigging page, and says so', async () => {
+    const doc = sampleDoc('e');
+    const { pages, text, items } = await make(doc);
+    const last = text(pages);
+    expect(items.filter((i) => i.page === pages && i.text === 'KARA II 1')).toHaveLength(4);
+    expect(last).toContain('Array Fixation X (m) Y (m) Z (m)');
+    expect(last).toContain('KARA II 1 Fr'); // the stack that collapses into KARA II 2 is listed with its own positions
+    expect(last).toContain('KARA II 2 Fr -2.84 4.6 1');
+    expect(last).toContain('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
+    // The fixation rows are on the rigging page and nowhere else as a table.
+    expect(text(1)).not.toContain('Array Fixation');
+  });
+
+  it('leaves the fixations of an array that is not printed off the rigging page', async () => {
+    const doc = sampleDoc('e');
+    const at = doc.result.report.sources.findIndex((s) => s.name === 'KARA II 2');
+    const { pages, items } = await make(withPrinted(doc, at, false));
+    const cells = items.filter((i) => i.page === pages).map((i) => i.text);
+    expect(cells).not.toContain('KARA II 2');
+    expect(cells).not.toContain('KARA II 1'); // the mirror image it stands for goes with it
+    expect(cells).toContain('XZ Sym of KARA II 2'); // other stacks stay
+  });
+
+  it('has no fixation table and keeps the old line when the report states no fixations', async () => {
+    const { text } = await make(sampleDoc());
+    expect(text(4)).not.toContain('Fixation');
+    expect(text(4)).toContain('Every pickup is listed, including those of mirrored arrays, because their positions differ.');
+  });
+
+  it('cuts the middle of an array name that is too long for its column, keeping its end, in both rigging tables', async () => {
+    const doc = sampleDoc('e');
+    const long = `${'Long name '.repeat(8)}ends here`;
+    doc.result.report.sources.find((s) => s.name === 'KARA II 2')!.name = long;
+    const { pages, items } = await make(doc);
+    const cut = items.filter((i) => i.page === pages && i.text.includes('…') && i.text.startsWith('Long name') && i.text.endsWith('ends here'));
+    expect(cut.length).toBeGreaterThanOrEqual(4);
+    expect(items.some((i) => i.page === pages && i.text === long)).toBe(false);
+  });
+
   it('adds the number of items to check to every footer', async () => {
     const { all } = await make(sampleDoc(), false, 3);
     expect(all).toContain('3 to check against the PDF');
@@ -185,5 +224,15 @@ describe('renderPdf', () => {
     const { pages, all } = await make(sampleDoc(), true);
     expect(pages).toBe(6); // 18 = 4 + 4 + 4 + 4 + 2, then rigging
     expect(all).toContain('KARA II R Main');
+  });
+});
+
+describe('renderPdf with fixations (report E)', () => {
+  it('writes the fixations of each of the eight stacked fills into the PDF', async () => {
+    const { all } = await make(sampleDoc('e'), true);
+    expect(all.match(/Fixations/g)).toHaveLength(8);
+    expect(all).toContain('X (m) Y (m) Z (m)');
+    expect(all).toContain('-2.84');
+    expect(all).toContain('3.9');
   });
 });

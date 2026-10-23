@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import type { FlySheetColumn } from '../engine/sheet';
 import { enclosureLabel } from '../engine/types';
-import { warningText } from '../print/card-content';
+import { FIXATION_COLUMNS, fixationName, warningText } from '../print/card-content';
 import { degrees, kg, metres, NOT_STATED, num } from './format';
 
 interface Props {
@@ -106,6 +106,35 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         <dt>Position X, Y, Z</dt>
         <dd>{c.position ? `${c.position.x}, ${c.position.y}, ${c.position.z} m` : NOT_STATED}</dd>
       </dl>
+
+      {c.fixations.length > 0 ? (
+        <div className="table-wrap fixations">
+          <table>
+            <caption className="visually-hidden">Fixation positions of {c.name}, as listed in the report</caption>
+            <thead>
+              <tr>
+                {FIXATION_COLUMNS.map((h) => (
+                  <th key={h} scope="col">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {c.fixations.map((f, i) => (
+                <tr key={i}>
+                  <th scope="row" title={f.name}>
+                    {fixationName(f.name)}
+                  </th>
+                  <td className="n">{f.at.x}</td>
+                  <td className="n">{f.at.y}</td>
+                  <td className="n">{f.at.z}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       <label className="field offset-field">
         <span>Ground offset (m)</span>

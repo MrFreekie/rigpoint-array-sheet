@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { compareReports, matchByName, type Change } from '../engine/compare';
-import { riggingRows } from '../engine/sheet';
+import { riggingFixations, riggingRows } from '../engine/sheet';
 import type { ParseResult } from '../engine/types';
 import { openFileText, serialiseDoc } from '../files/array-file-io';
 import { browserStore, readAutosave, writeAutosave, type Restorable } from '../files/autosave';
@@ -711,7 +711,7 @@ function Report({ doc, model, showMirrors, onShowMirrors, locked, busy, onJob, o
               ))}
             </div>
           </section>
-          <RiggingSummary rows={riggingRows(report.sources)} />
+          <RiggingSummary rows={riggingRows(report.sources)} fixations={riggingFixations(report.sources)} />
         </>
       ) : null}
     </>

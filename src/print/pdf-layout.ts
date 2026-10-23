@@ -2,9 +2,9 @@
 // browser): one pocket card, and the rigging summary page. pdf-export.ts draws them with pdf-lib.
 // Sizes match the print stylesheet, so the downloaded PDF and the printed sheet look alike.
 
-import type { RiggingRow } from '../engine/sheet';
-import { wrap, type DrawOp, type Measure } from './array-image';
-import { warningText, type CardContent } from './card-content';
+import { riggingNote, type FixationRow, type RiggingRow } from '../engine/sheet';
+import { clipMiddle, wrap, type DrawOp, type Measure } from './array-image';
+import { FIXATION_COLUMNS, warningText, type CardContent } from './card-content';
 import { CARD_W_MM, PX_PER_MM } from './layout';
 import { SMALL_PRINT } from './small-print';
 
@@ -115,40 +115,66 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
   }
   y += mm(1);
 
-  // Enclosure table. Type takes whatever the fixed columns leave. The print stylesheet's table rows come out
+  // Tables. The first column or Type takes whatever the fixed columns leave. The print stylesheet's table rows come out
   // 14.0625 CSS pixels (10.546875 pt) high in Chromium, which an e2e test measures, so the same height is used
   // here and the two agree on where a card stops fitting.
   const tableRowH = ROW_PT;
-  const fixed: Record<string, number> = { '#': mm(6), 'Col #': mm(13), Panflex: mm(17), Angle: mm(13), Site: mm(15) };
-  const widths = content.columns.map((c) => fixed[c] ?? 0);
-  const typeAt = content.columns.indexOf('Type');
-  widths[typeAt] = W - widths.reduce((a, b) => a + b, 0);
-  const xs = widths.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? 0) + w], [0]);
-  const cell = (cells: string[], header: boolean) => {
-    if (header) ops.push({ op: 'rect', x: 0, y, w: W, h: tableRowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
-    cells.forEach((text, i) => {
-      const left = i === typeAt;
-      ops.push(
-        textOp(left ? (xs[i] ?? 0) + 2 : (xs[i + 1] ?? W) - 2, y + 0.5, text, FONT_SIZES.body, {
-          bold: header || i === 0,
-          align: left ? 'left' : 'right',
-        }),
-      );
-    });
-    ops.push({ op: 'line', x1: 0, y1: y + tableRowH, x2: W, y2: y + tableRowH, width: 0.4, color: '#777777' });
-    xs.forEach((x) => ops.push({ op: 'line', x1: x, y1: y, x2: x, y2: y + tableRowH, width: 0.4, color: '#777777' }));
-    y += tableRowH;
+  const fixed: Record<string, number> = { '#': mm(6), 'Col #': mm(13), Panflex: mm(17), Angle: mm(13), Site: mm(15), 'X (m)': mm(14), 'Y (m)': mm(14), 'Z (m)': mm(14) };
+  const table = (columns: string[], rows: string[][], leftAt: number) => {
+    const widths = columns.map((c) => fixed[c] ?? 0);
+    widths[leftAt] = W - widths.reduce((a, b) => a + b, 0);
+    const xs = widths.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? 0) + w], [0]);
+    const cell = (cells: string[], header: boolean) => {
+      if (header) ops.push({ op: 'rect', x: 0, y, w: W, h: tableRowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
+      cells.forEach((text, i) => {
+        const left = i === leftAt;
+        ops.push(
+          textOp(left ? (xs[i] ?? 0) + 2 : (xs[i + 1] ?? W) - 2, y + 0.5, text, FONT_SIZES.body, {
+            bold: header || i === 0,
+            align: left ? 'left' : 'right',
+          }),
+        );
+      });
+      ops.push({ op: 'line', x1: 0, y1: y + tableRowH, x2: W, y2: y + tableRowH, width: 0.4, color: '#777777' });
+      xs.forEach((x) => ops.push({ op: 'line', x1: x, y1: y, x2: x, y2: y + tableRowH, width: 0.4, color: '#777777' }));
+      y += tableRowH;
+    };
+    ops.push({ op: 'line', x1: 0, y1: y, x2: W, y2: y, width: 0.4, color: '#777777' });
+    y += TABLE_EDGE_PT;
+    cell(columns, true);
+    for (const row of rows) cell(row, false);
   };
-  ops.push({ op: 'line', x1: 0, y1: y, x2: W, y2: y, width: 0.4, color: '#777777' });
-  y += TABLE_EDGE_PT;
-  cell(content.columns, true);
-  for (const row of content.rows) cell(row, false);
+  // Fixations sit under the facts, with the same 1 mm gap below as the facts have (.pc-fix in print.css).
+  if (content.fixations.length > 0) {
+    table(FIXATION_COLUMNS, content.fixations, 0);
+    y += mm(1);
+  }
+  table(content.columns, content.rows, content.columns.indexOf('Type'));
 
   return { width: W, height: y, ops };
 }
 
+export const RIGGING_PICKUP_COLUMNS = ['Array', 'Pickup', 'Position no.', 'X (m)', 'Y (m)', 'Z (m)', 'Load (kg)'];
+export const RIGGING_FIXATION_COLUMNS = ['Array', 'Fixation', 'X (m)', 'Y (m)', 'Z (m)'];
+/** Column widths on the 192 mm rigging page; the print stylesheet's tables use the same shares. */
+export const RIGGING_PICKUP_WIDTHS_MM = [50, 20, 24, 24, 24, 24, 26];
+export const RIGGING_FIXATION_WIDTHS_MM = [80, 40, 24, 24, 24];
+/** What a cell keeps free of text: its padding on both sides and the border (1.2 mm each side, as the stylesheet pads). */
+export const RIGGING_CELL_PAD_PT = mm(2.4) + 2;
+
+/** A table cell's text, cut in the middle with an ellipsis to fit a column of this width (in mm, on the 192 mm page). The print preview and the PDF both use it. */
+export function clipRiggingCell(text: string, columnMm: number, bold: boolean, measure: Measure, size = 8): string {
+  return clipMiddle(text, size, bold, mm(columnMm) - RIGGING_CELL_PAD_PT, measure);
+}
+
+/** The line under the rigging heading: show, venue and Z-axis zero. The print preview and the PDF both use it. */
+export function riggingSubtitle(job: { show: string; venue: string; zAxisZero: string }): string {
+  return [job.show.trim(), job.venue.trim(), job.zAxisZero.trim() ? `Z-axis zero: ${job.zAxisZero.trim()}` : ''].filter(Boolean).join(' · ');
+}
+
 export interface RiggingInput {
   rows: readonly RiggingRow[];
+  fixations: readonly FixationRow[];
   /** Show and venue line under the heading. */
   subtitle: string;
   /** Dark squares of the QR code, and the address it holds. */
@@ -197,31 +223,52 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
 
   y = Math.max(y + 8 * 1.5, cy) + mm(3);
 
-  if (input.rows.length === 0) {
-    ops.push(textOp(0, y, 'No flown array in this report has a pickup position.', 7));
-    y += 7 * 1.5;
-  } else {
-    const heads = ['Array', 'Pickup', 'Position no.', 'X (m)', 'Y (m)', 'Z (m)', 'Load (kg)'];
-    const widthsMm = [50, 20, 24, 24, 24, 24, 26];
+  /** A table whose first two columns are text and the rest numbers. Text that does not fit its column is cut with an ellipsis. */
+  const table = (heads: string[], widthsMm: number[], body: string[][], compact = false) => {
     const xs = widthsMm.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? 0) + mm((w * widthMm) / 192)], [0]);
-    const rowH = 8 * 1.2 + mm(1.2);
+    // The fixation table uses a pocket card's rows (7 pt text, 10.5 pt high) so the long list costs the page little scale.
+    const size = compact ? FONT_SIZES.body : 8;
+    const rowH = compact ? ROW_PT : 8 * 1.2 + mm(1.2);
     const row = (cells: string[], header: boolean) => {
       if (header) ops.push({ op: 'rect', x: 0, y, w: W, h: rowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
       cells.forEach((text, i) => {
         const left = i < 2;
-        ops.push(textOp(left ? (xs[i] ?? 0) + 3 : (xs[i + 1] ?? W) - 3, y + 2, text, 8, { bold: header, align: left ? 'left' : 'right' }));
+        const shown = clipRiggingCell(text, ((xs[i + 1] ?? W) - (xs[i] ?? 0)) / PT_PER_MM, header, measure, size);
+        ops.push(textOp(left ? (xs[i] ?? 0) + 3 : (xs[i + 1] ?? W) - 3, y + (compact ? 0.5 : 2), shown, size, { bold: header, align: left ? 'left' : 'right' }));
       });
       ops.push({ op: 'line', x1: 0, y1: y + rowH, x2: W, y2: y + rowH, width: 0.4, color: '#777777' });
       xs.forEach((x) => ops.push({ op: 'line', x1: x, y1: y, x2: x, y2: y + rowH, width: 0.4, color: '#777777' }));
       y += rowH;
     };
     ops.push({ op: 'line', x1: 0, y1: y, x2: W, y2: y, width: 0.4, color: '#777777' });
+    if (compact) y += TABLE_EDGE_PT;
     row(heads, true);
-    for (const r of input.rows) {
-      row([r.source, r.location, String(r.pickupPosition), String(r.x), String(r.y), String(r.z), r.load === null ? '–' : String(r.load)], false);
-    }
+    for (const r of body) row(r, false);
+  };
+
+  if (input.rows.length === 0) {
+    ops.push(textOp(0, y, 'No flown array in this report has a pickup position.', 7));
+    y += 7 * 1.5;
+  } else {
+    table(
+      RIGGING_PICKUP_COLUMNS,
+      RIGGING_PICKUP_WIDTHS_MM,
+      input.rows.map((r) => [r.source, r.location, String(r.pickupPosition), String(r.x), String(r.y), String(r.z), r.load === null ? '–' : String(r.load)]),
+    );
+  }
+  if (input.fixations.length > 0) {
+    y += mm(3);
+    table(
+      RIGGING_FIXATION_COLUMNS,
+      RIGGING_FIXATION_WIDTHS_MM,
+      input.fixations.map((f) => [f.source, f.name, String(f.x), String(f.y), String(f.z)]),
+      true,
+    );
+  }
+  const note = riggingNote(input.rows.length > 0, input.fixations.length > 0);
+  if (note) {
     y += 4;
-    ops.push(textOp(0, y, 'Every pickup is listed, including those of mirrored arrays, because their positions differ.', 7));
+    ops.push(textOp(0, y, note, 7));
     y += 7 * 1.3;
   }
 
