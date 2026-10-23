@@ -79,13 +79,33 @@ describe('front and rear pickups against the sample reports', () => {
 });
 
 describe('plotArrays', () => {
-  it('keeps flown arrays only, mirrors included', () => {
+  it('keeps flown and stacked arrays, mirrors included, and tells them apart', () => {
     const a = parseFixture('a').report.sources;
     const { drawn, notDrawn } = plotArrays(a);
     expect(notDrawn).toEqual([]);
     expect(drawn.map((d) => d.name)).toContain('KARA II R Main');
-    expect(drawn.every((d) => a[d.index]?.mounting === 'flown')).toBe(true);
-    expect(drawn.some((d) => d.name.startsWith('SB28'))).toBe(false);
+    expect(drawn.every((d) => d.kind === a[d.index]?.mounting)).toBe(true);
+    expect(drawn.filter((d) => d.kind === 'stacked').map((d) => d.name)).toEqual(['SB28 L Front', 'SB28 R Front', 'SB28 L Rear', 'SB28 R Rear']);
+    expect(drawn.filter((d) => d.kind === 'stacked').every((d) => d.pickups.length === 0)).toBe(true);
+  });
+
+  it('puts the fixation positions of a stack on the corners of its box, so Position is the front edge for stacks too', () => {
+    let checked = 0;
+    for (const s of parseFixture('e').report.sources) {
+      const c = footprint(s);
+      if (s.mounting !== 'stacked' || !c || !s.fixations || s.fixations.length === 0) continue;
+      const mid = { x: (c[0].x + c[1].x) / 2, y: (c[0].y + c[1].y) / 2 };
+      const rear = { x: (c[3].x + c[2].x) / 2, y: (c[3].y + c[2].y) / 2 };
+      const depth = Math.hypot(rear.x - mid.x, rear.y - mid.y);
+      const axis = { x: (rear.x - mid.x) / depth, y: (rear.y - mid.y) / depth };
+      for (const f of s.fixations) {
+        const along = (f.at.x - mid.x) * axis.x + (f.at.y - mid.y) * axis.y;
+        // Front fixations (Fr, Fl) sit on the front edge, rear ones (Rr, Rl) on the rear edge.
+        expect(Math.abs(along - (f.name.startsWith('F') ? 0 : depth)), `${s.name} ${f.name}`).toBeLessThan(0.02);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 
   it('draws only the arrays asked for, and names flown ones it cannot draw', () => {
@@ -100,6 +120,7 @@ function arr(index: number, x: number, y: number, pickups: ('front' | 'rear')[])
   return {
     index,
     name: `A${index}`,
+    kind: 'flown',
     position: { x, y, z: 5 },
     corners: [
       { x, y },

@@ -97,6 +97,9 @@ export function chooseRatio(widthM: number, heightM: number, availWMm: number, a
 
 export const markerSizeMm = (ratio: number) => Math.max(MARKER_MIN_MM, (MARKER_REAL_M * 1000) / ratio);
 
+/** The Position dot is 0.55 mm in radius at 1:150 and shrinks with the scale, never below 0.3 mm, so it stays small against small boxes. */
+export const dotRadiusMm = (ratio: number) => Math.min(0.55, Math.max(0.3, (0.55 * 150) / ratio));
+
 /** The longest round length that is at most `maxMm` long at this scale, in metres. */
 export function scaleBarMetres(mmPerM: number, maxMm: number): number {
   const choices = [1, 2, 5, 10, 20, 50, 100, 200, 500];
@@ -129,7 +132,12 @@ interface PlacedLabel {
   lines: LabelRequest['lines'];
   /** Where the leader line starts and ends, or null when the label sits against its anchor. */
   leader: [Pt2, Pt2] | null;
+  /** What the spot chosen costs in clashes and leader length; zero is a clean spot. */
+  cost: number;
 }
+
+/** How many shuffled orders are tried for the array labels, after the ordered ones. */
+const SHUFFLES = 6;
 
 const LABEL_PT = 5.5;
 const LINE_MM = (LABEL_PT / PT_PER_MM) * 1.18;
@@ -180,7 +188,7 @@ const inflate = (r: Rect, g: number): Rect => ({ x0: r.x0 - g, y0: r.y0 - g, x1:
 const DIRECTIONS = ['R', 'L', 'T', 'B', 'RU', 'RD', 'LU', 'LD', 'TR', 'TL', 'BR', 'BL'] as const;
 /** The rects that are labels, so a leader may start under a marker or box but not through another label. */
 const placedLabels = new WeakSet<Rect>();
-const DISTANCES = [0, 2, 4, 6, 8, 11, 14, 18, 23, 29, 36, 44];
+const DISTANCES = [0, 2, 4, 6, 8, 11, 14, 18, 23, 29, 36, 44, 54, 66];
 
 /**
  * Each label takes the first spot, nearest and tidiest first, where it covers no marker, label or line (the origin
@@ -224,7 +232,7 @@ function placeLabels(requests: readonly LabelRequest[], occupied: Rect[], soft: 
       let n = 0;
       for (const o of occupied) if (!req.ignore?.includes(o) && overlap(c.box, o)) n += soft.has(o) ? 1 : 10;
       const padded = inflate(c.box, 0.25);
-      n += segments.filter((sg) => segmentHitsRect(sg, padded)).reduce((sum, sg) => sum + (sg.kind === 'leader' ? 9 : 3), 0);
+      n += segments.filter((sg) => segmentHitsRect(sg, padded)).reduce((sum, sg) => sum + (sg.kind === 'leader' ? 9 : sg.kind === 'origin' ? 6 : 3), 0);
       if (c.far) {
         const l = leaderFor(c.box);
         const startsIn = (o: Rect) => cx >= o.x0 && cx <= o.x1 && cy >= o.y0 && cy <= o.y1;
@@ -267,7 +275,7 @@ function placeLabels(requests: readonly LabelRequest[], occupied: Rect[], soft: 
       leaderLine = [{ x: l.x1, y: l.y1 }, { x: l.x2, y: l.y2 }];
       segments.push({ ...l, kind: 'leader' });
     }
-    out.push({ box: chosen, lines: req.lines, leader: leaderLine });
+    out.push({ box: chosen, lines: req.lines, leader: leaderLine, cost: best ? bestCost : 1000 });
   }
   return out;
 }
@@ -375,6 +383,22 @@ function dashedBox(ops: PlotOp[], pts: Pt2[], solid: boolean) {
   });
 }
 
+/** A ground stack: a solid box with its corners joined, so it cannot be mistaken for a flown array with no pickup. */
+function stackBox(ops: PlotOp[], pts: Pt2[]) {
+  dashedBox(ops, pts, true);
+  const [a, b, c, d] = pts as [Pt2, Pt2, Pt2, Pt2];
+  ops.push(line(a.x, a.y, c.x, c.y, 0.15, 'grey'), line(b.x, b.y, d.x, d.y, 0.15, 'grey'));
+}
+
+/** The Position of a stack: a small hollow square, where a flown array has a filled dot. */
+function stackPosition(ops: PlotOp[], x: number, y: number, r: number) {
+  const k = [{ x: x - r, y: y - r }, { x: x + r, y: y - r }, { x: x + r, y: y + r }, { x: x - r, y: y + r }];
+  k.forEach((p, i) => {
+    const q = k[(i + 1) % 4] as Pt2;
+    ops.push(line(p.x, p.y, q.x, q.y, 0.1, 'dot'));
+  });
+}
+
 export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] {
   const pages: PlotPage[] = [];
   const first = input.points.slice(0, PLOT_TABLE_ROWS);
@@ -432,11 +456,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   arrow(ops, ox0, oy0, ox0, oy0 - 14, 'axisY');
   ops.push(text(ox0 + 15, oy0 - 3.4, '+X', 6, { bold: true, color: 'axisX' }), text(ox0 + 1.2, oy0 - 18.6, '+Y', 6, { bold: true, color: 'axisY' }));
   const originFull = input.origin.trim() ? `Soundvision origin: ${input.origin.trim()}` : 'Soundvision origin';
-  const originText = clipToWidth(originFull, 5.5, false, Math.max(20, FRAME.x1 - ox0 - 3) * PT_PER_MM - 1, measure);
-  const originW = measure(originText, 5.5, false) / PT_PER_MM + 0.8;
-  const originBox: Rect = { x0: ox0 + 1.2, y0: oy0 + 0.8, x1: ox0 + 1.2 + originW, y1: oy0 + 0.8 + LINE_MM };
-  ops.push(text(originBox.x0 + 0.2, originBox.y0, originText, 5.5, { color: 'grey' }));
-  occupied.push(inflate(originBox, 0.8), { x0: ox0, y0: oy0 - 14, x1: ox0 + 18, y1: oy0 + 0.5 }, { x0: ox0 - 0.5, y0: oy0 - 20, x1: ox0 + 4, y1: oy0 });
+  occupied.push({ x0: ox0, y0: oy0 - 14, x1: ox0 + 18, y1: oy0 + 0.5 }, { x0: ox0 - 0.5, y0: oy0 - 20, x1: ox0 + 4, y1: oy0 });
 
   // Which way is which.
   const sideSize = 6;
@@ -462,10 +482,12 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
 
   // Array boxes and their Position dots.
   const d = markerSizeMm(ratio);
+  const dotR = dotRadiusMm(ratio);
   const boxRects = new Map<number, Rect>();
   for (const a of arrays) {
     const pts = a.corners.map((c) => ({ x: X(c.x), y: Y(c.y) }));
-    dashedBox(ops, pts, a.pickups.length === 0);
+    if (a.kind === 'stacked') stackBox(ops, pts);
+    else dashedBox(ops, pts, a.pickups.length === 0);
     pts.forEach((p, i) => {
       const q = pts[(i + 1) % pts.length] as Pt2;
       segments.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y });
@@ -477,14 +499,20 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
       y1: Math.max(...pts.map((p) => p.y)),
     };
     boxRects.set(a.index, rect);
-    ops.push({ op: 'circle', cx: X(a.position.x), cy: Y(a.position.y), r: 0.55, width: 0.1, color: 'dot', fill: true });
-    occupied.push(rectAround(X(a.position.x), Y(a.position.y), 0.9));
+    if (a.kind === 'stacked') stackPosition(ops, X(a.position.x), Y(a.position.y), dotR);
+    else ops.push({ op: 'circle', cx: X(a.position.x), cy: Y(a.position.y), r: dotR, width: 0.1, color: 'dot', fill: true });
+    occupied.push(rectAround(X(a.position.x), Y(a.position.y), dotR + 0.35));
   }
   const markerRects: Rect[] = [];
   for (const p of points) markerRects.push(rectAround(X(p.at.x), Y(p.at.y), d / 2 + 0.2));
   const softRects = new Set<Rect>(boxRects.values());
   for (const r of boxRects.values()) occupied.push(r);
   occupied.push(...markerRects);
+
+  // The origin note takes the first clear spot beside the origin, below the horizontal line and to the right of the vertical one if it can.
+  const originLabel = placeLabels([{ anchor: rectAround(ox0, oy0, 0.3), lines: [{ text: originFull, bold: false }] }], occupied, softRects, segments, bounds, measure)[0] as PlacedLabel;
+  ops.push(text(originLabel.box.x0 + 0.4, originLabel.box.y0 + 0.2, (originLabel.lines[0] as { text: string }).text, LABEL_PT, { color: 'grey' }));
+  if (originLabel.leader) ops.push(line(originLabel.leader[0].x, originLabel.leader[0].y, originLabel.leader[1].x, originLabel.leader[1].y, 0.12, 'grey'));
 
   // Front to rear lines, then the markers on top of them.
   const byArray = new Map<number, PlotPoint[]>();
@@ -520,14 +548,57 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
     ],
   }));
   const pointLabels = placeLabels(requests, occupied, softRects, segments, bounds, measure);
-  const arrayRequests: LabelRequest[] = arrays.map((a) => {
+  // Flown arrays are labelled first and the stacks, which often stand under them, find room around those.
+  const arrayRequest = (a: PlotArray): LabelRequest => {
     const lines = [{ text: a.name, bold: true }];
-    if (a.topSite !== null) lines.push({ text: `Top site ${a.topSite}°`, bold: false });
-    lines.push({ text: `Position Z ${heightText(a.position.z, input.offsets[a.index])}`, bold: false });
+    // A stack's height is shown as the report prints it, as the fixation positions are, with no ground offset taken off.
+    if (a.kind === 'flown' && a.topSite !== null) lines.push({ text: `Top site ${a.topSite}°`, bold: false });
+    // A stack on the ground (Z of 0) needs no height; one standing on a riser or a stage shows it.
+    if (a.kind === 'flown' || a.position.z !== 0) lines.push({ text: `Position Z ${heightText(a.position.z, a.kind === 'stacked' ? null : input.offsets[a.index])}`, bold: false });
     const own = boxRects.get(a.index) as Rect;
     return { anchor: own, ignore: [own], lines, gap: 1.2 };
-  });
-  const arrayLabels = placeLabels(arrayRequests, occupied, softRects, segments, bounds, measure);
+  };
+  // Each label takes the best spot left by the ones before it, so the order matters in a crowded row. Several orders are
+  // tried on copies and the one whose labels clash and trail leaders the least is laid out for real.
+  const byPickups = arrays.filter((a) => a.kind === 'flown' && a.pickups.length > 0);
+  const stacks = arrays.filter((a) => a.kind === 'stacked');
+  const fills = arrays.filter((a) => a.kind === 'flown' && a.pickups.length === 0);
+  const fromCentre = (a: PlotArray) => Math.hypot(a.position.x, a.position.y);
+  const orders: PlotArray[][] = [
+    [...byPickups, ...stacks, ...fills],
+    [...arrays],
+    [...stacks, ...byPickups, ...fills],
+    [...fills, ...stacks, ...byPickups],
+    [...byPickups, ...fills, ...stacks],
+    [...arrays].sort((p, q) => fromCentre(p) - fromCentre(q)),
+    [...arrays].sort((p, q) => fromCentre(q) - fromCentre(p)),
+    [...arrays].sort((p, q) => p.position.x - q.position.x),
+    [...arrays].sort((p, q) => q.position.x - p.position.x),
+  ];
+  const total = (order: PlotArray[]) =>
+    placeLabels(order.map(arrayRequest), [...occupied], softRects, segments.map((sg) => ({ ...sg })), bounds, measure).reduce((sum, l) => sum + l.cost, 0);
+  // Then shuffles from a fixed seed, so the same report always gives the same drawing.
+  let seed = 12345;
+  const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  for (let i = 0; i < SHUFFLES && arrays.length > 2; i++) {
+    const order = [...arrays];
+    for (let k = order.length - 1; k > 0; k--) {
+      const j = Math.floor(next() * (k + 1));
+      [order[k], order[j]] = [order[j] as PlotArray, order[k] as PlotArray];
+    }
+    orders.push(order);
+  }
+  let bestOrder = orders[0] as PlotArray[];
+  let bestTotal = Infinity;
+  for (const order of orders) {
+    const t = total(order);
+    if (t < bestTotal) {
+      bestTotal = t;
+      bestOrder = order;
+    }
+    if (t === 0) break;
+  }
+  const arrayLabels = placeLabels(bestOrder.map(arrayRequest), occupied, softRects, segments, bounds, measure);
   const leaders: PlotOp[] = [];
   for (const l of [...pointLabels, ...arrayLabels, ...weightLabels]) {
     l.lines.forEach((t, i) => ops.push(text(l.box.x0 + 0.4, l.box.y0 + 0.2 + i * LINE_MM, t.text, LABEL_PT, { bold: t.bold })));
@@ -563,10 +634,18 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   ops.push(...tbl.ops);
   let y = tbl.bottom + 4;
   const sw = 6;
+  const swatch = () => [{ x: COLUMN.x0, y: y }, { x: COLUMN.x0 + sw, y: y }, { x: COLUMN.x0 + sw, y: y + 2.4 }, { x: COLUMN.x0, y: y + 2.4 }];
+  const hasStacks = arrays.some((a) => a.kind === 'stacked');
   const legend: [() => void, string][] = [
-    [() => dashedBox(ops, [{ x: COLUMN.x0, y: y }, { x: COLUMN.x0 + sw, y: y }, { x: COLUMN.x0 + sw, y: y + 2.4 }, { x: COLUMN.x0, y: y + 2.4 }], false), 'Array with pickups: width and depth from the report'],
-    [() => dashedBox(ops, [{ x: COLUMN.x0, y: y }, { x: COLUMN.x0 + sw, y: y }, { x: COLUMN.x0 + sw, y: y + 2.4 }, { x: COLUMN.x0, y: y + 2.4 }], true), 'Array with no pickup'],
-    [() => ops.push({ op: 'circle', cx: COLUMN.x0 + sw / 2, cy: y + 1.2, r: 0.55, width: 0.1, color: 'dot', fill: true }), 'Array Position'],
+    [() => dashedBox(ops, swatch(), false), 'Flown array with pickups: width and depth from the report'],
+    [() => dashedBox(ops, swatch(), true), 'Flown array with no pickup'],
+    [() => ops.push({ op: 'circle', cx: COLUMN.x0 + sw / 2, cy: y + 1.2, r: dotR, width: 0.1, color: 'dot', fill: true }), 'Flown array Position'],
+    ...(hasStacks
+      ? ([
+          [() => stackBox(ops, swatch()), 'Stacked array on the ground'],
+          [() => stackPosition(ops, COLUMN.x0 + sw / 2, y + 1.2, dotR), 'Stacked array Position'],
+        ] as [() => void, string][])
+      : []),
     [() => marker(ops, COLUMN.x0 + sw / 2, y + 1.2, 2.4), 'Pickup, 1 t symbol (a nominal guide only)'],
     [() => ops.push(line(COLUMN.x0, y + 1.2, COLUMN.x0 + sw, y + 1.2, 0.2, 'grey')), 'Front to rear pickup, with the total weight'],
   ];

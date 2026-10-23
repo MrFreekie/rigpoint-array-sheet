@@ -1,4 +1,4 @@
-// The geometry behind the rigging plot: where each flown array sits on the plan and which pickup gets which number.
+// The geometry behind the rigging plot: where each flown or stacked array sits on the plan and which pickup gets which number.
 // It reads the report's Position, Spatial dimensions and Azimuth as printed and turns them into a box on the plan.
 // Nothing here works out a load, an angle or a height.
 
@@ -16,6 +16,8 @@ export interface PlotArray {
   /** Position of the array in the report. */
   index: number;
   name: string;
+  /** Hung from the rig, or standing on the ground. A stack has no pickups. */
+  kind: 'flown' | 'stacked';
   /** The array Position as printed. */
   position: Point3;
   /** Front left, front right, rear right, rear left, as seen looking the way the array points. */
@@ -63,16 +65,16 @@ export function footprint(s: Pick<ArraySource, 'position' | 'dimensions' | 'azim
 
 export interface PlotArrays {
   drawn: PlotArray[];
-  /** Names of flown arrays the plot cannot draw because the report lacks a position, a size or an azimuth. */
+  /** Names of arrays the plot cannot draw because the report lacks a position, a size or an azimuth. */
   notDrawn: string[];
 }
 
-/** The flown arrays of the report, in report order. `include` limits them to some positions in the report. */
+/** The flown and stacked arrays of the report, in report order. `include` limits them to some positions in the report. */
 export function plotArrays(sources: readonly ArraySource[], include?: ReadonlySet<number>): PlotArrays {
   const drawn: PlotArray[] = [];
   const notDrawn: string[] = [];
   sources.forEach((s, index) => {
-    if (s.mounting !== 'flown') return;
+    if (s.mounting !== 'flown' && s.mounting !== 'stacked') return;
     if (include && !include.has(index)) return;
     const corners = footprint(s);
     if (!corners || !s.position) {
@@ -82,6 +84,7 @@ export function plotArrays(sources: readonly ArraySource[], include?: ReadonlySe
     drawn.push({
       index,
       name: s.name,
+      kind: s.mounting,
       position: s.position,
       corners,
       topSite: s.topSite,
