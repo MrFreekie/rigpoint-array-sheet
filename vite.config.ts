@@ -93,5 +93,6 @@ export default defineConfig({
   resolve: process.env['VITEST']
     ? { alias: { 'virtual:pwa-register/react': fileURLToPath(new URL('./src/testing/pwa-register-stub.ts', import.meta.url)) } }
     : {},
-  test: { include: ['src/**/*.test.{ts,tsx}'] },
+  // The label placement behind the rigging plot searches many orders, so its tests take seconds when the whole suite runs in parallel.
+  test: { include: ['src/**/*.test.{ts,tsx}'], testTimeout: 30_000 },
 });
