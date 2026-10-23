@@ -1,8 +1,10 @@
 /* RigPoint Array print styles.
    Each A4 page is a 2 by 2 grid of pocket cards: fold it in half twice and every array is on its own
-   A6 panel, with a rigging summary page at the end. Everything is in mm and pt with fixed black on
+   A6 panel. An array too tall for a panel goes in a long column, two to a page, folded once, with the
+   long pages first. A rigging summary page comes last. Everything is in mm and pt with fixed black on
    white colours, so it prints the same whatever the screen theme. The sheet is laid out off-screen at
-   all times so it can be measured and scaled, and only becomes visible when printing.
+   all times, and only becomes visible when printing. Only the rigging page is measured in the browser;
+   the cards are planned from their calculated height (see layout.ts and pdf-layout.ts).
    Nothing relies on colour: warnings carry a word and a border. */
 
 @page {
@@ -84,7 +86,7 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  padding: 3mm;
+  padding: 2mm 3mm;
   overflow: hidden;
 }
 
@@ -94,12 +96,47 @@
   overflow: hidden;
 }
 
-.as-cell:nth-child(odd) {
+.as-grid > .as-cell:nth-child(odd) {
   border-right: 0.25mm dashed #777;
 }
 
-.as-cell:nth-child(-n + 2) {
+.as-grid > .as-cell:nth-child(-n + 2) {
   border-bottom: 0.25mm dashed #777;
+}
+
+/* A long column: the full height of the page, two to a page. Only tick marks show the fold. */
+.as-long {
+  position: relative;
+  display: grid;
+  grid-template-columns: 99mm 99mm;
+  grid-template-rows: 284mm;
+  height: 284mm;
+}
+
+.as-fold-tick {
+  position: absolute;
+  left: 99mm;
+  height: 5mm;
+  border-left: 0.25mm solid #777;
+}
+
+.as-fold-tick-top {
+  top: 0;
+}
+
+.as-fold-tick-bottom {
+  bottom: 0;
+}
+
+.as-page-overflow .as-long {
+  height: auto;
+  min-height: 284mm;
+}
+
+.as-page-overflow .as-cell,
+.as-page-overflow .as-cell-body {
+  height: auto;
+  overflow: visible;
 }
 
 .as-full {
@@ -154,10 +191,8 @@
   line-height: 1.2;
 }
 
-.pc h3,
-.pc p,
-.pc ul,
-.pc dl {
+/* :where keeps this reset from outranking the margins set on the classes below */
+.pc :where(h3, p, ul, dl) {
   margin: 0;
 }
 
@@ -200,7 +235,7 @@
 }
 
 .pc-facts {
-  margin-bottom: 1.5mm;
+  margin-bottom: 1mm;
 }
 
 .pc-facts div {
@@ -339,7 +374,7 @@
 /* Who a panel is for: app, status, show and project. Repeated on every pocket panel. */
 .as-panel-head {
   flex: none;
-  height: 11mm;
+  height: 10mm;
   overflow: hidden;
   border-bottom: 0.3mm solid #000;
   padding-bottom: 0.8mm;

@@ -560,8 +560,8 @@ export function App() {
         ) : null}
         {printOverflow ? (
           <p className="banner banner-check" role="status">
-            <span className="tag tag-check">CHECK</span> An array is too tall for a pocket card even on a page of its own, so it will run on to a second
-            page when printed.
+            <span className="tag tag-check">CHECK</span> An array is too tall to print in full, even in a long column. Split it into shorter arrays, or
+            check the PDF before relying on it.
           </p>
         ) : null}
         {doc && locked ? (

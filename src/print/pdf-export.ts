@@ -1,5 +1,6 @@
 // One-click PDF: the same sheet as the print view, made on this device with pdf-lib and downloaded.
-// Four pocket cards to an A4 page (fold it twice for A6 panels), then the rigging summary page.
+// Long pages first (one or two tall arrays, folded once), then four pocket cards to an A4 page (fold it
+// twice for A6 panels), then the rigging summary page.
 // Text uses the PDF's built-in Helvetica, so nothing is fetched and no font is embedded.
 
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
@@ -12,6 +13,7 @@ import { cardContent } from './card-content';
 import { pageFooterText } from './footer';
 import {
   CELL_PAD_MM,
+  CELL_PAD_Y_MM,
   FOOTER_MM,
   fitScale,
   FULL_H_MM,
@@ -21,18 +23,15 @@ import {
   PANEL_FOOTER_MM,
   PANEL_HEADER_MM,
   planPages,
-  PX_PER_MM,
 } from './layout';
 import { panelHeader, type PanelHeader } from './panel-header';
-import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, type Laid } from './pdf-layout';
+import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, ptToPx, type Laid } from './pdf-layout';
 import { qrMatrix } from './qr';
 import { wrap } from './array-image';
 
 const MARGIN_MM = 6;
 const A4 = { w: 595.28, h: 841.89 };
 const mm = (n: number) => n * PT_PER_MM;
-/** Points to the CSS pixels the page planner works in. */
-const ptToPx = (pt: number) => (pt / PT_PER_MM) * PX_PER_MM;
 
 export interface PdfInput {
   doc: Doc;
@@ -46,6 +45,14 @@ export interface PdfInput {
 interface Fonts {
   regular: PDFFont;
   bold: PDFFont;
+}
+
+interface PanelContext {
+  fonts: Fonts;
+  safe: (t: string) => string;
+  measure: Measure;
+  header: PanelHeader;
+  draft: boolean;
 }
 
 function hex(color: string) {
@@ -141,6 +148,16 @@ function drawPanelFooter(page: PDFPage, fonts: Fonts, safe: (t: string) => strin
   drawOps(page, fonts, safe, ops, left, top, 1);
 }
 
+/** Short marks at the top and bottom edge of the printable area, where a long page folds. */
+function foldTicks(page: PDFPage) {
+  const style = { thickness: 0.7, color: rgb(0.47, 0.47, 0.47) };
+  const x = mm(MARGIN_MM) + mm(PAGE_W_MM) / 2;
+  const top = A4.h - mm(MARGIN_MM);
+  const bottom = top - mm(PAGE_H_MM);
+  page.drawLine({ start: { x, y: top }, end: { x, y: top - mm(5) }, ...style });
+  page.drawLine({ start: { x, y: bottom }, end: { x, y: bottom + mm(5) }, ...style });
+}
+
 function dashedCross(page: PDFPage) {
   const style = { thickness: 0.7, color: rgb(0.47, 0.47, 0.47), dashArray: [4, 3] };
   const left = mm(MARGIN_MM);
@@ -149,6 +166,16 @@ function dashedCross(page: PDFPage) {
   const h = mm(PAGE_H_MM);
   page.drawLine({ start: { x: left + w / 2, y: A4.h - top }, end: { x: left + w / 2, y: A4.h - top - h }, ...style });
   page.drawLine({ start: { x: left, y: A4.h - top - h / 2 }, end: { x: left + w, y: A4.h - top - h / 2 }, ...style });
+}
+
+/** One panel, pocket or long: DRAFT mark, header, card and footer, inside a box of `w` by `h` points. */
+function drawPanel(page: PDFPage, ctx: PanelContext, left: number, top: number, w: number, h: number, item: Laid, scale: number, footer: string) {
+  const pad = mm(CELL_PAD_MM);
+  const padY = mm(CELL_PAD_Y_MM);
+  if (ctx.draft) drawWatermark(page, ctx.fonts.bold, left, top, w, h, 44);
+  drawPanelHead(page, ctx.fonts, ctx.safe, ctx.header, left + pad, top + padY, w - 2 * pad);
+  drawOps(page, ctx.fonts, ctx.safe, item.ops, left + pad, top + padY + mm(PANEL_HEADER_MM) + 1, scale);
+  drawPanelFooter(page, ctx.fonts, ctx.safe, ctx.measure, footer, left + pad, top + h - padY - mm(PANEL_FOOTER_MM), w - 2 * pad);
 }
 
 export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
@@ -178,24 +205,20 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
   const cellW = pageW / 2;
   const cellH = mm(PAGE_H_MM) / 2;
   const pad = mm(CELL_PAD_MM);
+  const panelCtx: PanelContext = { fonts, safe, measure, header, draft };
 
   plan.forEach((p, n) => {
     const page = pdf.addPage([A4.w, A4.h]);
     if (p.kind === 'grid') {
       dashedCross(page);
       p.cards.forEach((c, i) => {
-        const left = margin + (i % 2) * cellW;
-        const top = margin + Math.floor(i / 2) * cellH;
-        if (draft) drawWatermark(page, fonts.bold, left, top, cellW, cellH, 44);
-        drawPanelHead(page, fonts, safe, header, left + pad, top + pad, cellW - 2 * pad);
-        drawOps(page, fonts, safe, (c.item as Laid).ops, left + pad, top + pad + mm(PANEL_HEADER_MM) + 1, c.scale);
-        drawPanelFooter(page, fonts, safe, measure, footerFor(n + 1), left + pad, top + cellH - pad - mm(PANEL_FOOTER_MM), cellW - 2 * pad);
+        drawPanel(page, panelCtx, margin + (i % 2) * cellW, margin + Math.floor(i / 2) * cellH, cellW, cellH, c.item as Laid, c.scale, footerFor(n + 1));
       });
     } else {
-      if (draft) drawWatermark(page, fonts.bold, margin, margin, pageW, mm(PAGE_H_MM), 90);
-      drawPanelHead(page, fonts, safe, header, margin + pad, margin + pad, pageW - 2 * pad);
-      drawOps(page, fonts, safe, (p.item as Laid).ops, margin + pad, margin + pad + mm(PANEL_HEADER_MM) + 1, p.scale);
-      drawPageFooter(page, fonts, safe, footerFor(n + 1));
+      foldTicks(page);
+      p.cards.forEach((c, i) => {
+        drawPanel(page, panelCtx, margin + i * cellW, margin, cellW, mm(PAGE_H_MM), c.item as Laid, c.scale, footerFor(n + 1));
+      });
     }
   });
 
@@ -218,7 +241,7 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
   return pdf.save();
 }
 
-/** The footer along the foot of a full page or the rigging page, centred, on one line. */
+/** The footer along the foot of the rigging page, centred, on one line. */
 function drawPageFooter(page: PDFPage, f: Fonts, s: (t: string) => string, text: string) {
   const size = 6;
   const width = mm(PAGE_W_MM);

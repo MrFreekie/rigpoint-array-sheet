@@ -1,9 +1,10 @@
-// The printed sheet: pages of four pocket cards (an A4 page folded in half twice gives A6 panels),
-// then a rigging summary page with the QR code. PDF output is a Chromium feature in Playwright,
+// The printed sheet: long pages first (tall arrays, two to a page), then pages of four pocket cards
+// (an A4 page folded in half twice gives A6 panels), then a rigging summary page with the QR code. PDF output is a Chromium feature in Playwright,
 // so these run in Chromium only.
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { readPdfItems } from '../src/files/pdf-items';
 import { changedPdf, openPdf, samplePdf, start } from './helpers';
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'PDF printing is Chromium-only in Playwright');
@@ -154,7 +155,13 @@ test('approved: no watermark; ground offsets show in the printed heights', async
   expect(pdfPages(await printToPdf(page, 'approved.pdf'))).toBe(4);
 });
 
-test('an array too tall for a pocket card gets a page of its own', async ({ page }) => {
+/** The kind of each printed page, in order. */
+const pageKinds = (page: Page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('[data-testid=print-page]')].map((p) => (p.querySelector('.as-grid') ? 'grid' : p.querySelector('.as-long') ? 'long' : 'rigging')),
+  );
+
+test('an array too tall for a pocket card goes in a long column, on a page before the grid pages', async ({ page }) => {
   await start(page);
   const pdf = changedPdf((sources) => {
     const first = sources[0]!;
@@ -165,15 +172,48 @@ test('an array too tall for a pocket card gets a page of its own', async ({ page
   await openPdf(page, pdf);
   await expect(page.locator('.card')).not.toHaveCount(0);
   await page.emulateMedia({ media: 'print' });
-  const pageKinds = () =>
-    page.evaluate(() =>
-      [...document.querySelectorAll('[data-testid=print-page]')].map((p) => (p.querySelector('.as-grid') ? 'grid' : p.querySelector('.as-rigging-page') ? 'rigging' : 'full')),
-    );
   // The cards are measured just after the page loads, so wait for the plan to settle.
-  await expect.poll(pageKinds).toEqual(['full', 'grid', 'rigging']);
-  const kinds = await pageKinds();
+  await expect.poll(() => pageKinds(page)).toEqual(['long', 'grid', 'rigging']);
+  const kinds = await pageKinds(page);
   const pdfFile = await printToPdf(page, 'tall.pdf');
   expect(pdfPages(pdfFile)).toBe(kinds.length);
+  await expectNothingClipped(page);
+});
+
+test('two tall arrays share one long page: two columns, fold ticks, no dashed line, a mark and footer on each', async ({ page }) => {
+  await start(page);
+  // Two different tall arrays (the second at another angle, so it is not a mirror of the first).
+  const pdf = changedPdf((sources) => {
+    const base = sources[0]!.cabinets[0]!;
+    [0, 1].forEach((k) => {
+      sources[k]!.cabinets = Array.from({ length: 24 }, (_, i) => ({ ...base, number: i + 1, angle: k, site: 3.8, topZ: 9.4 - i * 0.25, bottomZ: 9.15 - i * 0.25 }));
+    });
+    return sources.slice(0, 5);
+  });
+  await openPdf(page, pdf);
+  await expect(page.locator('.card')).not.toHaveCount(0);
+  await page.emulateMedia({ media: 'print' });
+  await expect.poll(() => pageKinds(page)).toEqual(['long', 'grid', 'rigging']);
+
+  const long = pages(page).first();
+  await expect(long.locator('.as-cell')).toHaveCount(2);
+  await expect(long.locator('.as-fold-tick')).toHaveCount(2);
+  await expect(long.locator('.as-cell .as-watermark')).toHaveCount(2);
+  await expect(long.locator('.as-cell .as-panel-head')).toHaveCount(2);
+  await expect(long.locator('.as-cell .as-panel-footer')).toHaveCount(2);
+  await expect(long.locator('.as-panel-footer').first()).toContainText('Page 1 of 3');
+  const borders = await long.locator('.as-cell').evaluateAll((cells) =>
+    cells.map((c) => {
+      const st = getComputedStyle(c);
+      return [st.borderRightStyle, st.borderBottomStyle, st.borderLeftStyle, st.borderTopStyle];
+    }),
+  );
+  expect(borders).toEqual([
+    ['none', 'none', 'none', 'none'],
+    ['none', 'none', 'none', 'none'],
+  ]);
+
+  expect(pdfPages(await printToPdf(page, 'two-long.pdf'))).toBe(3);
   await expectNothingClipped(page);
 });
 
@@ -232,6 +272,16 @@ const withRows = (rows: number) =>
     return sources.slice(0, 5);
   });
 
+/** Both mains of report A with this many rows, so the pair is still mirrored and the card keeps its MIRRORED note and motor fact. */
+const withMirroredRows = (rows: number) =>
+  changedPdf((sources) => {
+    for (const s of sources.filter((x) => x.name === 'KARA II L Main' || x.name === 'KARA II R Main')) {
+      const base = s.cabinets[0]!;
+      s.cabinets = Array.from({ length: rows }, (_, i) => ({ ...base, number: i + 1, angle: 0, site: 3.8, topZ: 9.4 - i * 0.25, bottomZ: 9.15 - i * 0.25 }));
+    }
+    return sources.slice(0, 5);
+  });
+
 /** The scale a card was printed at (1 when it was not shrunk), and whether it sits in a pocket panel. */
 const firstCard = (page: Page) =>
   page.evaluate(() => {
@@ -245,21 +295,103 @@ const firstCard = (page: Page) =>
 for (const rows of [12, 16]) {
   test(`a ${rows}-row array prints at full size in its pocket panel`, async ({ page }) => {
     await start(page);
-    await openPdf(page, withRows(rows));
+    await openPdf(page, withMirroredRows(rows));
     await expect.poll(() => firstCard(page)).toEqual({ panel: true, scale: 1 });
     await page.emulateMedia({ media: 'print' });
     await expectNothingClipped(page);
   });
 }
 
-test('a 24-row array still fits its pocket panel, a little smaller', async ({ page }) => {
+test('a 24-row array prints at full size in a long column', async ({ page }) => {
   await start(page);
   await openPdf(page, withRows(24));
-  await expect.poll(async () => (await firstCard(page)).panel).toBe(true);
-  const { scale } = await firstCard(page);
-  expect(scale).toBeGreaterThanOrEqual(0.78); // 24 rows is rare; it prints at about 80% and stays readable
-  expect(scale).toBeLessThan(1);
+  await expect.poll(() => firstCard(page)).toEqual({ panel: false, scale: 1 });
   await page.emulateMedia({ media: 'print' });
+  await expect.poll(() => pageKinds(page)).toEqual(['long', 'grid', 'rigging']);
   await expectNothingClipped(page);
-  expect(pdfPages(await printToPdf(page, 'rows-24.pdf'))).toBe(2); // one page of cards, then the rigging page
+  expect(pdfPages(await printToPdf(page, 'rows-24.pdf'))).toBe(3); // the long page, one page of cards, then the rigging page
+});
+
+// Near the 119.5 mm line (CELL_H_MM) the print view and the downloaded PDF must put the array on the same page.
+for (const rows of [16, 17, 18, 24]) {
+  test(`${rows} rows: the print view and Download PDF agree on the page count and the page of the array`, async ({ page }) => {
+    await start(page);
+    await openPdf(page, withMirroredRows(rows));
+    await expect(page.locator('.card')).not.toHaveCount(0);
+
+    // The page of the array in the downloaded PDF.
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+    const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+    const count = Math.max(...items.map((i) => i.page));
+    const arrayPage = items.filter((i) => i.page < count && i.text === 'KARA II L Main').map((i) => i.page)[0];
+
+    // The print view plans from the same calculated height, so it settles on the same answer.
+    const preview = () =>
+      page.evaluate(() => {
+        const all = [...document.querySelectorAll<HTMLElement>('[data-testid=print-page]')];
+        const has = (p: HTMLElement) => [...p.querySelectorAll<HTMLElement>('.as-cell .pc-title')].some((t) => t.textContent === 'KARA II L Main');
+        const at = all.findIndex(has);
+        return { count: all.length, page: at + 1 };
+      });
+    await expect.poll(preview).toEqual({ count, page: arrayPage });
+    const long = await page.evaluate(() => document.querySelector('.as-long .pc-title')?.textContent === 'KARA II L Main');
+    // A pocket panel holds 16 rows of this array, with its mirror note and motor fact; anything taller is in a long column, and long pages come first.
+    expect(long).toBe(rows >= 17);
+    const note = await page.evaluate(() => [...document.querySelectorAll('.as-cell')].find((c) => c.querySelector('.pc-title')?.textContent === 'KARA II L Main')?.querySelector('.pc-mirror')?.textContent);
+    expect(note).toBe('MIRRORED: KARA II R Main');
+    if (long) expect(arrayPage).toBe(1);
+  });
+}
+
+test('an array of about 140 rows is too tall even for a long column, and the banner says so', async ({ page }) => {
+  await start(page);
+  await openPdf(page, withRows(140));
+  await expect(page.getByRole('status').filter({ hasText: 'even in a long column' })).toBeVisible();
+});
+
+// The PDF layout assumes a table row is 14.0625 CSS pixels, and that a card is as tall as layoutPocketCard says.
+// Both are facts about the browser's layout, so they are checked in the browser.
+test('a card table row is 14.0625 px high, and a rendered card is as tall as the height the page was planned from', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await expect(page.locator('.card')).not.toHaveCount(0);
+  await expect.poll(() => page.locator('.as-fit[data-planned-height]').count()).toBeGreaterThan(0);
+  const measured = await page.evaluate(() => ({
+    rows: [...document.querySelectorAll<HTMLElement>('.as-fit[data-planned-height] .pc-table tr')].map((tr) => tr.getBoundingClientRect().height),
+    cards: [...document.querySelectorAll<HTMLElement>('.as-fit[data-planned-height]')].map((fit) => ({
+      title: fit.querySelector('.pc-title')?.textContent ?? '',
+      rendered: (fit.querySelector('.pc') as HTMLElement).offsetHeight,
+      planned: Number(fit.dataset['plannedHeight']),
+    })),
+  }));
+  expect(measured.rows.length).toBeGreaterThan(20);
+  for (const h of measured.rows) expect(h).toBeCloseTo(14.0625, 2);
+  expect(measured.cards.length).toBeGreaterThan(5);
+  // 0.5 mm is 1.89 CSS pixels.
+  for (const c of measured.cards) expect(Math.abs(c.rendered - c.planned), c.title).toBeLessThan(0.5 * (96 / 25.4));
+});
+
+// A long fact value wraps in the sheet, so the plan has to count the extra lines or the card would be taller than planned.
+test('a long Frame value wraps, and the rendered card is as tall as the plan says', async ({ page }) => {
+  await start(page);
+  const longFrame = 'M-BUMP+MBAR hole A with the extension bar and a second bumper on the rear truss';
+  await openPdf(
+    page,
+    changedPdf((sources) => {
+      sources[0]!.bumper = longFrame;
+      return sources.slice(0, 5);
+    }),
+  );
+  await expect(page.locator('.card')).not.toHaveCount(0);
+  await expect.poll(() => page.locator('.as-fit[data-planned-height]').count()).toBeGreaterThan(0);
+  const card = await page.evaluate((frame) => {
+    const fit = [...document.querySelectorAll<HTMLElement>('.as-fit[data-planned-height]')].find((f) => [...f.querySelectorAll('dd')].some((d) => d.textContent === frame));
+    const dd = [...(fit?.querySelectorAll<HTMLElement>('dd') ?? [])].find((d) => d.textContent === frame);
+    return fit && dd
+      ? { rendered: (fit.querySelector('.pc') as HTMLElement).offsetHeight, planned: Number(fit.dataset['plannedHeight']), lineHeight: parseFloat(getComputedStyle(dd).lineHeight), valueHeight: dd.offsetHeight }
+      : null;
+  }, longFrame);
+  expect(card).not.toBeNull();
+  expect(card!.valueHeight).toBeGreaterThan(card!.lineHeight * 1.5); // it did wrap
+  expect(Math.abs(card!.rendered - card!.planned)).toBeLessThan(0.5 * (96 / 25.4));
 });

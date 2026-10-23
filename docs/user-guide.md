@@ -37,7 +37,7 @@ Each card has a Print this array checkbox. Unticked arrays are left out of the p
 - Download PDF makes the PDF in one click, with no print window.
 - Save image on a card saves that array as a PNG. Save selected as images saves one for every ticked array.
 
-The PDF has four arrays on each A4 page. Fold the page in half twice and each array is on its own A6 panel, with dashed lines marking the folds. Every panel carries a header and a footer, so it still says what it is when folded. The last page is the rigging summary and the small print.
+The PDF has four arrays on each A4 page. Fold the page in half twice and each array is on its own A6 panel, with dashed lines marking the folds. A panel holds an array of up to 16 rows, with its mirror note. A long warning, a long frame name or a long title can take a row or two of that room. An array that is taller goes in a long column that runs the full height of the page. Two long columns share a page, which you fold once, and small tick marks at the top and bottom show where. Long pages come first. Every panel and column carries a header and a footer, so it still says what it is when folded. The last page is the rigging summary and the small print.
 
 A draft has DRAFT on every panel. Set the status to Issued or Approved when the sheet is final.
 

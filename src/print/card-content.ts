@@ -28,6 +28,12 @@ export interface CardContent {
   rows: string[][];
 }
 
+/** One Soundvision warning as a sentence, the same on the screen card, the print preview, the PNG and the PDF. */
+export function warningText(w: { title: string; message: string }): string {
+  if (!w.message) return w.title;
+  return w.title.endsWith('.') ? `${w.title} ${w.message}` : `${w.title}. ${w.message}`;
+}
+
 export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
   const c = entry.column;
   const pickups =

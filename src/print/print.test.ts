@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
 import { newDoc } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
-import { cardContent, type CardContext } from './card-content';
+import { cardContent, warningText, type CardContext } from './card-content';
 import { formatStamp, printFooter } from './footer';
-import { CARDS_PER_PAGE, CELL_H_MM, FULL_H_MM, fitScale, MIN_FULL_SCALE, MIN_SCALE, PX_PER_MM, planPages } from './layout';
+import { CARDS_PER_PAGE, CELL_H_MM, fitScale, LONG_H_MM, MIN_FULL_SCALE, PX_PER_MM, planPages, type PagePlan } from './layout';
 
 const px = (mm: number) => mm * PX_PER_MM;
+const MIN_SCALE = 0.72;
 
 describe('fitScale', () => {
   it('leaves content that already fits at full size, and never scales up', () => {
@@ -46,38 +47,66 @@ describe('fitScale', () => {
 
 describe('planPages', () => {
   const cards = (heights: number[]) => heights.map((h, i) => ({ item: i, heightPx: px(h) }));
+  const shape = (pages: PagePlan<number>[]) => pages.map((p) => `${p.kind} ${p.cards.map((c) => c.item).join(',')}`);
 
   it('puts four cards on a page, in order', () => {
-    const pages = planPages(cards(Array(9).fill(100)));
-    expect(pages.map((p) => (p.kind === 'grid' ? p.cards.map((c) => c.item) : null))).toEqual([[0, 1, 2, 3], [4, 5, 6, 7], [8]]);
+    expect(shape(planPages(cards(Array(9).fill(100))))).toEqual(['grid 0,1,2,3', 'grid 4,5,6,7', 'grid 8']);
   });
 
-  it('gives a card that is too tall for a panel a page of its own, keeping the order', () => {
-    const pages = planPages(cards([100, 100, 300, 100, 100]));
-    expect(pages.map((p) => (p.kind === 'grid' ? p.cards.map((c) => c.item) : `full ${p.item}`))).toEqual([[0, 1], 'full 2', [3, 4]]);
+  it('puts a card exactly CELL_H_MM tall in a pocket panel at full size, and one a little taller in a long column', () => {
+    const [fits] = planPages(cards([CELL_H_MM]));
+    expect(fits).toEqual({ kind: 'grid', cards: [{ item: 0, scale: 1 }] });
+    const [taller] = planPages(cards([CELL_H_MM + 0.1]));
+    expect(taller).toEqual({ kind: 'long', cards: [{ item: 0, scale: 1, overflow: false }] });
   });
 
-  it('shrinks a tall card to its page, and flags one that cannot fit even there', () => {
-    const [tall] = planPages(cards([300]));
-    expect(tall).toMatchObject({ kind: 'full', overflow: false });
-    expect(tall && tall.kind === 'full' && tall.scale).toBeLessThan(1);
-    const [huge] = planPages(cards([FULL_H_MM / MIN_FULL_SCALE + 50]));
-    expect(huge).toMatchObject({ kind: 'full', overflow: true, scale: MIN_FULL_SCALE });
+  it('puts two long cards on a page, in order, and the odd one on its own', () => {
+    expect(shape(planPages(cards([300, 300, 300])))).toEqual(['long 0,1', 'long 2']);
   });
 
-  it('shrinks a card that nearly fits instead of moving it', () => {
-    const pages = planPages(cards([CELL_H_MM * 1.2]));
-    expect(pages[0]?.kind).toBe('grid');
-    expect(pages[0]?.kind === 'grid' && pages[0].cards[0]?.scale).toBeLessThan(1);
+  it('puts long pages before grid pages, each kind in report order', () => {
+    expect(shape(planPages(cards([100, 100, 300, 100, 100, 300, 300])))).toEqual(['long 2,5', 'long 6', 'grid 0,1,3,4']);
   });
 
-  it('property: every card is placed once, in order, and no page holds more than four', () => {
-    for (let n = 0; n < 30; n++) {
-      const heights = Array.from({ length: n }, (_, i) => 40 + ((i * 37) % 260));
+  it('shrinks a card above LONG_H_MM to fit, and stops at the floor with overflow', () => {
+    const [shrunk] = planPages(cards([LONG_H_MM * 1.5]));
+    expect(shrunk).toMatchObject({ kind: 'long', cards: [{ overflow: false }] });
+    const scale = shrunk?.cards[0]?.scale ?? 0;
+    expect(scale).toBeCloseTo(1 / 1.5, 2);
+    expect(scale * LONG_H_MM * 1.5).toBeLessThanOrEqual(LONG_H_MM * 1.5 / 1.5 + 1e-9);
+    const [huge] = planPages(cards([LONG_H_MM / MIN_FULL_SCALE + 50]));
+    expect(huge).toEqual({ kind: 'long', cards: [{ item: 0, scale: MIN_FULL_SCALE, overflow: true }] });
+  });
+
+  it('never pairs a card that overflows', () => {
+    const huge = LONG_H_MM / MIN_FULL_SCALE + 50;
+    const pages = planPages(cards([300, huge, 300]));
+    expect(shape(pages)).toEqual(['long 0', 'long 1', 'long 2']);
+    expect(pages.map((p) => p.cards.length)).toEqual([1, 1, 1]);
+  });
+
+  it('property: grid cards print at full size, four to a grid page and two to a long page, every card once, long pages first', () => {
+    for (let n = 0; n < 40; n++) {
+      const heights = Array.from({ length: n }, (_, i) => 40 + ((i * 37) % 700));
       const pages = planPages(cards(heights));
-      const placed = pages.flatMap((p) => (p.kind === 'grid' ? p.cards.map((c) => c.item) : [p.item]));
-      expect(placed).toEqual(heights.map((_, i) => i));
-      for (const p of pages) if (p.kind === 'grid') expect(p.cards.length).toBeLessThanOrEqual(CARDS_PER_PAGE);
+      const placed = pages.flatMap((p) => p.cards.map((c) => c.item));
+      expect([...placed].sort((a, b) => a - b)).toEqual(heights.map((_, i) => i));
+      let seenGrid = false;
+      for (const p of pages) {
+        if (p.kind === 'grid') {
+          seenGrid = true;
+          expect(p.cards.length).toBeLessThanOrEqual(CARDS_PER_PAGE);
+          for (const c of p.cards) expect(c.scale).toBe(1);
+        } else {
+          expect(seenGrid).toBe(false);
+          expect(p.cards.length).toBeLessThanOrEqual(2);
+        }
+      }
+      // Within each kind the report order is kept.
+      for (const kind of ['grid', 'long']) {
+        const ids = pages.filter((p) => p.kind === kind).flatMap((p) => p.cards.map((c) => c.item));
+        expect(ids).toEqual([...ids].sort((a, b) => a - b));
+      }
     }
   });
 
@@ -109,6 +138,13 @@ describe('printFooter', () => {
 
   it('pads the stamp', () => {
     expect(formatStamp(new Date(2026, 0, 2, 3, 4))).toBe('02/01/2026 03:04');
+  });
+});
+
+describe('warningText', () => {
+  it('joins the title and the message with a full stop, and is just the title with no message', () => {
+    expect(warningText({ title: 'Tipping hazard', message: 'Check the rigging.' })).toBe('Tipping hazard. Check the rigging.');
+    expect(warningText({ title: 'Tipping hazard', message: '' })).toBe('Tipping hazard');
   });
 });
 

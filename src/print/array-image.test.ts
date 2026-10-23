@@ -70,8 +70,9 @@ describe('layoutCardImage', () => {
   it('boxes each Soundvision warning with its word', () => {
     const layout = layoutCardImage(content(docA, 'SB28 L Front'), options);
     const t = texts(layout.ops);
-    expect(t).toContain('WARNING Tipping hazard');
-    expect(t).toContain('CAUTION Tipping hazard');
+    expect(t).toContain('WARNING');
+    expect(t).toContain('CAUTION');
+    expect(t.filter((x) => x.startsWith('Tipping hazard.'))).toHaveLength(2);
     expect(layout.ops.filter((o) => o.op === 'rect' && o.stroke === '#000' && o.lineWidth === 3)).toHaveLength(2);
   });
 

@@ -1,6 +1,6 @@
-// The printed sheet: pages of four pocket cards (fold the A4 page in half twice for A6 panels),
-// then a rigging summary page. It is laid out off-screen at all times so every card can be measured
-// and scaled to its panel, and only becomes visible when printing.
+// The printed sheet: long pages (one or two tall arrays, folded once), then pages of four pocket cards
+// (fold the A4 page in half twice for A6 panels), then a rigging summary page. It is laid out off-screen at all times, so the rigging page can be
+// measured and scaled, and only becomes visible when printing. The cards are planned from their calculated height.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { APP_URL } from '../app-info';
@@ -8,12 +8,14 @@ import { riggingRows } from '../engine/sheet';
 import type { Doc } from '../files/doc';
 import { num } from '../ui/format';
 import type { SheetModel } from '../ui/sheet-model';
-import { cardContent, type CardContent } from './card-content';
+import { cardContent, warningText, type CardContent } from './card-content';
 import { pageFooterText } from './footer';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { qrMatrix, qrPath, qrSize } from './qr';
 import { SMALL_PRINT } from './small-print';
+import { canvasMeasurePt } from './array-image';
 import { CARD_W_MM, FULL_H_MM, MIN_FULL_SCALE, PAGE_W_MM, fitScale, planPages } from './layout';
+import { layoutPocketCard, ptToPx } from './pdf-layout';
 
 function CardView({ content }: { content: CardContent }) {
   return (
@@ -25,8 +27,7 @@ function CardView({ content }: { content: CardContent }) {
         <ul className="pc-warnings">
           {content.warnings.map((w, i) => (
             <li key={i}>
-              <strong>{w.severity}</strong> {w.title}
-              {w.message ? `. ${w.message}` : ''}
+              <strong>{w.severity}</strong> {warningText(w)}
             </li>
           ))}
         </ul>
@@ -100,41 +101,32 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
     return { path: qrPath(matrix), size: qrSize(matrix) };
   }, []);
 
-  // Measure every card at its real width, then plan the pages from the measurements.
-  const measureRoot = useRef<HTMLDivElement>(null);
+  // The cards are planned from the height layoutPocketCard calculates, the same call the PDF makes, so the print
+  // view and Download PDF put every array on the same page at the same scale. Only the rigging page is measured.
   const riggingRef = useRef<HTMLDivElement>(null);
-  const [heights, setHeights] = useState<Record<number, number>>({});
   const [riggingHeight, setRiggingHeight] = useState(0);
 
   useLayoutEffect(() => {
-    const root = measureRoot.current;
-    if (!root) return;
+    const el = riggingRef.current;
+    if (!el) return;
     const measure = () => {
-      // While printing the measuring copy is hidden and every height would read as zero. Keep what was measured.
-      if (root.offsetHeight === 0 && root.childElementCount > 0) return;
-      const next: Record<number, number> = {};
-      root.querySelectorAll<HTMLElement>('[data-index]').forEach((el) => {
-        next[Number(el.dataset['index'])] = el.offsetHeight;
-      });
-      setHeights((old) => {
-        const same = Object.keys(next).length === Object.keys(old).length && Object.entries(next).every(([k, v]) => old[Number(k)] === v);
-        return same ? old : next;
-      });
-      setRiggingHeight(riggingRef.current?.offsetHeight ?? 0);
+      // While printing the measuring copy is hidden and its height would read as zero. Keep what was measured.
+      if (el.offsetHeight === 0) return;
+      setRiggingHeight(el.offsetHeight);
     };
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(root);
-    if (riggingRef.current) observer.observe(riggingRef.current);
+    observer.observe(el);
     return () => observer.disconnect();
-  }, [contents, rigging]);
+  }, [rigging]);
 
-  const plan = useMemo(
-    () => planPages(contents.map((c) => ({ item: c, heightPx: heights[c.index] ?? 0 }))),
-    [contents, heights],
-  );
+  const sized = useMemo(() => {
+    const measure = canvasMeasurePt();
+    return contents.map((c) => ({ item: c, heightPx: ptToPx(layoutPocketCard(c.content, measure).height) }));
+  }, [contents]);
+  const plan = useMemo(() => planPages(sized), [sized]);
   const riggingFit = fitScale(riggingHeight, FULL_H_MM, MIN_FULL_SCALE);
-  const overflow = plan.some((p) => p.kind === 'full' && p.overflow) || riggingFit.overflow;
+  const overflow = plan.some((p) => p.kind === 'long' && p.cards.some((c) => c.overflow)) || riggingFit.overflow;
   useEffect(() => onOverflow?.(overflow), [overflow, onOverflow]);
 
   const total = plan.length + 1;
@@ -153,6 +145,23 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
       DRAFT
     </div>
   ) : null;
+
+  // A pocket panel or a long column: header, card, footer, and its own DRAFT mark.
+  const panel = (c: { item: { index: number; content: CardContent }; scale: number }, pageNo: number) => {
+    const heightPx = sized.find((s) => s.item.index === c.item.index)?.heightPx ?? 0;
+    return (
+      <div key={c.item.index} className="as-cell" data-testid="print-card">
+        {panelWatermark}
+        <PanelHead header={header} />
+        <div className="as-cell-body">
+          <div className="as-fit" data-planned-height={heightPx.toFixed(2)} style={{ width: `${CARD_W_MM}mm`, transform: c.scale < 1 ? `scale(${c.scale})` : undefined }}>
+            <CardView content={c.item.content} />
+          </div>
+        </div>
+        <p className="as-panel-footer">{footerText(pageNo)}</p>
+      </div>
+    );
+  };
 
   const riggingTable = (
     <div className="as-rigging">
@@ -217,44 +226,23 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
 
   return (
     <div className="print-root" aria-hidden="true" data-testid="print-sheet">
-      <div className="as-measure" ref={measureRoot} style={{ width: `${CARD_W_MM}mm` }}>
-        {contents.map((c) => (
-          <div key={c.index} data-index={c.index}>
-            <CardView content={c.content} />
-          </div>
-        ))}
-      </div>
       <div className="as-measure" style={{ width: `${PAGE_W_MM - 6}mm` }}>
         <div ref={riggingRef}>{riggingTable}</div>
       </div>
 
       {plan.map((p, n) => (
-        <section key={n} className={`as-page${p.kind === 'full' && p.overflow ? ' as-page-overflow' : ''}`} data-testid="print-page">
-          {p.kind === 'grid' ? null : watermark}
+        <section key={n} className={`as-page${p.kind === 'long' && p.cards.some((c) => c.overflow) ? ' as-page-overflow' : ''}`} data-testid="print-page">
           {p.kind === 'grid' ? (
             <div className="as-grid">
-              {p.cards.map((c) => (
-                <div key={c.item.index} className="as-cell" data-testid="print-card">
-                  {panelWatermark}
-                  <PanelHead header={header} />
-                  <div className="as-cell-body">
-                    <div className="as-fit" style={{ width: `${CARD_W_MM}mm`, transform: c.scale < 1 ? `scale(${c.scale})` : undefined }}>
-                      <CardView content={c.item.content} />
-                    </div>
-                  </div>
-                  <p className="as-panel-footer">{footerText(n + 1)}</p>
-                </div>
-              ))}
+              {p.cards.map((c) => panel(c, n + 1))}
             </div>
           ) : (
-            <div className="as-full" data-testid="print-card">
-              <PanelHead header={header} />
-              <div className="as-fit" style={{ width: `${CARD_W_MM}mm`, transform: p.scale < 1 ? `scale(${p.scale})` : undefined }}>
-                <CardView content={p.item.content} />
-              </div>
+            <div className="as-long">
+              {p.cards.map((c) => panel(c, n + 1))}
+              <span className="as-fold-tick as-fold-tick-top" aria-hidden="true" />
+              <span className="as-fold-tick as-fold-tick-bottom" aria-hidden="true" />
             </div>
           )}
-          {p.kind === 'grid' ? null : pageFooter(n + 1)}
         </section>
       ))}
 

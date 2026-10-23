@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import type { FlySheetColumn } from '../engine/sheet';
 import { enclosureLabel } from '../engine/types';
+import { warningText } from '../print/card-content';
 import { degrees, kg, metres, NOT_STATED, num } from './format';
 
 interface Props {
@@ -67,8 +68,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         <ul className="warnings" aria-label={`Soundvision warnings for ${c.name}`}>
           {c.warnings.map((w, i) => (
             <li key={i} className={w.severity === 'WARNING' ? 'warning-high' : 'warning-low'}>
-              <span className="tag tag-warning">{w.severity}</span> <strong>{w.title}</strong>
-              {w.message ? <span> {w.message}</span> : null}
+              <span className="tag tag-warning">{w.severity}</span> {warningText(w)}
             </li>
           ))}
         </ul>

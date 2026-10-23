@@ -2,7 +2,7 @@
 // tested without a browser) and then drawn on a canvas. Drawing text on a canvas needs no markup, so
 // it works under the strict Content Security Policy.
 
-import type { CardContent } from './card-content';
+import { warningText, type CardContent } from './card-content';
 
 export const IMAGE_W = 640;
 const PAD = 28;
@@ -23,6 +23,21 @@ export interface ImageLayout {
 export type Measure = (text: string, size: number, bold: boolean) => number;
 
 export const estimateWidth: Measure = (text, size, bold) => text.length * size * (bold ? 0.6 : 0.55);
+
+/**
+ * Text width in points for a size in points, measured on a canvas in the page's font. This is what the print
+ * preview feeds layoutPocketCard, where the PDF feeds it the widths of Helvetica.
+ */
+export function canvasMeasurePt(): Measure {
+  const probe = document.createElement('canvas').getContext('2d');
+  if (!probe) return (t, size, bold) => estimateWidth(t, size, bold);
+  return (t, size, bold) => {
+    probe.font = canvasFont(size, bold);
+    // Text of N points is the same shape as text of N pixels scaled by 3/4 in both directions, so the number measured
+    // at N pixels is the width in points.
+    return probe.measureText(t).width;
+  };
+}
 
 export function canvasFont(size: number, bold: boolean): string {
   return `${bold ? 'bold ' : ''}${size}px ${FONT}`;
@@ -94,7 +109,10 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
   if (content.mirrorNote) box([{ text: content.mirrorNote, bold: true }], 1);
   for (const w of content.warnings) {
     box(
-      [{ text: `${w.severity} ${w.title}`, bold: true }, ...(w.message ? [{ text: w.message, bold: false }] : [])],
+      [
+        { text: w.severity, bold: true },
+        { text: warningText(w), bold: false },
+      ],
       3,
     );
   }

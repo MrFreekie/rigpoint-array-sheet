@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
 import { newDoc } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
-import { estimateWidth, type DrawOp } from './array-image';
+import { canvasMeasurePt, estimateWidth, type DrawOp } from './array-image';
 import { cardContent } from './card-content';
-import { CELL_H_MM, MIN_SCALE, PX_PER_MM, fitScale } from './layout';
-import { PT_PER_MM, layoutPocketCard, layoutRiggingPage } from './pdf-layout';
+import { CELL_H_MM, LONG_H_MM, MIN_FULL_SCALE, PX_PER_MM, fitScale, planPages } from './layout';
+import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, ptToPx } from './pdf-layout';
 import { qrMatrix } from './qr';
 import { riggingRows } from '../engine/sheet';
 import { SMALL_PRINT } from './small-print';
@@ -40,7 +40,7 @@ describe('layoutPocketCard', () => {
 
   it('boxes each Soundvision warning, with the severity in bold', () => {
     const laid = layoutPocketCard(content(docA, 'SB28 L Front'), estimateWidth);
-    expect(laid.ops.filter((o) => o.op === 'rect' && o.stroke === '#000' && o.lineWidth === 1.1)).toHaveLength(2);
+    expect(laid.ops.filter((o) => o.op === 'rect' && o.stroke === '#000' && Math.abs(o.lineWidth - 0.4 * PT_PER_MM) < 1e-9)).toHaveLength(2);
     const bold = laid.ops.filter((o): o is Extract<DrawOp, { op: 'text' }> => o.op === 'text' && o.bold).map((o) => o.text);
     expect(bold).toContain('WARNING');
     expect(bold).toContain('CAUTION');
@@ -69,18 +69,19 @@ describe('layoutPocketCard', () => {
     const heightOf = (n: number) => layoutPocketCard({ ...base, rows: Array.from({ length: n }, (_, i) => base.rows[i % base.rows.length]!) }, estimateWidth).height;
     const step = heightOf(13) - heightOf(12);
     expect(step).toBeGreaterThan(5);
+    expect(pxHeight(step)).toBeCloseTo(14.0625, 3); // a table row measures this in the print stylesheet (e2e/print.spec.ts checks it), so the PDF breaks at the same height
     expect(heightOf(24) - heightOf(12)).toBeCloseTo(12 * step, 5);
   });
 
-  it('fits a pocket panel at full size with 16 rows, and at a readable scale with 24', () => {
+  it('fits a pocket panel at full size with 16 rows, and a long column at full size with 24 and 48', () => {
     const base = content(docA, 'KARA II L Main');
     const withRows = (n: number) => ({ ...base, rows: Array.from({ length: n }, (_, i) => base.rows[i % base.rows.length]!) });
-    const fit = (n: number) => fitScale(pxHeight(layoutPocketCard(withRows(n), estimateWidth).height), CELL_H_MM, MIN_SCALE);
-    expect(fit(12)).toEqual({ scale: 1, overflow: false });
-    expect(fit(16)).toEqual({ scale: 1, overflow: false });
-    expect(fit(24).overflow).toBe(false);
-    expect(fit(24).scale).toBeGreaterThanOrEqual(0.78);
-    expect(fit(24).scale).toBeLessThan(1);
+    const height = (n: number) => pxHeight(layoutPocketCard(withRows(n), estimateWidth).height);
+    expect(fitScale(height(12), CELL_H_MM, MIN_FULL_SCALE)).toEqual({ scale: 1, overflow: false });
+    expect(fitScale(height(16), CELL_H_MM, MIN_FULL_SCALE)).toEqual({ scale: 1, overflow: false });
+    expect(height(24)).toBeGreaterThan(CELL_H_MM * PX_PER_MM);
+    expect(fitScale(height(24), LONG_H_MM, MIN_FULL_SCALE)).toEqual({ scale: 1, overflow: false });
+    expect(fitScale(height(48), LONG_H_MM, MIN_FULL_SCALE)).toEqual({ scale: 1, overflow: false });
   });
 
   it('is the same every time', () => {
@@ -157,5 +158,92 @@ describe('a ground stack laid out in columns', () => {
   it('keeps the plain # heading for arrays without columns', () => {
     expect(content(docD, '12 KARA II L').columns[0]).toBe('#');
     expect(content(docB, 'GS KARA II L').rows[0]?.[0]).toBe('6');
+  });
+});
+
+describe('which panel a typical mirrored main goes in', () => {
+  /** Fixture A with this many rows on both mains, so the pair is still found to be mirrored. */
+  const docWithMainRows = (n: number) => {
+    const result = parseFixture('a');
+    for (const s of result.report.sources) {
+      if (s.name === 'KARA II L Main' || s.name === 'KARA II R Main') s.cabinets = Array.from({ length: n }, (_, i) => s.cabinets[i % s.cabinets.length]!);
+    }
+    return newDoc(result, 'a.pdf');
+  };
+  const kindOf = (doc: typeof docA) => {
+    const c = content(doc, 'KARA II L Main', false);
+    expect(c.mirrorNote).toBe('MIRRORED: KARA II R Main');
+    expect(c.facts.map((f) => f[0])).toContain('Front motor load');
+    return planPages([{ item: 0, heightPx: ptToPx(layoutPocketCard(c, estimateWidth).height) }])[0]?.kind;
+  };
+
+  it('keeps 15 rows (the real sample) and 16 rows, with the mirror note and the motor fact, in a pocket panel', () => {
+    expect(kindOf(docA)).toBe('grid');
+    expect(kindOf(docWithMainRows(16))).toBe('grid');
+  });
+
+  it('puts 17 rows in a long column', () => {
+    expect(kindOf(docWithMainRows(17))).toBe('long');
+  });
+});
+
+describe('a long fact value', () => {
+  const base = content(docA, 'KARA II L Main');
+  const withFrame = (value: string) => ({ ...base, facts: base.facts.map(([l, v]): [string, string] => (l === 'Frame' ? [l, value] : [l, v])) });
+  const long = 'Bumper with a very long name that cannot possibly fit beside its label on one line';
+  const text = (laid: ReturnType<typeof layoutPocketCard>) => laid.ops.filter((o): o is Extract<DrawOp, { op: 'text' }> => o.op === 'text');
+
+  it('wraps in the space the label leaves, one row line taller for each extra line, and never over the label', () => {
+    const short = layoutPocketCard(withFrame('Bumper'), estimateWidth);
+    const wrapped = layoutPocketCard(withFrame(long), estimateWidth);
+    const parts = text(wrapped).filter((o) => o.align === 'right' && o.bold && long.includes(o.text));
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.map((o) => o.text).join(' ')).toBe(long);
+    const label = estimateWidth('Frame', 7, false);
+    for (const o of parts) expect(wrapped.width - estimateWidth(o.text, o.size, true)).toBeGreaterThanOrEqual(label + 2 * PT_PER_MM - 0.01);
+    const step = (7 * 1.2);
+    expect(wrapped.height - short.height).toBeCloseTo((parts.length - 1) * step, 5);
+    expect(pxHeight(step)).toBeCloseTo(11.2, 5); // a wrapped line is 7 pt at 1.2, in the print stylesheet too
+  });
+
+  it('stays one row for a value that fits', () => {
+    expect(layoutPocketCard(withFrame('Bumper'), estimateWidth).height).toBe(layoutPocketCard(withFrame('Truss'), estimateWidth).height);
+  });
+});
+
+describe('a warning that runs to several lines', () => {
+  const message = 'This is a long message from the report that goes on for a good while so that the box needs at least three lines at the width of a pocket panel. '.repeat(2).trim();
+  const warn = { severity: 'WARNING', title: 'Long', message };
+  const laid = layoutPocketCard({ ...content(docA, 'X8 2'), warnings: [warn] }, estimateWidth);
+  const inBox = laid.ops.filter((o): o is Extract<DrawOp, { op: 'text' }> => o.op === 'text' && o.size === 6.5);
+
+  it('indents only the first line past the bold word', () => {
+    const body = inBox.filter((o) => !o.bold);
+    expect(body.length).toBeGreaterThanOrEqual(3);
+    expect(body[0]!.x).toBeGreaterThan(body[1]!.x);
+    expect(body[1]!.x).toBe(body[2]!.x);
+    expect(body.map((o) => o.text).join(' ')).toBe(`Long. ${message}`);
+  });
+
+  it('fills the later lines to the full width of the box', () => {
+    const body = inBox.filter((o) => !o.bold);
+    const full = laid.width - 2 * (PT_PER_MM + 0.75);
+    const widest = Math.max(...body.slice(1).map((o) => estimateWidth(o.text, 6.5, false)));
+    expect(widest).toBeLessThanOrEqual(full + 0.01);
+    expect(widest).toBeGreaterThan(full - estimateWidth('WARNING ', 6.5, true) - 40);
+    expect(body[1]!.text.length).toBeGreaterThan(body[0]!.text.length);
+  });
+});
+
+describe('canvasMeasurePt without a canvas', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('falls back to the estimate, and the plan is the same as one made with the estimate', () => {
+    vi.stubGlobal('document', { createElement: () => ({ getContext: () => null }) });
+    const measure = canvasMeasurePt();
+    expect(measure('Total mass', 7, true)).toBe(estimateWidth('Total mass', 7, true));
+    const c = content(docA, 'KARA II L Main', false);
+    expect(layoutPocketCard(c, measure)).toEqual(layoutPocketCard(c, estimateWidth));
+    expect(planPages([{ item: 0, heightPx: ptToPx(layoutPocketCard(c, measure).height) }])[0]?.kind).toBe('grid');
   });
 });

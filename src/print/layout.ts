@@ -1,31 +1,33 @@
 // Page arithmetic for the printed sheet. Each A4 page is a 2 by 2 grid of pocket cards: fold the
-// page in half twice and every array is on its own A6 panel. An array too tall for a panel gets a page to itself.
+// page in half twice and every array is on its own A6 panel. An array too tall for a panel goes in a long column:
+// the full height of the page, two to a page, folded once.
 
 /** Printable area of an A4 page with 6 mm margins, less 1 mm so rounding never spills a blank page. */
 export const PAGE_W_MM = 198;
 export const PAGE_H_MM = 284;
-/** The strip at the foot of a full page or the rigging page that holds the footer. */
+/** The strip at the foot of the rigging page that holds its footer. Pocket panels and long columns carry their own. */
 export const FOOTER_MM = 6;
 /** Every pocket panel has its own header (who it is for) and footer (which version and file). */
-export const PANEL_HEADER_MM = 11;
+export const PANEL_HEADER_MM = 10;
 export const PANEL_FOOTER_MM = 8;
 export const PX_PER_MM = 96 / 25.4;
-/** Space kept clear inside each panel, on every side. */
+/** Space kept clear inside each panel, at the sides and at the top and bottom. */
 export const CELL_PAD_MM = 3;
+export const CELL_PAD_Y_MM = 2;
 export const CARDS_PER_PAGE = 4;
 
 /** Width the card content is laid out at: half the page, less the padding. */
 export const CARD_W_MM = PAGE_W_MM / 2 - 2 * CELL_PAD_MM;
 /** A little room kept between a card and the footer under it, so rounding never lets them touch. */
-const PANEL_GAP_MM = 1;
+const PANEL_GAP_MM = 0.5;
 /** Height available to a card in a panel: half the page, less the padding, the header, the footer and a gap. */
-export const CELL_H_MM = PAGE_H_MM / 2 - 2 * CELL_PAD_MM - PANEL_HEADER_MM - PANEL_FOOTER_MM - PANEL_GAP_MM;
-/** Height available to a card that has a whole page, under its own header. */
-export const FULL_H_MM = PAGE_H_MM - FOOTER_MM - 2 * CELL_PAD_MM - PANEL_HEADER_MM;
+export const CELL_H_MM = PAGE_H_MM / 2 - 2 * CELL_PAD_Y_MM - PANEL_HEADER_MM - PANEL_FOOTER_MM - PANEL_GAP_MM;
+/** Height available to a card in a long column: the page, less the padding, the header, the footer and a gap. */
+export const LONG_H_MM = PAGE_H_MM - 2 * CELL_PAD_Y_MM - PANEL_HEADER_MM - PANEL_FOOTER_MM - PANEL_GAP_MM;
+/** Height available to the rigging page, which has the page footer strip and no panel header of its own. It keeps its own 11 mm of head room. */
+export const FULL_H_MM = PAGE_H_MM - FOOTER_MM - 2 * CELL_PAD_MM - 11;
 
-/** Below this the text is too small to read, so the card is moved to a page of its own. */
-export const MIN_SCALE = 0.72;
-/** Even a whole page may shrink this far before the card is allowed to run on. */
+/** A long column may shrink this far before the card is allowed to run on. */
 export const MIN_FULL_SCALE = 0.5;
 
 const mmToPx = (mm: number) => mm * PX_PER_MM;
@@ -45,30 +47,42 @@ export function fitScale(contentPx: number, boxMm: number, min: number): Fit {
 
 export type PagePlan<T> =
   | { kind: 'grid'; cards: { item: T; scale: number }[] }
-  | { kind: 'full'; item: T; scale: number; overflow: boolean };
+  | { kind: 'long'; cards: { item: T; scale: number; overflow: boolean }[] };
 
 /**
- * Lays cards out in the order given, four to a page. A card that would need to shrink below
- * MIN_SCALE to fit a panel takes a page of its own, and the grid page before it is closed early.
+ * Lays cards out in the order given. A card that fits a pocket panel at full size goes four to a grid page.
+ * A taller one goes in a long column, two to a page. A card that cannot fit a long column even at the
+ * smallest scale has a long page to itself. Long pages come first, then grid pages, each in report order.
  */
 export function planPages<T>(items: readonly { item: T; heightPx: number }[]): PagePlan<T>[] {
-  const pages: PagePlan<T>[] = [];
+  const grids: PagePlan<T>[] = [];
+  const longs: PagePlan<T>[] = [];
   let grid: { item: T; scale: number }[] = [];
+  let pair: { item: T; scale: number; overflow: boolean }[] = [];
   const closeGrid = () => {
-    if (grid.length > 0) pages.push({ kind: 'grid', cards: grid });
+    if (grid.length > 0) grids.push({ kind: 'grid', cards: grid });
     grid = [];
   };
+  const closePair = () => {
+    if (pair.length > 0) longs.push({ kind: 'long', cards: pair });
+    pair = [];
+  };
   for (const { item, heightPx } of items) {
-    const cell = fitScale(heightPx, CELL_H_MM, MIN_SCALE);
-    if (!cell.overflow) {
-      grid.push({ item, scale: cell.scale });
+    if (!(heightPx > mmToPx(CELL_H_MM))) {
+      grid.push({ item, scale: 1 });
       if (grid.length === CARDS_PER_PAGE) closeGrid();
+      continue;
+    }
+    const long = fitScale(heightPx, LONG_H_MM, MIN_FULL_SCALE);
+    if (long.overflow) {
+      closePair();
+      longs.push({ kind: 'long', cards: [{ item, scale: long.scale, overflow: true }] });
     } else {
-      closeGrid();
-      const full = fitScale(heightPx, FULL_H_MM, MIN_FULL_SCALE);
-      pages.push({ kind: 'full', item, scale: full.scale, overflow: full.overflow });
+      pair.push({ item, scale: long.scale, overflow: false });
+      if (pair.length === 2) closePair();
     }
   }
   closeGrid();
-  return pages;
+  closePair();
+  return [...longs, ...grids];
 }
