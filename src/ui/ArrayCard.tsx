@@ -1,9 +1,9 @@
-import { useId } from 'react';
+import { Fragment, useId } from 'react';
 import type { FlySheetColumn } from '../engine/sheet';
 import { cleanMarkerText, MARKER_TEXT_MAX, RATING_LABEL, SHAPE_NAME, SHAPES, type Marker, type MarkerPair, type PickupSide, type Shape } from '../engine/markers';
 import { PATCH_COLOURS, PATCH_DIGITS, type PatchDigit, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
 import { enclosureLabel } from '../engine/types';
-import { FIXATION_COLUMNS, fixationName, pickupFact, warningText } from '../print/card-content';
+import { FIXATION_COLUMNS, fixationName, frameFacts, warningText } from '../print/card-content';
 import { NOTES_MAX, TITLE_MAX } from '../schema/array-file';
 import { plain } from './plain';
 import { degrees, kg, metres, NOT_STATED, num } from './format';
@@ -52,7 +52,6 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
   const hasColumns = c.rows.some((r) => r.column !== null);
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
-  const [pickupLabel, pickups] = pickupFact(c.pickups);
 
   return (
     <article className="card" aria-labelledby={`${id}-name`}>
@@ -116,16 +115,14 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         <dd data-testid="bottom-height">{metres(c.bottomHeight)}</dd>
         <dt>Top site</dt>
         <dd>{degrees(c.topSite)}</dd>
-        <dt>Bottom site</dt>
-        <dd>{degrees(c.bottomSite)}</dd>
         <dt>Azimuth</dt>
         <dd>{degrees(c.azimuth)}</dd>
-        <dt>Frame</dt>
-        <dd>{c.bumper ?? NOT_STATED}</dd>
-        <dt>{pickupLabel}</dt>
-        <dd>{pickups}</dd>
-        <dt>Position X, Y, Z</dt>
-        <dd>{c.position ? `${c.position.x}, ${c.position.y}, ${c.position.z} m` : NOT_STATED}</dd>
+        {frameFacts(c.bumper, c.pickups).map(([label, value]) => (
+          <Fragment key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </Fragment>
+        ))}
       </dl>
 
       {c.fixations.length > 0 ? (

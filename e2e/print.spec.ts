@@ -332,7 +332,7 @@ const firstCard = (page: Page) =>
     return { panel: p.querySelector('.as-grid') !== null, scale: m ? Number(m[1]) : 1 };
   });
 
-for (const rows of [12, 16]) {
+for (const rows of [12, 20]) {
   test(`a ${rows}-row array prints at full size in its pocket panel`, async ({ page }) => {
     await start(page);
     await openPdf(page, withMirroredRows(rows));
@@ -353,7 +353,7 @@ test('a 24-row array prints at full size in a long column', async ({ page }) => 
 });
 
 // Near the 119.5 mm line (CELL_H_MM) the print view and the downloaded PDF must put the array on the same page.
-for (const rows of [16, 17, 18, 24]) {
+for (const rows of [20, 21, 22, 24]) {
   test(`${rows} rows: the print view and Download PDF agree on the page count and the page of the array`, async ({ page }) => {
     await start(page);
     await openPdf(page, withMirroredRows(rows));
@@ -375,8 +375,8 @@ for (const rows of [16, 17, 18, 24]) {
       });
     await expect.poll(preview).toEqual({ count, page: arrayPage });
     const long = await page.evaluate(() => document.querySelector('.as-long .pc-title')?.textContent === 'KARA II L Main');
-    // A pocket panel holds 16 rows of this array, with its mirror note and motor fact; anything taller is in a long column, and long pages come first.
-    expect(long).toBe(rows >= 17);
+    // A pocket panel holds 20 rows of this array, with its mirror note and motor fact; anything taller is in a long column, and long pages come first.
+    expect(long).toBe(rows >= 21);
     const note = await page.evaluate(() => [...document.querySelectorAll('.as-cell')].find((c) => c.querySelector('.pc-title')?.textContent === 'KARA II L Main')?.querySelector('.pc-mirror')?.textContent);
     expect(note).toBe('Also mirrored with: KARA II R Main');
     if (long) expect(arrayPage).toBe(1);
@@ -583,8 +583,8 @@ test('a long Frame value wraps, and the rendered card is as tall as the plan say
   await expect(page.locator('.card')).not.toHaveCount(0);
   await expect.poll(() => page.locator('.as-fit[data-planned-height]').count()).toBeGreaterThan(0);
   const card = await page.evaluate((frame) => {
-    const fit = [...document.querySelectorAll<HTMLElement>('.as-fit[data-planned-height]')].find((f) => [...f.querySelectorAll('dd')].some((d) => d.textContent === frame));
-    const dd = [...(fit?.querySelectorAll<HTMLElement>('dd') ?? [])].find((d) => d.textContent === frame);
+    const fit = [...document.querySelectorAll<HTMLElement>('.as-fit[data-planned-height]')].find((f) => [...f.querySelectorAll('dd')].some((d) => d.textContent?.startsWith(frame)));
+    const dd = [...(fit?.querySelectorAll<HTMLElement>('dd') ?? [])].find((d) => d.textContent?.startsWith(frame));
     return fit && dd
       ? { rendered: (fit.querySelector('.pc') as HTMLElement).offsetHeight, planned: Number(fit.dataset['plannedHeight']), lineHeight: parseFloat(getComputedStyle(dd).lineHeight), valueHeight: dd.offsetHeight }
       : null;

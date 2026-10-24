@@ -156,7 +156,7 @@ describe('fixations on the card', () => {
     const t = texts(layout.ops);
     for (const word of ['Fixations', 'X (m)', 'Y (m)', 'Z (m)', 'Fr', 'Fl', 'Rr', 'Rl', '-2.84', '-2.16', '4.6', '3.9']) expect(t).toContain(word);
     const at = (text: string) => layout.ops.find((o) => o.op === 'text' && o.text === text) as Extract<DrawOp, { op: 'text' }>;
-    expect(at('Fixations').y).toBeGreaterThan(at('Position X, Y, Z').y);
+    expect(at('Fixations').y).toBeGreaterThan(at('Azimuth').y);
     expect(at('Fixations').y).toBeLessThan(at('Type').y);
   });
 

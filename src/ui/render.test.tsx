@@ -38,7 +38,7 @@ describe('ArrayCard', () => {
     const html = card('KARA II 2', parseFixture('e').report.sources);
     expect(html).toContain('Fixation positions of KARA II 2');
     for (const text of ['Fixations', 'X (m)', 'Y (m)', 'Z (m)', 'Fr', 'Fl', 'Rr', 'Rl', '-2.84', '-2.16', '4.6', '3.9']) expect(html).toContain(text);
-    expect(html.indexOf('Position X, Y, Z')).toBeLessThan(html.indexOf('Fixations'));
+    expect(html.indexOf('Azimuth')).toBeLessThan(html.indexOf('Fixations'));
     expect(card('KS28 4', parseFixture('e').report.sources)).not.toContain('Fixations');
     expect(card('KARA II L Main')).not.toContain('Fixations');
   });
@@ -61,7 +61,7 @@ describe('ArrayCard', () => {
     expect(html).toContain('KARA II L Main');
     expect(html).toContain('MAINS');
     expect(html).toContain('414.2 kg');
-    expect(html).toContain('M-BUMP+MBAR hole A');
+    expect(html).toContain('M-BUMP+MBAR hole A / 6');
     expect(html).toContain('Frame/Bar Hole');
     expect(html).not.toContain('Front 6');
     expect(html).toContain('90 On');

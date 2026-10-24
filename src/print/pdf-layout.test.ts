@@ -328,19 +328,19 @@ describe('which panel a typical mirrored main goes in', () => {
     return planPages([{ item: 0, heightPx: ptToPx(layoutPocketCard(c, estimateWidth).height) }])[0]?.kind;
   };
 
-  it('keeps 15 rows (the real sample) and 16 rows, with the mirror note and the motor fact, in a pocket panel', () => {
+  it('keeps 15 rows (the real sample) and 20 rows, with the mirror note and the motor fact, in a pocket panel', () => {
     expect(kindOf(docA)).toBe('grid');
-    expect(kindOf(docWithMainRows(16))).toBe('grid');
+    expect(kindOf(docWithMainRows(20))).toBe('grid');
   });
 
-  it('puts 17 rows in a long column', () => {
-    expect(kindOf(docWithMainRows(17))).toBe('long');
+  it('puts 21 rows in a long column', () => {
+    expect(kindOf(docWithMainRows(21))).toBe('long');
   });
 });
 
 describe('a long fact value', () => {
   const base = content(docA, 'KARA II L Main');
-  const withFrame = (value: string) => ({ ...base, facts: base.facts.map(([l, v]): [string, string] => (l === 'Frame' ? [l, value] : [l, v])) });
+  const withFrame = (value: string) => ({ ...base, facts: base.facts.map(([l, v]): [string, string] => (l === 'Frame/Bar Hole' ? [l, value] : [l, v])) });
   const long = 'Bumper with a very long name that cannot possibly fit beside its label on one line';
   const text = (laid: ReturnType<typeof layoutPocketCard>) => laid.ops.filter((o): o is Extract<DrawOp, { op: 'text' }> => o.op === 'text');
 
@@ -350,7 +350,7 @@ describe('a long fact value', () => {
     const parts = text(wrapped).filter((o) => o.align === 'right' && o.bold && long.includes(o.text));
     expect(parts.length).toBeGreaterThan(1);
     expect(parts.map((o) => o.text).join(' ')).toBe(long);
-    const label = estimateWidth('Frame', 7, false);
+    const label = estimateWidth('Frame/Bar Hole', 7, false);
     for (const o of parts) expect(wrapped.width - estimateWidth(o.text, o.size, true)).toBeGreaterThanOrEqual(label + 2 * PT_PER_MM - 0.01);
     const step = (7 * 1.2);
     expect(wrapped.height - short.height).toBeCloseTo((parts.length - 1) * step, 5);

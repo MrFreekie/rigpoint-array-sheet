@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
 import { newDoc } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
-import { cardContent, warningText, type CardContext } from './card-content';
+import { cardContent, frameFacts, warningText, type CardContext } from './card-content';
 import { formatStamp, printFooter } from './footer';
 import { CARDS_PER_PAGE, CELL_H_MM, fitScale, LONG_H_MM, MIN_FULL_SCALE, PX_PER_MM, planPages, type PagePlan } from './layout';
 
@@ -164,9 +164,9 @@ describe('cardContent', () => {
     expect(c.subtitle).toBe('MAINS · vertical, flown array');
     expect(c.context).toBe('Main stage · Grand Hall · Issued Rev B · Z-axis zero: Arena floor');
     expect(c.facts).toEqual([
-      ['Total mass', '414.2 kg'], ['Front motor load', '414.2 kg'], ['Ground offset', '0 m'], ['Top height', '9.4 m'],
-      ['Bottom height', '5.75 m'], ['Top site', '3.8°'], ['Bottom site', '-41.2°'], ['Azimuth', '0°'],
-      ['Frame', 'M-BUMP+MBAR hole A'], ['Frame/Bar Hole', '6'], ['Position X, Y, Z', '10, 13.01, 9.4 m'],
+      ['Total mass', '414.2 kg'], ['Front motor load', '414.2 kg'], ['Top height', '9.4 m'],
+      ['Bottom height', '5.75 m'], ['Top site', '3.8°'], ['Azimuth', '0°'],
+      ['Frame/Bar Hole', 'M-BUMP+MBAR hole A / 6'],
     ]);
     expect(c.columns).toEqual(['#', 'Type', 'Panflex', 'Angle', 'Feeder', 'Way']);
     expect(c.rows).toHaveLength(15);
@@ -217,5 +217,31 @@ describe('cardContent', () => {
     const c = cardContent(sheetModel(doc, false).entries[0]!, ctx);
     expect(c.facts.find(([l]) => l === 'Ground offset')?.[1]).toBe('–');
     expect(c.facts.find(([l]) => l === 'Top height')?.[1]).toBe('–');
+  });
+});
+
+describe('the card facts that are left out or joined', () => {
+  const ctx: CardContext = { show: 'Main stage', venue: 'Grand Hall', status: 'issued', revision: 'B', zAxisZero: 'Arena floor' };
+  const docA = newDoc(parseFixture('a'), 'a.pdf');
+  const card = (doc: typeof docA, name: string) => cardContent(sheetModel(doc, false).entries.find((e) => e.column.name === name)!, ctx);
+  it('leaves out the ground offset when none is used, and shows it when one is', () => {
+    expect(card(docA, 'KARA II L Main').facts.map(([l]) => l)).not.toContain('Ground offset');
+    const doc = newDoc(parseFixture('a'), 'a.pdf');
+    doc.job.defaultOffset = '0.4';
+    const c = cardContent(sheetModel(doc, false).entries[0]!, ctx);
+    expect(c.facts.find(([l]) => l === 'Ground offset')?.[1]).toBe('0.4 m');
+  });
+
+  it('has no position row and no bottom site row', () => {
+    const labels = card(docA, 'KARA II L Main').facts.map(([l]) => l);
+    expect(labels).not.toContain('Position X, Y, Z');
+    expect(labels).not.toContain('Bottom site');
+  });
+
+  it('joins the frame and the bar hole into one row for a single pickup, and keeps them apart otherwise', () => {
+    expect(frameFacts('M-BUMP+MBAR hole A', [{ which: 'front', position: 6 }])).toEqual([['Frame/Bar Hole', 'M-BUMP+MBAR hole A / 6']]);
+    expect(frameFacts(null, [{ which: 'rear', position: 2 }])).toEqual([['Frame/Bar Hole', '2']]);
+    expect(frameFacts('Bar', [{ which: 'front', position: 1 }, { which: 'rear', position: 4 }])).toEqual([['Frame', 'Bar'], ['Pickups', 'Front 1, Rear 4']]);
+    expect(frameFacts(null, [])).toEqual([['Frame', '–'], ['Pickups', '–']]);
   });
 });

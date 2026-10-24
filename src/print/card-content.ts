@@ -88,6 +88,22 @@ export function pickupFact(pickups: readonly { which: 'front' | 'rear'; position
   return ['Pickups', pickups.map((p) => `${p.which === 'front' ? 'Front' : 'Rear'} ${p.position}`).join(', ')];
 }
 
+/**
+ * The frame and pickup rows of a card, the same on the screen card, the print view, the PNG and the PDF. An array with one pickup
+ * has one row, the frame and the position number as its bar hole, joined with a slash like its label. Otherwise the frame and the
+ * pickups are separate rows.
+ */
+export function frameFacts(
+  bumper: string | null,
+  pickups: readonly { which: 'front' | 'rear'; position: number | string }[],
+): [label: string, value: string][] {
+  if (pickups.length === 1) {
+    const hole = String(pickups[0]?.position);
+    return [['Frame/Bar Hole', bumper === null ? hole : `${bumper} / ${hole}`]];
+  }
+  return [['Frame', bumper ?? NOT_STATED], pickupFact(pickups)];
+}
+
 export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
   const c = entry.column;
 
@@ -96,16 +112,14 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
     facts.push(['Front motor load', kg(c.frontMotorLoad)]);
     if (c.motors > 1 || c.rearMotorLoad !== null) facts.push(['Rear motor load', kg(c.rearMotorLoad)]);
   }
+  // The ground offset row is only there when an offset is in use, or when the one typed cannot be read.
+  if (entry.offset.value !== 0) facts.push(['Ground offset', entry.offset.value === null ? NOT_STATED : metres(entry.offset.value)]);
   facts.push(
-    ['Ground offset', entry.offset.value === null ? NOT_STATED : metres(entry.offset.value)],
     ['Top height', metres(c.topHeight)],
     ['Bottom height', metres(c.bottomHeight)],
     ['Top site', degrees(c.topSite)],
-    ['Bottom site', degrees(c.bottomSite)],
     ['Azimuth', degrees(c.azimuth)],
-    ['Frame', c.bumper ?? NOT_STATED],
-    pickupFact(c.pickups),
-    ['Position X, Y, Z', c.position ? `${c.position.x}, ${c.position.y}, ${c.position.z} m` : NOT_STATED],
+    ...frameFacts(c.bumper, c.pickups),
   );
 
   const hasAngles = c.rows.some((r) => r.angle !== null);
