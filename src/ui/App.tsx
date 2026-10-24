@@ -203,7 +203,7 @@ export function App() {
   async function openFile(file: File | undefined, fileHandle: FileSystemFileHandle | null = null) {
     if (!file) return;
     if (!isPdf(file) && !isJson(file)) {
-      setError('That is not a PDF or a RigPoint Array file. Choose a Soundvision report, or a file you saved from this app.');
+      setError('That is not a PDF or a RigPoint Array Sheet file. Choose a Soundvision report, or a file you saved from this app.');
       return;
     }
     if (!confirmDiscard('Open the other file anyway?')) return;
@@ -212,7 +212,7 @@ export function App() {
     setNotice(null);
     try {
       if (isJson(file)) {
-        if (file.size > MAX_FILE_BYTES) throw new Error(`That file is larger than ${MAX_FILE_BYTES / 1024 / 1024} MB, which is too big for a RigPoint Array file.`);
+        if (file.size > MAX_FILE_BYTES) throw new Error(`That file is larger than ${MAX_FILE_BYTES / 1024 / 1024} MB, which is too big for a RigPoint Array Sheet file.`);
         setDoc(openFileText(await file.text(), file.name).doc);
         setHandle(fileHandle);
         if (fileHandle) void remember(fileHandle);

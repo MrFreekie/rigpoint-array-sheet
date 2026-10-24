@@ -119,7 +119,7 @@ const DASH = { dashed: [300, 150], dashDot: [600, 200, 0, 200] } as const;
 function header(ext: { minX: number; minY: number; maxX: number; maxY: number }, note: string, layers: readonly Layer[]): string[] {
   const h: string[] = [];
   const g = (code: number, value: string | number) => h.push(String(code), typeof value === 'number' ? num(value) : value);
-  g(999, 'RigPoint Array rigging plot');
+  g(999, 'RigPoint Array Sheet rigging plot');
   g(999, DXF_UNITS_NOTE);
   g(999, note);
   g(0, 'SECTION');

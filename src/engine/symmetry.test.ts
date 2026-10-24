@@ -140,12 +140,16 @@ describe('findMirrors with stacks laid out in columns', () => {
 });
 
 describe('report E and fixations', () => {
-  it('pairs the flown hangs, the subs and the two fills that mirror left to right, and the two centre hangs that mirror front to back', () => {
+  it('pairs the flown hangs, the subs and the fills that mirror left to right, and the two centre hangs that mirror front to back', () => {
     expect(names(e)).toEqual([
       ['YZ Sym of Left', 'YZ Sym of YZ Sym of Left'],
       ['XZ Sym of YZ Sym of Left', 'XZ Sym of Left'],
       ['KS28 4', 'KS28 3'],
       ['KARA II 2', 'KARA II 1'],
+      // Azimuth 180 against 180 is a left-right pair too, and a symmetry prefix on a group name does not stop a pair.
+      ['XZ Sym of KARA II 2', 'XZ Sym of KARA II 1'],
+      ['Copy of XZ Sym of KARA II 2', 'YZ Sym of Copy of XZ Sym of KARA II 2'],
+      ['XZ Sym of Copy of XZ Sym of KARA II 2', 'YZ Sym of XZ Sym of Copy of XZ Sym of KARA II 2'],
       // Front-back pairs, found after the left-right ones: the two centre hangs, azimuth 0 and 180, and two subs.
       ['Copy of YZ Sym of Left', 'XZ Sym of Copy of YZ Sym of Left'],
       ['KS28 2', 'KS28 1'],
@@ -293,5 +297,37 @@ describe('front-back mirrors', () => {
     const list = [one, frontBackOf(one)];
     expect(findMirrors(list, new Set([0])).size).toBe(0);
     expect(findMirrors(list, new Set(), () => false).size).toBe(0);
+  });
+});
+
+describe('left-right pairs: azimuth, group prefixes and typed offsets', () => {
+  const base = a.find((s) => s.name === 'KARA II L Main')!;
+  const twin = (over: Partial<ArraySource>): ArraySource => ({ ...mirrorOf(base), ...over });
+  const withAz = (x: ArraySource, az: number) => ({ ...structuredClone(x), azimuth: az });
+
+  it('treats 180 and -180 as the same heading, and pairs azimuths that add up to 0 modulo 360', () => {
+    for (const [p, q] of [[180, 180], [180, -180], [-180, -180], [10, -10], [350, 10], [0, 0], [90, 270]] as const) {
+      expect(isMirror(withAz(base, p), withAz(twin({}), q))).toBe(true);
+    }
+  });
+
+  it('does not pair azimuths that do not add up to 0 modulo 360', () => {
+    for (const [p, q] of [[10, 10], [10, -9.9], [180, 0], [90, 90]] as const) {
+      expect(isMirror(withAz(base, p), withAz(twin({}), q))).toBe(false);
+    }
+  });
+
+  it('leaves a pair that differs only in Configuration alone', () => {
+    expect(isMirror(base, twin({ configuration: (base.configuration ?? '') + ' R' }))).toBe(false);
+  });
+
+  it('ignores YZ Sym of and XZ Sym of in front of a group name, however many, on either side', () => {
+    const grouped = { ...structuredClone(base), groups: ['ALL', 'Fills 1'] };
+    expect(isMirror(grouped, twin({ groups: ['ALL', 'YZ Sym of Fills 1'] }))).toBe(true);
+    expect(isMirror(grouped, twin({ groups: ['ALL', 'XZ Sym of YZ Sym of Fills 1'] }))).toBe(true);
+    expect(isMirror({ ...grouped, groups: ['ALL', 'YZ Sym of Fills 1'] }, twin({ groups: ['ALL', 'Fills 1'] }))).toBe(true);
+    expect(isMirror(grouped, twin({ groups: ['ALL', 'Fills 2'] }))).toBe(false);
+    expect(isMirror(grouped, twin({ groups: ['ALL', 'Copy of Fills 1'] }))).toBe(false);
+    expect(isMirror(grouped, twin({ groups: ['ALL'] }))).toBe(false);
   });
 });

@@ -315,7 +315,7 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     }
   });
   let cy = qy + qrSize + 2;
-  ops.push(textOp(qx + qrSize / 2, cy, 'RigPoint Array', 5.5, { align: 'center' }));
+  ops.push(textOp(qx + qrSize / 2, cy, 'RigPoint Array Sheet', 5.5, { align: 'center' }));
   cy += 5.5 * 1.2;
   for (const line of wrap(input.qrUrl, 5.5, false, qrSize, measure)) {
     ops.push(textOp(qx + qrSize / 2, cy, line, 5.5, { align: 'center' }));

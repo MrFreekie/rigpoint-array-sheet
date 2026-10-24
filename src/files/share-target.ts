@@ -17,7 +17,7 @@ export async function takeSharedFile(): Promise<SharedFile | null> {
   url.searchParams.delete(SHARE_PARAM);
   window.history.replaceState(null, '', url.pathname + url.search + url.hash);
 
-  if (marker === 'too-large') return { error: 'The shared file is too large to be a report or a RigPoint Array file.' };
+  if (marker === 'too-large') return { error: 'The shared file is too large to be a report or a RigPoint Array Sheet file.' };
   if (marker === 'none') return { error: 'Nothing was shared: no file arrived with the share.' };
   if (!('caches' in window)) return { error: 'This browser cannot receive shared files.' };
   const cache = await caches.open(SHARE_CACHE);

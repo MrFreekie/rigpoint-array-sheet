@@ -371,7 +371,7 @@ describe('the plot page', () => {
   it('prints the Not drawn note clear of the footer and of everything else', () => {
     const content = pages('c').content;
     const names = ['K2 SL with a rather long name', 'K2 SR with a rather long name', 'Another one', 'And more'];
-    const footer = 'RigPoint Array 0.1.0 · Soundvision 2026.3.1 · Main stage.arraysheet.json (not saved) · Printed 22/10/2026 09:05 · Page 5 of 6';
+    const footer = 'RigPoint Array Sheet 0.1.0 · Soundvision 2026.3.1 · Main stage.arraysheet.json (not saved) · Printed 22/10/2026 09:05 · Page 5 of 6';
     const page = layoutPlotPages({ ...content, notDrawn: names, footer: () => footer }, estimateWidth)[0]!;
     const note = page.ops.find((o): o is TextOp => o.op === 'text' && o.text.startsWith('Not drawn'));
     expect(note).toBeDefined();

@@ -1,6 +1,6 @@
 # User guide
 
-RigPoint Array turns a Soundvision report PDF into pocket cards: one card for each array, with a rigging summary at the end. This guide covers what you need on the day.
+RigPoint Array Sheet turns a Soundvision report PDF into pocket cards: one card for each array, with a rigging summary at the end. This guide covers what you need on the day.
 
 ## Open a report
 
@@ -39,11 +39,11 @@ The rigging summary table has two more columns, To front and To rear, which say 
 
 Pickups are numbered in rows from the audience end to the stage end, and from house left to house right inside a row. An array joins a row when its Position Y is within 1 m of the first array in that row. The front pickup of an array has the lower number.
 
-The page also lists every point with its X and Y. The Pickup column says Front or Rear for an array with two pickups and Single for an array with one. The page also has a key, the scale and the small print. A bar 100 mm long lets you check the scale with a ruler. For the right scale, print the file from Download PDF at 100 percent. Above 24 points the table continues on a second page.
+The page also lists every point with its X and Y, and has a key, the scale and the small print. The scale is the largest standard ratio, from 1:50 to 1:2500, at which every array and the origin fit. If an array falls off the page at that scale, the page names it. A bar 100 mm long lets you check the scale with a ruler. For the right scale, print the file from Download PDF at 100 percent. Above 24 points the table continues on further pages. The credit line sits under the page footer.
 
 ### Pickup symbols
 
-Each pickup is drawn as a symbol that stands for a nominal rating in metric tonnes: a square with a cross for 2 t, a circle with a cross for 1 t, a triangle with a cross for 0.5 t and a diamond with a cross for 0.25 t. The circle is the default. Choose another on the card, under Plot symbol. An array with a front and a rear pickup has one choice for each. All the symbols are the same size, and the table gives each point's symbol in the Symbol column.
+Each pickup is drawn as a symbol that stands for a nominal rating in metric tonnes: a square with a cross for 2 t, a circle with a cross for 1 t, a triangle with a cross for 0.5 t and a diamond with a cross for 0.25 t. The circle is the default. Choose another on the card, under Plot symbol. An array with a front and a rear pickup has one choice for each. Under the choice is a box for a typed value, up to 12 characters. All the symbols are the same size, and the table gives each point's symbol in the Symbol column.
 
 Every shape can be picked for any array, whatever its weight. The plot does not check a symbol against the weight of the array. If you type a value such as 1.5 t, it replaces the rating in the table and under the pickup label, and the symbol is drawn grey on the plot, with a note in the key that a custom value is noted on the plot. A mirror image that shares a card with its partner has the same symbols as that card. On an approved or superseded file you can still pick symbols for this session, but they are not saved. Update from PDF keeps a symbol when the array of the same name still has the same pickup, and tells you about any it cannot keep, which go back to 1 t.
 
@@ -51,7 +51,7 @@ The plot is drawn only from the report. It does not show shackles, slings, truss
 
 ### Venue under the plot
 
-Under the plot on screen is a Venue under the plot box. It takes the text file that SU4SV writes, the SketchUp to Soundvision converter, and draws the venue as a pale grey line drawing under the plot, to give the arrays some context. Choose Import venue and pick the file. It must be in metres. Choose Replace venue to use another file, or Remove venue to take it away again.
+On screen, the Venue under the plot box sits above the plot. It takes the text file that SU4SV writes, the SketchUp to Soundvision converter, and draws the venue as a pale grey line drawing under the plot, to give the arrays some context. Choose Import venue and pick the file. It must be in metres. The app says how many lines and layers it kept, and how many lines it could not read. Choose Replace venue to use another file, or Remove venue to take it away again. A file holds one venue.
 
 Only the plan is kept. Every face in the model becomes lines, lines that are drawn twice are kept once, and the height is dropped, except that it picks the shade: the lowest parts are the darkest grey and the highest the lightest. All the lines are the same thin weight. The seats and everything else in the file are kept, so keep the SketchUp model basic. A model with more than 60,000 lines after duplicates are removed, more than 300 layers, or a file over 8 MB is refused with a message. Simplify the model in SketchUp, for example by deleting detail the plot does not need, and export it again.
 
@@ -59,7 +59,7 @@ The venue never changes the plot. The scale and the page come from the arrays an
 
 The layers of the file are SketchUp layers, and each has a tick under Layers to show. Every layer is on when a venue is imported, because the names are not the same in every model. Untick the ones you do not want, such as roof trusses that cover the arrays. Which layers are on is kept with the file. The converted lines are kept in the saved file too, not the original text, and Update from PDF keeps them. An approved or superseded file cannot have a venue imported, changed or removed.
 
-Under Download DXF is an Include venue in the DXF tick, off to start with. When it is on, the DXF carries the layers that are shown, every line of them and not only the part inside the plot page, at full size in millimetres like the rest of the file. Each SketchUp layer is a DXF layer of its own, named VENUE_ and the SketchUp layer name, so you can switch them off in your CAD program. The greys follow the height, and the height itself is not kept.
+Beside Download DXF, once a venue is imported, is an Include venue in the DXF tick, off to start with. The tick is not saved with the file. When it is on, the DXF carries the layers that are shown, every line of them and not only the part inside the plot page, at full size in millimetres like the rest of the file. Each SketchUp layer is a DXF layer of its own, named VENUE_ and the SketchUp layer name, so you can switch them off in your CAD program. The greys follow the height, and the height itself is not kept.
 
 ### Download DXF
 
@@ -73,7 +73,7 @@ The DXF has no scale bar, because it is already full size. It is a design aid an
 
 Each card shows what the report states: weights, motor loads, heights, site angles, azimuth, frame, pickups, Soundvision's warnings, the fixation positions of a stacked array when the report lists them (X, Y and Z as the report prints them, with no ground offset taken off), and a row for each enclosure with its Panflex label (for example 90 On).
 
-Arrays that are exact mirror images of each other show once, whether the mirror runs left to right or front to back. The card has a small line under its title that says Also mirrored with and the name of the other array. Tick Show the mirrored arrays too to see both. Two arrays with different notes keep a card each, so no instruction is hidden. A front to back pair is only found when the arrays have no fixations and the same Panflex figures, because those have not been checked for such a pair.
+Arrays that are exact mirror images of each other show once, whether the mirror runs left to right or front to back. The card has a small line under its title that reads `Also mirrored with: <name>`, with the name of the other array. The wording is the same for both kinds. Tick Show the mirrored arrays too to see both. Two arrays with different notes keep a card each, so no instruction is hidden, and so do two arrays whose typed ground offsets differ, because the card would show the heights of only one of them. An azimuth of 180 and an azimuth of -180 are the same heading, so two arrays that both face 180 can be a pair. Soundvision names the copies it makes with YZ Sym of or XZ Sym of in front of a group name, and that prefix is ignored when two arrays are compared. Everything else must match exactly, so two arrays that differ only in the text of their Configuration, such as a left and a right high frequency setting, are not paired. A front to back pair is only found when the arrays have no fixations and the same Panflex figures, because those have not been checked for such a pair.
 
 ## Choose what to print
 
@@ -85,13 +85,15 @@ Each card has a Print this array checkbox. Unticked arrays are left out of the p
 - Download PDF makes the PDF in one click, with no print window.
 - Save image on a card saves that array as a PNG. Save selected as images saves one for every ticked array.
 
-The PDF has four arrays on each A4 page. Fold the page in half twice and each array is on its own A6 panel, with dashed lines marking the folds. A panel holds an array of up to 16 rows, with its mirror note. A long warning, a long frame name or a long title can take a row or two of that room. The fixation positions of a stacked array take about five rows and a gap, so a tall stack may move to a long column. An array that is taller goes in a long column that runs the full height of the page. Two long columns share a page, which you fold once, and a dashed line down the middle shows where, as on the pages of four. The line is there even when a page holds only one column. Long pages come first. Every panel and column carries a header and a footer, so it still says what it is when folded. The rigging plot comes next, drawn across the page, so turn the sheet to read it. The last page is the rigging summary and the small print. It has a table of every pickup and, below it, a table of every fixation position (array, fixation, X, Y and Z as the report prints them). Mirrored arrays are listed too, because their positions differ. A report with eight stacks has 32 fixation positions, so its rigging page is printed about 2.5 per cent smaller to fit on one sheet. The fixation rows are set in the same compact type as the pocket cards to keep that reduction small. The rigging summary on screen lists every array and never cuts a name. The printed page and the PDF list only the arrays chosen for printing, plus the mirrors that their cards stand for. A name too long for its column in print or the PDF loses its middle to an ellipsis, so the end of the name stays readable.
+The PDF has four arrays on each A4 page. Fold the page in half twice and each array is on its own A6 panel, with dashed lines marking the folds. A panel holds an array of up to 16 rows, with its mirror note. A long warning, a long frame name or a long title can take a row or two of that room. The fixation positions of a stacked array take about five rows and a gap, so a tall stack may move to a long column. An array that is taller goes in a long column that runs the full height of the page. Two long columns share a page, which you fold once, and a dashed line down the middle shows where, as on the pages of four. The line is there even when a page holds only one column. Long pages come first. Every panel and column carries a header and a footer, so it still says what it is when folded. The header has the show and venue (or the Soundvision project if none is typed) and the status and revision, then the show date, project, engineer, company and Z-axis zero that are filled in. The footer has a credit line under it. An array with a single pickup shows its position in a Frame/Bar Hole row. The rigging plot comes next, drawn across the page, so turn the sheet to read it. The last page is the rigging summary and the small print, with a QR code at its foot that opens this app. It has a table of every pickup and, below it, a table of every fixation position (array, fixation, X, Y and Z as the report prints them). Mirrored arrays are listed too, because their positions differ. A report with eight stacks has 32 fixation positions, so its rigging page is printed about 2.5 per cent smaller to fit on one sheet. The fixation rows are set in the same compact type as the pocket cards to keep that reduction small. The rigging summary on screen lists every array and never cuts a name. The printed page and the PDF list only the arrays chosen for printing, plus the mirrors that their cards stand for. A name too long for its column in print or the PDF loses its middle to an ellipsis, so the end of the name stays readable.
 
 A draft has DRAFT on every panel. Set the status to Issued or Approved when the sheet is final.
 
 ## Save your work
 
 Save writes a file such as `Main stage - Rev B.arraysheet.json`. It holds what the PDF said and what you typed, so you can reopen it later without the PDF.
+
+Files saved by an older version of the app open fine and are upgraded. A file saved by a newer version is refused, because an older copy would drop what it does not know about. Reload the app to get the new version, then open the file again.
 
 In Chrome and Edge on a computer, Save writes back to the same file, Save As picks a new one, and Recent lists your last files. In other browsers Save downloads a new file each time.
 
@@ -105,7 +107,7 @@ To change an approved file, press Create new revision. It starts a draft with th
 
 ## Card title and notes for the crew
 
-Each card has a Card title box. Type a name there and it replaces the array name on the card, the printed sheet, the PDF, the images, the rigging plot, the DXF and the rigging summary. Clear the box to go back to the name in the report. The card then carries a small line, Soundvision name, with the name from the report, so the two can always be matched. The title is kept with the file, and Update from PDF still finds the array by its report name, so the title survives an update.
+Each card has a Card title box, one line of up to 60 characters. Type a name there and it replaces the array name on the card, the printed sheet, the PDF, the images, the rigging plot, the DXF and the rigging summary. Clear the box to go back to the name in the report. The card then carries a small line, Soundvision name, with the name from the report, so the two can always be matched. The title is kept with the file, and Update from PDF still finds the array by its report name, so the title survives an update.
 
 Each card also has a Notes for the crew box for instructions, up to 300 characters, with the line breaks you type. The note prints on the card under the mirror line, after the word Note. It is not shown on the rigging plot, the DXF or the rigging summary. An approved or superseded file cannot be changed, so both boxes are switched off there.
 
@@ -119,7 +121,7 @@ A deleted array stays in the file, marked as deleted. The file holds the report 
 
 ## A newer PDF arrives
 
-With your file open, press Update from PDF and choose the newer report. The app lists exactly what differs. Choose Update from new PDF or Keep as saved. Your show details, offsets, print choices, titles and notes stay with the arrays of the same name. An array you deleted comes back if the new PDF has it, and the list marks it as restored.
+With your file open, press Update from PDF and choose the newer report. The app lists exactly what differs. Choose Update from new PDF or Keep as saved. Your show details, offsets, print choices, titles, notes, plot symbols and venue stay with the arrays of the same name. A symbol stays when the array still has the same pickup and goes back to 1 t when it does not, and the list says so. An array you deleted comes back if the new PDF has it, and the list marks it as restored.
 
 ## Install it and use it offline
 

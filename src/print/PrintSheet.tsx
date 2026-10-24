@@ -121,7 +121,7 @@ interface Props {
   model: SheetModel;
   /** Footer text; each page adds its own "Page n of N". */
   footer: string;
-  /** Number of items to check against the PDF, printed under the title when above zero. */
+  /** Number of items to check against the PDF, added to each page footer when above zero. */
   checks: number;
   /** Called when something is too tall for its page even at the smallest scale. */
   onOverflow?: (overflow: boolean) => void;
@@ -312,7 +312,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
           <path d={qr.path} fill="#000" />
         </svg>
         <p>
-          RigPoint Array
+          RigPoint Array Sheet
           <br />
           {APP_URL}
         </p>

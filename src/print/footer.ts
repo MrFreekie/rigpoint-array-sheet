@@ -34,5 +34,5 @@ export function printFooter(opts: {
     ? `${opts.fileName}${opts.dirty ? ' (unsaved changes)' : ''}`
     : `${opts.defaultName} (not saved)`;
   const sv = opts.soundvisionVersion ? ` · Soundvision ${opts.soundvisionVersion}` : '';
-  return `RigPoint Array ${opts.appVersion}${sv} · ${file} · ${opts.verb ?? 'Printed'} ${formatStamp(opts.printedAt)}`;
+  return `RigPoint Array Sheet ${opts.appVersion}${sv} · ${file} · ${opts.verb ?? 'Printed'} ${formatStamp(opts.printedAt)}`;
 }

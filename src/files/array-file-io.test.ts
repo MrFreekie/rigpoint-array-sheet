@@ -293,13 +293,13 @@ const open = (text: string) => openFileText(text, null);
 
 describe('opening a bad file', () => {
   it('refuses text that is not JSON', () => {
-    expect(() => open('not json')).toThrow(/not a RigPoint Array file/);
+    expect(() => open('not json')).toThrow(/not a RigPoint Array Sheet file/);
     expect(() => open('')).toThrow(FileError);
   });
 
   it('refuses JSON that is not an array file', () => {
-    expect(() => open('[]')).toThrow(/not a RigPoint Array file/);
-    expect(() => open('{"format":"loadsheet/1"}')).toThrow(/not a RigPoint Array file/);
+    expect(() => open('[]')).toThrow(/not a RigPoint Array Sheet file/);
+    expect(() => open('{"format":"loadsheet/1"}')).toThrow(/not a RigPoint Array Sheet file/);
   });
 
   it('refuses a file from a newer version', () => {

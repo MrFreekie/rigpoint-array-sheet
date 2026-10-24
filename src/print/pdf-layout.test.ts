@@ -131,7 +131,7 @@ describe('layoutRiggingPage', () => {
     const xs = squares.flatMap((s) => (s.op === 'rect' ? [s.x, s.x + s.w] : []));
     expect((Math.min(...xs) + Math.max(...xs)) / 2).toBeCloseTo(laid.width / 2, 0);
     expect(top).toBeGreaterThan((smallPrint[0] as { y: number }).y);
-    const caption = laid.ops.filter((o) => o.op === 'text' && o.text === 'RigPoint Array');
+    const caption = laid.ops.filter((o) => o.op === 'text' && o.text === 'RigPoint Array Sheet');
     expect(caption).toHaveLength(1);
     expect((caption[0] as { y: number }).y).toBeGreaterThan(Math.max(...squares.map((q) => (q.op === 'rect' ? q.y + q.h : 0))));
     expect((caption[0] as { x: number }).x).toBeCloseTo(laid.width / 2, 0);

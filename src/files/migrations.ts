@@ -67,14 +67,14 @@ export function migrate(
   steps: Record<number, Migration> = MIGRATIONS,
 ): Record<string, unknown> {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    throw new FileError('This is not a RigPoint Array file.');
+    throw new FileError('This is not a RigPoint Array Sheet file.');
   }
   let file = raw as Record<string, unknown>;
   const m = /^arraysheet\/(\d+)$/.exec(typeof file['format'] === 'string' ? file['format'] : '');
-  if (!m) throw new FileError(`This is not a RigPoint Array file. It does not say its format is "${FORMAT_NAME}/${current}".`);
+  if (!m) throw new FileError(`This is not a RigPoint Array Sheet file. It does not say its format is "${FORMAT_NAME}/${current}".`);
   let version = Number(m[1]);
   if (version > current) {
-    throw new FileError('This file was saved by a newer version of RigPoint Array. Reload the app to update it, then open the file again.');
+    throw new FileError('This file was saved by a newer version of RigPoint Array Sheet. Reload the app to update it, then open the file again.');
   }
   while (version < current) {
     const step = steps[version];

@@ -60,13 +60,13 @@ export interface OpenedFile {
 /** @param fileName the name to show as the file this was opened from, or null when there is none. */
 export function openFileText(text: string, fileName: string | null): OpenedFile {
   if (new TextEncoder().encode(text).length > MAX_FILE_BYTES) {
-    throw new FileError(`This file is larger than ${MAX_FILE_BYTES / 1024 / 1024} MB, which is too big for a RigPoint Array file.`);
+    throw new FileError(`This file is larger than ${MAX_FILE_BYTES / 1024 / 1024} MB, which is too big for a RigPoint Array Sheet file.`);
   }
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new FileError('This file is not a RigPoint Array file. It could not be read as saved data.');
+    throw new FileError('This file is not a RigPoint Array Sheet file. It could not be read as saved data.');
   }
   const upgraded = migrate(raw);
   const checked = ArrayFileSchema.safeParse(upgraded);

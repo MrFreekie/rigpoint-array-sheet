@@ -92,12 +92,12 @@ test('report A: nine arrays print four to a page, then the plot and the rigging 
   await expect(page.locator('.as-watermark')).toHaveCount(11);
   await expect(page.locator('[data-testid=print-page] > .as-watermark')).toHaveCount(2);
   await expect(pages(page).nth(2).locator('.as-panel-footer')).toHaveText(
-    /^RigPoint Array \d+\.\d+\.\d+ · Soundvision 2026\.3\.1 · .+\.arraysheet\.json \(not saved\) · Printed \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} · Page 3 of 5Created with RigPoint Array Sheet\. Find it at https:\/\/mrfreekie\.github\.io\/rigpoint-array-sheet\/$/,
+    /^RigPoint Array Sheet \d+\.\d+\.\d+ · Soundvision 2026\.3\.1 · .+\.arraysheet\.json \(not saved\) · Printed \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} · Page 3 of 5Created with RigPoint Array Sheet\. Find it at https:\/\/mrfreekie\.github\.io\/rigpoint-array-sheet\/$/,
   );
   // Every pocket panel says whose it is and which file it came from, so a folded card still has an identity.
   await expect(page.locator('.as-cell .as-panel-head')).toHaveCount(9);
   await expect(page.locator('.as-cell .as-panel-footer')).toHaveCount(9);
-  await expect(first.locator('.as-panel-head').first()).not.toContainText('RigPoint Array');
+  await expect(first.locator('.as-panel-head').first()).not.toContainText('RigPoint Array Sheet');
   await expect(first.locator('.as-panel-head').first()).toContainText('Draft');
   await expect(first.locator('.as-panel-head').first()).toContainText('Example Arena - Example Show');
 
@@ -471,9 +471,9 @@ test('report E: a stacked card shows its fixations, and is as tall as the plan s
       planned: Number(fit.dataset['plannedHeight']),
     })),
   }));
-  expect(measured.rows).toHaveLength(5 * 7); // the heading row and four positions on each of the seven stacks printed
+  expect(measured.rows).toHaveLength(5 * 4); // the heading row and four positions on each of the four stacks printed, three more pairs now collapse
   for (const h of measured.rows) expect(h).toBeCloseTo(14.0625, 2);
-  expect(measured.cards.filter((c) => c.fixations > 0)).toHaveLength(7);
+  expect(measured.cards.filter((c) => c.fixations > 0)).toHaveLength(4);
   for (const c of measured.cards) expect(Math.abs(c.rendered - c.planned), c.title).toBeLessThan(0.5 * (96 / 25.4));
   await expectNothingClipped(page);
 });

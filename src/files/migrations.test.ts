@@ -115,7 +115,7 @@ describe('migrate', () => {
   });
 
   it('refuses a file from a newer version and says what to do', () => {
-    expect(() => migrate({ format: 'arraysheet/10' })).toThrow(/newer version of RigPoint Array/);
+    expect(() => migrate({ format: 'arraysheet/10' })).toThrow(/newer version of RigPoint Array Sheet/);
   });
 
   it('runs each step in order, one version at a time', () => {

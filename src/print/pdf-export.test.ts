@@ -116,7 +116,7 @@ describe('renderPdf', () => {
     expect(title.x).toBeLessThan(40);
     expect(title.y).toBeLessThan(30);
     // The footer, at the landscape bottom, is at the portrait right edge.
-    const footer = items.find((i) => i.page === plot + 1 && i.text.startsWith('RigPoint Array 0.1.0'))!;
+    const footer = items.find((i) => i.page === plot + 1 && i.text.startsWith('RigPoint Array Sheet 0.1.0'))!;
     expect(footer.x).toBeGreaterThan(550);
   });
 
@@ -141,7 +141,7 @@ describe('renderPdf', () => {
     expect(page1.match(/Main stage · Grand Hall/g)).toHaveLength(4);
     expect(page1.match(/Z-axis zero: Arena floor/g)).toHaveLength(4);
     expect(page1.match(/Page 1 of 5/g)?.length).toBeGreaterThanOrEqual(4);
-    expect(page1).toContain('RigPoint Array 0.1.0 · Soundvision 2026.3.1');
+    expect(page1).toContain('RigPoint Array Sheet 0.1.0 · Soundvision 2026.3.1');
     // One credit line under the footer of each of the four panels, below the footer text.
     const credits = (await make(sampleDoc())).items.filter((i) => i.page === 1 && i.text === CREDIT_TEXT);
     expect(credits).toHaveLength(4);

@@ -58,8 +58,8 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         id: './',
-        name: 'RigPoint Array',
-        short_name: 'Array',
+        name: 'RigPoint Array Sheet',
+        short_name: 'Array Sheet',
         description: 'Reads a Soundvision report PDF and shows the array and rigging information from it.',
         lang: 'en-GB',
         start_url: './',

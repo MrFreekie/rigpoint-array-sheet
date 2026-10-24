@@ -24,13 +24,23 @@ describe('sheetModel', () => {
     expect(m.entries.find((e) => e.column.name === 'KARA II L Main')?.coversMirror).toBeUndefined();
   });
 
-  it('applies the ground offset to the heights, and the mirror shares its partner offset', () => {
+  it('applies the ground offset to the heights, and a pair with the same typed offset collapses', () => {
     const doc = docA();
     doc.offsets[0] = '0.4';
-    const m = sheetModel(doc, true);
+    doc.offsets[1] = ' 0.4 ';
+    const m = sheetModel(doc, false);
+    expect(m.hidden.map((h) => h.name)).toContain('KARA II R Main');
     expect(m.entries[0]?.column.topHeight).toBe(9);
-    expect(m.entries[1]?.column.topHeight).toBe(9);
-    expect(m.entries[2]?.column.topHeight).toBe(9.4);
+    expect(m.entries[1]?.column.topHeight).toBe(9.4);
+  });
+
+  it('keeps a card each when the typed offsets of a mirror pair differ, so no height is shown for the wrong array', () => {
+    const doc = docA();
+    doc.offsets[0] = '0.4';
+    const m = sheetModel(doc, false);
+    expect(m.hidden.map((h) => h.name)).not.toContain('KARA II R Main');
+    expect(m.entries[0]?.column.topHeight).toBe(9);
+    expect(m.entries[1]?.column.topHeight).toBe(9.4);
   });
 
   it('hides heights and flags a bad offset', () => {

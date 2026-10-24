@@ -185,8 +185,8 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
   const { doc, model, footer, checks } = input;
   const pdf = await PDFDocument.create();
   pdf.setTitle(panelHeader(doc).title);
-  pdf.setCreator('RigPoint Array');
-  pdf.setProducer('RigPoint Array');
+  pdf.setCreator('RigPoint Array Sheet');
+  pdf.setProducer('RigPoint Array Sheet');
   pdf.setSubject('Soundvision array sheet');
   const fonts: Fonts = { regular: await pdf.embedFont(StandardFonts.Helvetica), bold: await pdf.embedFont(StandardFonts.HelveticaBold) };
   const safe = encodable(fonts.regular);

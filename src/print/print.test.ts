@@ -121,7 +121,7 @@ describe('printFooter', () => {
 
   it('marks a file that was never saved', () => {
     expect(printFooter({ ...base, fileName: null })).toBe(
-      'RigPoint Array 0.1.0 · Soundvision 2026.3.1 · Main stage.arraysheet.json (not saved) · Printed 22/10/2026 09:05',
+      'RigPoint Array Sheet 0.1.0 · Soundvision 2026.3.1 · Main stage.arraysheet.json (not saved) · Printed 22/10/2026 09:05',
     );
   });
 

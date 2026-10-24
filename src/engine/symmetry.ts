@@ -6,7 +6,24 @@
 import type { ArraySource, Point3 } from './types';
 
 const same = (a: number | null, b: number | null) => a === b;
-const mirrored = (a: number | null, b: number | null) => (a === null || b === null ? a === b : a === -b);
+/** An angle taken modulo 360, as the shortest distance from zero. */
+const offFromZero = (turn: number) => {
+  const t = ((turn % 360) + 360) % 360;
+  return Math.min(t, 360 - t);
+};
+
+/** True when `b` faces the way `a` does in a mirror across the centre line: azimuths that add up to 0, taken modulo 360, so 180 and -180 are the same heading. */
+function azimuthLeftRight(a: number | null, b: number | null): boolean {
+  if (a === null || b === null) return a === b;
+  return offFromZero(a + b) < 1e-9;
+}
+
+/** Soundvision's symmetry copies are named with a prefix: "YZ Sym of X" or "XZ Sym of X". The prefix is not part of the name for a pair. */
+const stripSymPrefix = (name: string) => name.replace(/^(?:(?:YZ|XZ) Sym of )+/, '');
+
+/** True when two arrays are in the same groups, once the symmetry prefixes are taken off each group name. */
+const sameGroups = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((g, i) => stripSymPrefix(g) === stripSymPrefix(b[i] ?? ''));
 
 function mirroredPoint(a: Point3 | null, b: Point3 | null): boolean {
   if (a === null || b === null) return a === b;
@@ -30,8 +47,7 @@ function mirroredFrontBack(a: Point3 | null, b: Point3 | null): boolean {
 /** True when `b` faces the way `a` would after a half turn about the Y axis: azimuths that add up to 180, taken modulo 360. */
 function azimuthFrontBack(a: number | null, b: number | null): boolean {
   if (a === null || b === null) return a === b;
-  const turn = (((a + b - 180) % 360) + 360) % 360;
-  return Math.min(turn, 360 - turn) < 1e-9;
+  return offFromZero(a + b - 180) < 1e-9;
 }
 
 /** Which way a pair is mirrored: across the centre line (X = 0), or across the line through the stage (Y = 0). */
@@ -45,10 +61,10 @@ export type MirrorAxis = 'leftRight' | 'frontBack';
 export function isMirror(a: ArraySource, b: ArraySource, across: MirrorAxis = 'leftRight'): boolean {
   if (across === 'frontBack') return isMirrorFrontBack(a, b);
   if (a.position === null || b.position === null || a.position.x === 0) return false;
-  if (a.groups.length !== b.groups.length || a.groups.some((g, i) => g !== b.groups[i])) return false;
+  if (!sameGroups(a.groups, b.groups)) return false;
   if (a.configuration !== b.configuration || a.bumper !== b.bumper || a.motors !== b.motors) return false;
   if (!mirroredPoint(a.position, b.position)) return false;
-  if (!same(a.site, b.site) || !mirrored(a.azimuth, b.azimuth)) return false;
+  if (!same(a.site, b.site) || !azimuthLeftRight(a.azimuth, b.azimuth)) return false;
   if (!same(a.bottomElevation, b.bottomElevation) || !same(a.topSite, b.topSite) || !same(a.bottomSite, b.bottomSite)) return false;
   const da = a.dimensions;
   const db = b.dimensions;
@@ -96,7 +112,7 @@ export function isMirror(a: ArraySource, b: ArraySource, across: MirrorAxis = 'l
 
 function isMirrorFrontBack(a: ArraySource, b: ArraySource): boolean {
   if (a.position === null || b.position === null || a.position.y === 0) return false;
-  if (a.groups.length !== b.groups.length || a.groups.some((g, i) => g !== b.groups[i])) return false;
+  if (!sameGroups(a.groups, b.groups)) return false;
   if (a.configuration !== b.configuration || a.bumper !== b.bumper || a.motors !== b.motors) return false;
   if (!mirroredFrontBack(a.position, b.position) || !azimuthFrontBack(a.azimuth, b.azimuth)) return false;
   if (!same(a.site, b.site) || !same(a.bottomElevation, b.bottomElevation) || !same(a.topSite, b.topSite) || !same(a.bottomSite, b.bottomSite)) return false;

@@ -13,7 +13,7 @@ const docB = newDoc(parseFixture('b'), 'b.pdf');
 const docD = newDoc(parseFixture('d'), 'd.pdf');
 const docE = newDoc(parseFixture('e'), 'e.pdf');
 const content = (doc: typeof docA, name: string) => cardContent(sheetModel(doc, true).entries.find((e) => e.column.name === name)!, ctx);
-const options = { footer: 'RigPoint Array 0.1.0 · a.arraysheet.json · Exported 22/10/2026 09:05', draft: false };
+const options = { footer: 'RigPoint Array Sheet 0.1.0 · a.arraysheet.json · Exported 22/10/2026 09:05', draft: false };
 const texts = (ops: DrawOp[]) => ops.flatMap((o) => (o.op === 'text' ? [o.text] : []));
 
 describe('wrap', () => {

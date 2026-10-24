@@ -51,8 +51,10 @@ export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
   const gone = new Set(deletedList(doc));
   const live = new Set(report.flatMap((_, i) => (gone.has(i) ? [] : [i])));
   const noteOf = (i: number) => (doc.notes[i] ?? '').trim();
-  // Two mirrored arrays with different notes keep a card each, so no instruction is hidden.
-  const mirrors = findMirrors(sources, gone, (a, b) => noteOf(a) === noteOf(b));
+  const offsetOf = (i: number) => (doc.offsets[i] ?? '').trim();
+  // Two mirrored arrays with different notes keep a card each, so no instruction is hidden. The same goes for two
+  // arrays whose typed ground offsets differ, because the card would show the heights of only one of them.
+  const mirrors = findMirrors(sources, gone, (a, b) => noteOf(a) === noteOf(b) && offsetOf(a) === offsetOf(b));
   const mirrorToShown = new Map([...mirrors].map(([shown, mirror]) => [mirror, shown]));
   const entries: SheetEntry[] = [];
   const hidden: SheetModel['hidden'] = [];

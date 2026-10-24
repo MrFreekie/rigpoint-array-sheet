@@ -46,7 +46,7 @@ test('report E: the rigging summary on screen lists the fixations and the line t
 test('a file that is not a PDF or an app file is refused with a plain message', async ({ page }) => {
   await start(page);
   await page.getByTestId('open-file').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
-  await expect(page.getByRole('alert')).toContainText('That is not a PDF or a RigPoint Array file');
+  await expect(page.getByRole('alert')).toContainText('That is not a PDF or a RigPoint Array Sheet file');
   await openPdf(page, Buffer.from('this is not a pdf'), 'broken.pdf');
   await expect(page.getByRole('alert')).toContainText(/not a valid PDF|could not be read/);
 });

@@ -1,7 +1,7 @@
 {
   "name": "rigpoint-array-sheet",
   "version": "0.1.0",
-  "description": "RigPoint Array: reads a Soundvision report PDF and shows only the rigging and array information from it.",
+  "description": "RigPoint Array Sheet: reads a Soundvision report PDF and shows only the rigging and array information from it.",
   "private": true,
   "license": "CC-BY-NC-4.0",
   "type": "module",

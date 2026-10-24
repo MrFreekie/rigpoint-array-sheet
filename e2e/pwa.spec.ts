@@ -20,8 +20,8 @@ test('the web manifest makes the app installable and registers file and share ha
   const href = await page.locator('link[rel="manifest"]').getAttribute('href');
   const manifest = await (await request.get(new URL(href!, baseURL).href)).json();
   expect(manifest).toMatchObject({
-    name: 'RigPoint Array',
-    short_name: 'Array',
+    name: 'RigPoint Array Sheet',
+    short_name: 'Array Sheet',
     display: 'standalone',
     start_url: './',
     scope: './',

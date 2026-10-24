@@ -3,10 +3,10 @@
 // layer 1 (a file input to open, a download to save).
 
 const OPEN_TYPES: FilePickerAcceptType[] = [
-  { description: 'RigPoint Array file or Soundvision PDF', accept: { 'application/json': ['.json'], 'application/pdf': ['.pdf'] } },
+  { description: 'RigPoint Array Sheet file or Soundvision PDF', accept: { 'application/json': ['.json'], 'application/pdf': ['.pdf'] } },
 ];
 const SAVE_TYPES: FilePickerAcceptType[] = [
-  { description: 'RigPoint Array file', accept: { 'application/json': ['.json'] } },
+  { description: 'RigPoint Array Sheet file', accept: { 'application/json': ['.json'] } },
 ];
 
 /** Picker id, so the browser remembers the folder last used. */
