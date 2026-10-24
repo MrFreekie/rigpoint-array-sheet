@@ -4,6 +4,7 @@
 import { matchByName } from '../engine/compare';
 import { defaultPair, isDefaultPair, trackMarkers, type Marker, type MarkerPair, type PickupSide } from '../engine/markers';
 import type { ParseResult, Problem } from '../engine/types';
+import type { Underlay } from '../engine/underlay';
 
 export const STATUSES = ['draft', 'issued', 'approved', 'superseded'] as const;
 export type Status = (typeof STATUSES)[number];
@@ -71,6 +72,8 @@ export interface Doc {
   markers: Record<number, MarkerPair>;
   /** The same choices while the file is read-only. Never saved. Null when there is nothing to override. */
   markerOverride: Record<number, MarkerPair> | null;
+  /** The venue drawn grey under the rigging plot, as plan lines, or null when none was imported. Saved in the file. */
+  underlay: Underlay | null;
 }
 
 export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true, notes: '', showDate: '' };
@@ -93,6 +96,7 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     printOverride: null,
     markers: {},
     markerOverride: null,
+    underlay: null,
   };
 }
 
@@ -141,7 +145,7 @@ export function editKey(doc: Doc): string {
     Object.entries(r)
       .filter(([, text]) => text.trim() !== '')
       .sort(([a], [b]) => Number(a) - Number(b));
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc)]);
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), doc.underlay]);
 }
 
 /** The plot symbols that are not the default, by position, in order. Only what is saved counts, not a read-only file's override. */
@@ -162,6 +166,17 @@ export function withMarker(doc: Doc, index: number, side: PickupSide, marker: Ma
   const set = (from: Record<number, MarkerPair>): Record<number, MarkerPair> => ({ ...from, [index]: { ...(from[index] ?? defaultPair()), [side]: marker } });
   if (doc.locked) return { ...doc, markerOverride: set(doc.markerOverride ?? doc.markers) };
   return { ...doc, markers: set(doc.markers), markerOverride: null };
+}
+
+/** Import a venue, or remove it with null. Replacing one starts with every layer on. A read-only file cannot change. */
+export function withUnderlay(doc: Doc, underlay: Underlay | null): Doc {
+  return doc.locked ? doc : { ...doc, underlay };
+}
+
+/** Show or hide one layer of the venue. A read-only file cannot change. */
+export function withLayerHidden(doc: Doc, name: string, hidden: boolean): Doc {
+  if (doc.locked || !doc.underlay) return doc;
+  return { ...doc, underlay: { layers: doc.underlay.layers.map((l) => (l.name === name ? { ...l, hidden } : l)) } };
 }
 
 /** Positions in the report of the deleted arrays, in order. */

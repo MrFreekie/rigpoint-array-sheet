@@ -49,6 +49,18 @@ A symbol is grey on the plot, and its shape is greyed in the list, when its rati
 
 The plot is drawn only from the report. It does not show shackles, slings, trusses, motors or any other rigging, and the pickup symbol is a nominal guide. It is a design aid, not a CAD drawing.
 
+### Venue under the plot
+
+Under the plot on screen is a Venue under the plot box. It takes the text file that SU4SV writes, the SketchUp to Soundvision converter, and draws the venue as a pale grey line drawing under the plot, to give the arrays some context. Choose Import venue and pick the file. It must be in metres. Choose Replace venue to use another file, or Remove venue to take it away again.
+
+Only the plan is kept. Every face in the model becomes lines, lines that are drawn twice are kept once, and the height is dropped, except that it picks the shade: the lowest parts are the darkest grey and the highest the lightest. All the lines are the same thin weight. The seats and everything else in the file are kept, so keep the SketchUp model basic. A model with more than 60,000 lines after duplicates are removed, more than 300 layers, or a file over 8 MB is refused with a message. Simplify the model in SketchUp, for example by deleting detail the plot does not need, and export it again.
+
+The venue never changes the plot. The scale and the page come from the arrays and the origin only, so a venue much bigger than the arrays is cut at the edge of the plot, and a small one does not make the plot any bigger. The coordinates in the file are used as they are, because SU4SV writes them in the same axes as Soundvision, with the origin of the Soundvision report at 0,0.
+
+The layers of the file are SketchUp layers, and each has a tick under Layers to show. Every layer is on when a venue is imported, because the names are not the same in every model. Untick the ones you do not want, such as roof trusses that cover the arrays. Which layers are on is kept with the file. The converted lines are kept in the saved file too, not the original text, and Update from PDF keeps them. An approved or superseded file cannot have a venue imported, changed or removed.
+
+Under Download DXF is an Include venue in the DXF tick, off to start with. When it is on, the DXF carries the layers that are shown, every line of them and not only the part inside the plot page, at full size in millimetres like the rest of the file. Each SketchUp layer is a DXF layer of its own, named VENUE_ and the SketchUp layer name, so you can switch them off in your CAD program. The greys follow the height, and the height itself is not kept.
+
 ### Download DXF
 
 Under the plot on screen is a Download DXF button. It saves the same plot as a DXF file that CAD programs open. The units are millimetres at full size (1:1), and the app says so beside the button and inside the file. The origin of the Soundvision report is 0,0, +X is towards house left and +Y is towards the audience, so every coordinate is the report's figure in metres times 1000. A 1.2 m wide array is 1200 units wide. When you bring the file into your CAD program, choose millimetres if it asks.

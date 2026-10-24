@@ -1,8 +1,9 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/8").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/9").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
 import { MARKER_TEXT_MAX, SHAPES } from '../engine/markers';
+import { UNDERLAY_MAX_EDGES, UNDERLAY_MAX_LAYERS, UNDERLAY_NAME_MAX, UNDERLAY_STEPS, unpackEdges } from '../engine/underlay';
 import { STATUSES } from '../files/doc';
 import {
   MAX_CABINETS_PER_SOURCE,
@@ -18,7 +19,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 8;
+export const FORMAT_VERSION = 9;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -33,6 +34,30 @@ const MarkerSchema = z.object({
   shape: z.enum(SHAPES, { error: 'A pickup symbol must be 2 t, 1 t, 0.5 t or 0.25 t' }),
   text: z.string({ error: 'The symbol value must be text' }).max(MARKER_TEXT_MAX, { error: 'The symbol value is too long' }),
 });
+
+/** The longest packed line list for one shade of one layer: far more than the line limit needs. */
+const PACKED_MAX = 2_000_000;
+
+const UnderlaySchema = z
+  .object({
+    layers: z.array(
+      z.object({
+        name: z.string({ error: 'A venue layer name must be text' }).min(1, { error: 'A venue layer needs a name' }).max(UNDERLAY_NAME_MAX, { error: 'A venue layer name is too long' }),
+        hidden: z.boolean({ error: 'A venue layer must be shown or hidden' }),
+        shades: z
+          .array(
+            z.object({
+              step: z.number({ error: 'A venue shade must be a number' }).int({ error: 'A venue shade must be a whole number' }).min(0, { error: 'A venue shade is out of range' }).max(UNDERLAY_STEPS - 1, { error: 'A venue shade is out of range' }),
+              edges: z.string({ error: 'Venue lines must be text' }).max(PACKED_MAX, { error: 'The venue lines are too long' }),
+            }),
+            { error: 'Venue shades must be a list' },
+          )
+          .max(UNDERLAY_STEPS, { error: 'A venue layer has too many shades' }),
+      }),
+      { error: 'Venue layers must be a list' },
+    ).max(UNDERLAY_MAX_LAYERS, { error: 'The venue has too many layers' }),
+  })
+  .nullable();
 
 const text = (what: string, max = 500) => z.string({ error: `${what} must be text` }).max(max, { error: `${what} is too long` });
 
@@ -64,6 +89,7 @@ export const ArrayFileSchema = z
     notes: z.array(text('Notes', NOTES_MAX), { error: 'Notes must be a list' }),
     deleted: z.array(z.boolean({ error: 'Deleted must be true or false' }), { error: 'Deleted choices must be a list' }),
     markers: z.array(z.object({ front: MarkerSchema, rear: MarkerSchema }), { error: 'Pickup symbols must be a list' }),
+    underlay: UnderlaySchema,
     report: ReportSchema,
     problems: z.array(ProblemSchema, { error: 'Problems must be a list' }).max(MAX_PROBLEMS, { error: 'There are too many problems listed' }),
   })
@@ -97,6 +123,17 @@ export const ArrayFileSchema = z
         if (/[\u0000-\u001f\u007f]/.test(pair[side].text)) ctx.addIssue({ code: 'custom', path: ['markers', i, side, 'text'], message: 'A symbol value cannot hold line breaks or control characters' });
       }
     });
+    if (file.underlay) {
+      let edges = 0;
+      file.underlay.layers.forEach((layer, li) =>
+        layer.shades.forEach((shade, si) => {
+          const lines = unpackEdges(shade.edges);
+          if (lines === null) ctx.addIssue({ code: 'custom', path: ['underlay', 'layers', li, 'shades', si, 'edges'], message: 'The venue lines could not be read' });
+          else edges += lines.length / 4;
+        }),
+      );
+      if (edges > UNDERLAY_MAX_EDGES) ctx.addIssue({ code: 'custom', path: ['underlay'], message: `The venue has more than ${UNDERLAY_MAX_EDGES} lines` });
+    }
     if (file.job.show_date !== '' && !isShowDate(file.job.show_date)) {
       ctx.addIssue({ code: 'custom', path: ['job', 'show_date'], message: 'The show date must be a real date or blank' });
     }

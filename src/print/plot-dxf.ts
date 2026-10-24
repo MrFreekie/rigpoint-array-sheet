@@ -38,6 +38,9 @@ const LAYERS: Layer[] = [
   { name: 'NOTES', colour: 7, linetype: 'CONTINUOUS' },
 ];
 
+/** The greys of the venue lines, darkest for the lowest part: AutoCAD colours 251 to 254. */
+const VENUE_ACI = [251, 252, 253, 254] as const;
+
 /** Plain ASCII only: anything else is written as \U+XXXX, which CAD programs show as the character. */
 export function dxfText(text: string): string {
   return Array.from(text.replace(/[\r\n]+/g, ' '))
@@ -70,9 +73,10 @@ class Writer {
     this.maxX = Math.max(this.maxX, x);
     this.maxY = Math.max(this.maxY, y);
   }
-  line(layer: string, x1: number, y1: number, x2: number, y2: number): void {
+  line(layer: string, x1: number, y1: number, x2: number, y2: number, colour?: number): void {
     this.g(0, 'LINE');
     this.g(8, layer);
+    if (colour !== undefined) this.g(62, colour);
     this.g(10, x1);
     this.g(20, y1);
     this.g(30, 0);
@@ -112,7 +116,7 @@ class Writer {
 /** The long dashes of an array box, in millimetres. */
 const DASH = { dashed: [300, 150], dashDot: [600, 200, 0, 200] } as const;
 
-function header(ext: { minX: number; minY: number; maxX: number; maxY: number }, note: string): string[] {
+function header(ext: { minX: number; minY: number; maxX: number; maxY: number }, note: string, layers: readonly Layer[]): string[] {
   const h: string[] = [];
   const g = (code: number, value: string | number) => h.push(String(code), typeof value === 'number' ? num(value) : value);
   g(999, 'RigPoint Array rigging plot');
@@ -162,8 +166,8 @@ function header(ext: { minX: number; minY: number; maxX: number; maxY: number },
   g(0, 'ENDTAB');
   g(0, 'TABLE');
   g(2, 'LAYER');
-  g(70, LAYERS.length);
-  for (const l of LAYERS) {
+  g(70, layers.length);
+  for (const l of layers) {
     g(0, 'LAYER');
     g(2, l.name);
     g(70, 0);
@@ -209,13 +213,32 @@ export function wrapChars(text: string, max: number): string[] {
  * The plot as DXF text, or null when nothing can be drawn. Coordinates are millimetres: the report's metres times 1000,
  * origin at 0,0, +X towards house left. `measure` is the one the plot page uses, so the labels sit where the page puts them.
  */
-export function plotDxf(input: PlotInput, measure: Measure): string | null {
+export function plotDxf(input: PlotInput, measure: Measure, options: { venue?: boolean } = {}): string | null {
   if (input.arrays.length === 0) return null;
   const page = layoutPlotPages(input, measure)[0];
   const plan = page?.plan;
   if (!plan) return null;
   const w = new Writer();
   const mm = (m: number) => m * 1000;
+
+  // The venue first, if asked: every line, not only those inside the plot frame, at full size (the lines are in centimetres, so times 10 for millimetres). Each SketchUp layer is a layer of its own.
+  const venueLayers: Layer[] = [];
+  if (options.venue && input.venue && input.venue.length > 0) {
+    const taken = new Set(LAYERS.map((l) => l.name));
+    for (const layer of input.venue) {
+      const base = `VENUE_${layer.name}`.replace(/[^A-Za-z0-9_$-]/g, '_').slice(0, 31);
+      let name = base;
+      for (let n = 2; taken.has(name.toUpperCase()); n++) name = `${base.slice(0, 31 - String(n).length - 1)}_${n}`;
+      taken.add(name.toUpperCase());
+      venueLayers.push({ name, colour: 8, linetype: 'CONTINUOUS' });
+      for (const shade of layer.shades) {
+        const colour = VENUE_ACI[shade.step] ?? 8;
+        for (let i = 0; i + 3 < shade.edges.length; i += 4) {
+          w.line(name, (shade.edges[i] as number) * 10, (shade.edges[i + 1] as number) * 10, (shade.edges[i + 2] as number) * 10, (shade.edges[i + 3] as number) * 10, colour);
+        }
+      }
+    }
+  }
   // Paper millimetres on the plot page to real millimetres, and back to the page's own y direction.
   const wx = (px: number) => ((px - plan.ox) / plan.mmPerM) * 1000;
   const wy = (py: number) => ((plan.oy - py) / plan.mmPerM) * 1000;
@@ -307,8 +330,9 @@ export function plotDxf(input: PlotInput, measure: Measure): string | null {
     y -= pitch;
   }
 
-  const out = [...header({ minX: w.minX, minY: w.minY, maxX: w.maxX, maxY: w.maxY }, `Coordinates are the Soundvision report's metres times 1000.`)];
-  out.push('0', 'SECTION', '2', 'ENTITIES', ...w.lines(), '0', 'ENDSEC', '0', 'EOF');
+  const out = [...header({ minX: w.minX, minY: w.minY, maxX: w.maxX, maxY: w.maxY }, `Coordinates are the Soundvision report's metres times 1000.`, [...LAYERS, ...venueLayers])];
+  // Not spread into push: a big venue has more entries than a call can take.
+  const body = out.concat(['0', 'SECTION', '2', 'ENTITIES'], w.lines(), ['0', 'ENDSEC', '0', 'EOF']);
   // Lines are written in pairs: a group code, then its value.
-  return `${out.join('\r\n')}\r\n`;
+  return `${body.join('\r\n')}\r\n`;
 }

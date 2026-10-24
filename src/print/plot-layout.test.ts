@@ -92,8 +92,8 @@ describe('the plot page', () => {
         expect(p.overflow, n).toBe(false);
         for (const o of p.ops) {
           const box = o.op === 'text' ? textBox(o) : null;
-          const xs = o.op === 'text' ? [box!.x0, box!.x1] : o.op === 'line' ? [o.x1, o.x2] : [o.cx - o.r, o.cx + o.r];
-          const ys = o.op === 'text' ? [box!.y0, box!.y1] : o.op === 'line' ? [o.y1, o.y2] : [o.cy - o.r, o.cy + o.r];
+          const xs = o.op === 'text' ? [box!.x0, box!.x1] : o.op === 'line' ? [o.x1, o.x2] : o.op === 'segs' ? o.pts.filter((_, k) => k % 2 === 0) : [o.cx - o.r, o.cx + o.r];
+          const ys = o.op === 'text' ? [box!.y0, box!.y1] : o.op === 'line' ? [o.y1, o.y2] : o.op === 'segs' ? o.pts.filter((_, k) => k % 2 === 1) : [o.cy - o.r, o.cy + o.r];
           for (const x of xs) {
             expect(x, `${n} ${JSON.stringify(o)}`).toBeGreaterThanOrEqual(-0.01);
             expect(x, `${n} ${JSON.stringify(o)}`).toBeLessThanOrEqual(PLOT_W_MM + 0.01);

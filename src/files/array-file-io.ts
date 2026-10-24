@@ -2,6 +2,7 @@
 // it has passed the size limit, the format check, any upgrade steps and the schema.
 
 import { defaultPair, isDefaultPair, type MarkerPair } from '../engine/markers';
+import { packEdges, unpackEdges, type Underlay } from '../engine/underlay';
 import { ArrayFileSchema, FORMAT, type ArrayFile } from '../schema/array-file';
 import { formatIssues } from '../schema/errors';
 import { editKey, statusLocks, type Doc } from './doc';
@@ -38,6 +39,9 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
       const pair = doc.markers[i] ?? defaultPair();
       return { front: { ...pair.front }, rear: { ...pair.rear } };
     }),
+    underlay: doc.underlay
+      ? { layers: doc.underlay.layers.map((l) => ({ name: l.name, hidden: l.hidden, shades: l.shades.map((sh) => ({ step: sh.step, edges: packEdges(sh.edges) })) })) }
+      : null,
     report: doc.result.report,
     problems: doc.result.problems,
   };
@@ -94,6 +98,9 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
   f.markers.forEach((pair, i) => {
     if (!isDefaultPair(pair)) markers[i] = pair;
   });
+  const underlay: Underlay | null = f.underlay
+    ? { layers: f.underlay.layers.map((l) => ({ name: l.name, hidden: l.hidden, shades: l.shades.map((sh) => ({ step: sh.step, edges: unpackEdges(sh.edges) ?? [] })) })) }
+    : null;
   const doc: Doc = {
     result: { report: f.report, problems: f.problems, ok: !f.problems.some((p) => p.level === 'error') },
     sourceName: f.source_name,
@@ -122,6 +129,7 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
     printOverride: null,
     markers,
     markerOverride: null,
+    underlay,
   };
   doc.savedKey = editKey(doc);
   return { doc, savedAt: f.saved_at };

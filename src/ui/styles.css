@@ -701,3 +701,33 @@ select {
   min-width: 0;
   text-overflow: ellipsis;
 }
+
+.venue-panel {
+  margin: 0.5rem 0 1rem;
+}
+
+.venue-panel h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.venue-layers {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+/* The on-screen rigging plot sits on white with some space around it, in both themes, as it prints. */
+.plot-frame {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.75rem;
+}

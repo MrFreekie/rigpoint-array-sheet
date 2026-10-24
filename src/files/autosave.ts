@@ -15,7 +15,8 @@ export interface AutosaveRecord {
 
 export interface AutosaveStore {
   get(): Promise<AutosaveRecord | undefined>;
-  set(record: AutosaveRecord): Promise<void>;
+  /** Resolves false when the browser would not keep the copy (no room, or no storage). */
+  set(record: AutosaveRecord): Promise<unknown>;
   clear(): Promise<void>;
 }
 
@@ -36,8 +37,10 @@ export const browserStore: AutosaveStore = {
   async set(record) {
     try {
       await set(KEY, record);
+      return true;
     } catch {
-      // No safety net in this browser; saving to a file still works.
+      // No safety net in this browser (or no room for a big venue); saving to a file still works.
+      return false;
     }
   },
   async clear() {
@@ -49,8 +52,9 @@ export const browserStore: AutosaveStore = {
   },
 };
 
-export async function writeAutosave(store: AutosaveStore, doc: Doc, appVersion: string, now: Date = new Date()): Promise<void> {
-  await store.set({ text: serialiseDoc(doc, appVersion, now), fileName: doc.fileName });
+/** True unless the browser refused to keep the copy. */
+export async function writeAutosave(store: AutosaveStore, doc: Doc, appVersion: string, now: Date = new Date()): Promise<boolean> {
+  return (await store.set({ text: serialiseDoc(doc, appVersion, now), fileName: doc.fileName })) !== false;
 }
 
 export interface Restorable {

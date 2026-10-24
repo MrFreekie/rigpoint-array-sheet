@@ -6,6 +6,7 @@ import { markerOf, type Doc } from '../files/doc';
 import type { SheetModel } from '../ui/sheet-model';
 import { panelHeader } from './panel-header';
 import { riggingSubtitle } from './pdf-layout';
+import { visibleLayers } from '../engine/underlay';
 import type { PlotInput } from './plot-layout';
 
 export type PlotContent = Omit<PlotInput, 'footer'>;
@@ -24,6 +25,7 @@ export function plotContent(doc: Doc, model: SheetModel): PlotContent | null {
     notDrawn,
     origin: doc.job.origin,
     sideLabels: doc.job.sideLabels,
+    venue: visibleLayers(doc.underlay),
     subtitle: riggingSubtitle(doc.job),
     status: panelHeader(doc).status,
   };

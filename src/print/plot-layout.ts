@@ -4,6 +4,7 @@
 
 import { markerPrims, markerValue, RATING_LABEL, SHAPES, isCustom, type Shape } from '../engine/markers';
 import { type PlotArray, type PlotPoint, type Pt2 } from '../engine/plot';
+import { UNDERLAY_STEPS, type UnderlayLayer } from '../engine/underlay';
 import { NOT_STATED } from '../ui/format';
 import { clipMiddle, clipToWidth, wrap, type Measure } from './array-image';
 import { CREDIT_TEXT } from './footer';
@@ -13,19 +14,21 @@ import { PLOT_SMALL_PRINT } from './small-print';
 export const PLOT_W_MM = 284;
 export const PLOT_H_MM = 198;
 
-export type PlotColor = 'ink' | 'grey' | 'faint' | 'grid' | 'dot' | 'axisX' | 'axisY';
+export type PlotColor = 'ink' | 'grey' | 'faint' | 'grid' | 'dot' | 'axisX' | 'axisY' | 'under0' | 'under1' | 'under2' | 'under3';
 
 export type PlotOp =
   | { op: 'line'; x1: number; y1: number; x2: number; y2: number; width: number; color: PlotColor; dash?: number[] }
+  // Many separate lines in one colour and weight, as x1, y1, x2, y2 one after another: the venue underlay.
+  | { op: 'segs'; pts: number[]; width: number; color: PlotColor }
   | { op: 'circle'; cx: number; cy: number; r: number; width: number; color: PlotColor; fill: boolean }
   | { op: 'text'; x: number; y: number; text: string; size: number; bold: boolean; align: 'left' | 'center' | 'right'; color: PlotColor };
 
 export type PlotPalette = Record<PlotColor, string>;
 
 /** On screen the axes are red and green and the array Position is red. */
-export const SCREEN_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', faint: '#9a9a9a', grid: '#d6d6d6', dot: '#d00000', axisX: '#d00000', axisY: '#0a8a0a' };
+export const SCREEN_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', faint: '#9a9a9a', grid: '#d6d6d6', dot: '#d00000', axisX: '#d00000', axisY: '#0a8a0a', under0: '#8c8c8c', under1: '#a6a6a6', under2: '#c0c0c0', under3: '#d8d8d8' };
 /** On paper the axes are black and grey and the dot is black. */
-export const PRINT_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', faint: '#a0a0a0', grid: '#d0d0d0', dot: '#000000', axisX: '#000000', axisY: '#555555' };
+export const PRINT_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', faint: '#a0a0a0', grid: '#d0d0d0', dot: '#000000', axisX: '#000000', axisY: '#555555', under0: '#8c8c8c', under1: '#a6a6a6', under2: '#c0c0c0', under3: '#d8d8d8' };
 
 /** The standard ratios, 1:n, the plot may use. The largest drawing that fits is chosen. */
 export const STANDARD_RATIOS = [50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 2500];
@@ -63,6 +66,8 @@ export interface PlotInput {
   points: readonly PlotPoint[];
   /** Arrays left out because the report lacks a position, size or azimuth. */
   notDrawn: readonly string[];
+  /** The layers of the venue that are on, drawn grey under everything else. They never change the scale or the page. */
+  venue?: readonly UnderlayLayer[];
   /** The note typed as Origin (P0), e.g. "DSE". */
   origin: string;
   /** Name the sides of the plan (House left, House right, Stage, Audience). Off for a show in the round. */
@@ -423,6 +428,54 @@ function stackPosition(ops: PlotOp[], x: number, y: number, r: number) {
   });
 }
 
+/** The part of a segment inside a rectangle (Liang-Barsky), or null when none of it is. */
+function clipSegment(x1: number, y1: number, x2: number, y2: number, r: Rect): [number, number, number, number] | null {
+  if ((x1 < r.x0 && x2 < r.x0) || (x1 > r.x1 && x2 > r.x1) || (y1 < r.y0 && y2 < r.y0) || (y1 > r.y1 && y2 > r.y1)) return null;
+  let t0 = 0;
+  let t1 = 1;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const edge = (p: number, q: number): boolean => {
+    if (p === 0) return q >= 0;
+    const t = q / p;
+    if (p < 0) {
+      if (t > t1) return false;
+      if (t > t0) t0 = t;
+    } else {
+      if (t < t0) return false;
+      if (t < t1) t1 = t;
+    }
+    return true;
+  };
+  if (!edge(-dx, x1 - r.x0) || !edge(dx, r.x1 - x1) || !edge(-dy, y1 - r.y0) || !edge(dy, r.y1 - y1)) return null;
+  return [x1 + t0 * dx, y1 + t0 * dy, x1 + t1 * dx, y1 + t1 * dy];
+}
+
+const hundredth = (v: number) => Math.round(v * 100) / 100;
+/** The venue's hairlines. */
+export const VENUE_WIDTH_MM = 0.1;
+
+/** The venue lines inside the frame, one op for each shade of grey. Lines outside the frame are dropped before any op is built. */
+function venueOps(layers: readonly UnderlayLayer[] | undefined, X: (x: number) => number, Y: (y: number) => number, frame: Rect): PlotOp[] {
+  if (!layers || layers.length === 0) return [];
+  const out: PlotOp[] = [];
+  for (let step = 0; step < UNDERLAY_STEPS; step++) {
+    const pts: number[] = [];
+    for (const layer of layers) {
+      for (const shade of layer.shades) {
+        if (shade.step !== step) continue;
+        const e = shade.edges;
+        for (let i = 0; i + 3 < e.length; i += 4) {
+          const c = clipSegment(X((e[i] as number) / 100), Y((e[i + 1] as number) / 100), X((e[i + 2] as number) / 100), Y((e[i + 3] as number) / 100), frame);
+          if (c) pts.push(hundredth(c[0]), hundredth(c[1]), hundredth(c[2]), hundredth(c[3]));
+        }
+      }
+    }
+    if (pts.length > 0) out.push({ op: 'segs', pts, width: VENUE_WIDTH_MM, color: `under${step}` as PlotColor });
+  }
+  return out;
+}
+
 export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] {
   const pages: PlotPage[] = [];
   const first = input.points.slice(0, PLOT_TABLE_ROWS);
@@ -452,6 +505,9 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const offPage = input.arrays.filter((a) => !kept.has(a.index)).map((a) => a.name);
 
   ops.push(...headerOps(input, 'Rigging plot', ratio, measure));
+
+  // The venue, under everything else, cut to the frame. It has no say in the scale: that comes from the arrays and the origin.
+  ops.push(...venueOps(input.venue, X, Y, FRAME));
 
   // Grid every 10 m in world coordinates, then the frame.
   for (let gx = Math.ceil((FRAME.x0 - ox) / s / GRID_M) * GRID_M; X(gx) <= FRAME.x1; gx += GRID_M) {

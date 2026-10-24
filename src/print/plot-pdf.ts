@@ -25,6 +25,16 @@ export function drawPlotOps(page: PDFPage, fonts: { regular: PDFFont; bold: PDFF
         color: hex(palette[o.color]),
         ...(o.dash ? { dashArray: o.dash.map((d) => d * PT_PER_MM) } : {}),
       });
+    } else if (o.op === 'segs') {
+      const colour = hex(palette[o.color]);
+      for (let k = 0; k + 3 < o.pts.length; k += 4) {
+        page.drawLine({
+          start: { x: PX(o.pts[k + 1] as number), y: PY(o.pts[k] as number) },
+          end: { x: PX(o.pts[k + 3] as number), y: PY(o.pts[k + 2] as number) },
+          thickness: o.width * PT_PER_MM,
+          color: colour,
+        });
+      }
     } else if (o.op === 'circle') {
       const colour = hex(palette[o.color]);
       page.drawCircle({

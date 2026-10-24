@@ -698,7 +698,7 @@ test('picking a pickup symbol and typing a value shows on the plot preview, in t
   // The choice is saved with the file, in the new format.
   const { json } = await save(page);
   const markers = json['markers'] as { front: { shape: string; text: string }; rear: { shape: string; text: string } }[];
-  expect(json['format']).toBe('arraysheet/8');
+  expect(json['format']).toBe('arraysheet/9');
   expect(markers.some((m) => m.front.shape === 'two')).toBe(true);
   expect(markers.some((m) => m.rear.text === '1.5 t')).toBe(true);
 });

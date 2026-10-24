@@ -5,12 +5,12 @@ const one = { shape: 'one', text: '' };
 const plain = { front: one, rear: one };
 
 describe('migrate', () => {
-  it('has a step for each earlier version: 1 to 2, 2 to 3, 3 to 4, 4 to 5, 5 to 6, 6 to 7, and 7 to 8', () => {
-    expect(Object.keys(MIGRATIONS)).toEqual(['1', '2', '3', '4', '5', '6', '7']);
+  it('has a step for each earlier version: 1 to 2, 2 to 3, 3 to 4, 4 to 5, 5 to 6, 6 to 7, 7 to 8, and 8 to 9', () => {
+    expect(Object.keys(MIGRATIONS)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8']);
   });
 
   it('passes a current file through untouched', () => {
-    const file = { format: 'arraysheet/8', x: 1 };
+    const file = { format: 'arraysheet/9', x: 1 };
     expect(migrate(file)).toEqual(file);
   });
 
@@ -20,60 +20,63 @@ describe('migrate', () => {
   });
 
   it('upgrades a damaged version 1 file without crashing, leaving the schema to say what is wrong', () => {
-    expect(migrate({ format: 'arraysheet/1' })).toEqual({ format: 'arraysheet/8', print: [], titles: [], notes: [], deleted: [], markers: [] });
+    expect(migrate({ format: 'arraysheet/1' })).toEqual({ format: 'arraysheet/9', print: [], titles: [], notes: [], deleted: [], markers: [], underlay: null });
     expect(migrate({ format: 'arraysheet/1', report: null })).toMatchObject({ print: [] });
     expect(migrate({ format: 'arraysheet/1', report: { sources: 'many' } })).toMatchObject({ print: [] });
   });
 
   it('upgrades a version 2 file by adding a blank venue, and keeps what is there', () => {
-    const none = { titles: [], notes: [], deleted: [], markers: [] };
-    expect(migrate({ format: 'arraysheet/2', job: { show: 'A' } })).toEqual({ format: 'arraysheet/8', job: { show: 'A', venue: '', origin: '', side_labels: true, notes: '', show_date: '' }, ...none });
-    expect(migrate({ format: 'arraysheet/2' })).toEqual({ format: 'arraysheet/8', ...none });
-    expect(migrate({ format: 'arraysheet/2', job: null })).toEqual({ format: 'arraysheet/8', job: null, ...none });
+    const none = { titles: [], notes: [], deleted: [], markers: [], underlay: null };
+    expect(migrate({ format: 'arraysheet/2', job: { show: 'A' } })).toEqual({ format: 'arraysheet/9', job: { show: 'A', venue: '', origin: '', side_labels: true, notes: '', show_date: '' }, ...none });
+    expect(migrate({ format: 'arraysheet/2' })).toEqual({ format: 'arraysheet/9', ...none });
+    expect(migrate({ format: 'arraysheet/2', job: null })).toEqual({ format: 'arraysheet/9', job: null, ...none });
   });
 
   it('upgrades a version 3 file by changing nothing but the format', () => {
     const rows = [{ number: 1, type: 'SB28' }];
     expect(migrate({ format: 'arraysheet/3', report: { sources: [{ cabinets: rows }] } })).toEqual({
-      format: 'arraysheet/8',
+      format: 'arraysheet/9',
       report: { sources: [{ cabinets: rows }] },
       titles: [''],
       notes: [''],
       deleted: [false],
       markers: [plain],
+      underlay: null,
     });
   });
 
   it('upgrades a version 4 file by changing nothing but the format', () => {
     const fixations = [{ name: 'Fr', at: { x: -2.84, y: 4.6, z: 1 } }];
     expect(migrate({ format: 'arraysheet/4', report: { sources: [{ fixations }] } })).toEqual({
-      format: 'arraysheet/8',
+      format: 'arraysheet/9',
       report: { sources: [{ fixations }] },
       titles: [''],
       notes: [''],
       deleted: [false],
       markers: [plain],
+      underlay: null,
     });
   });
 
   it('upgrades a version 5 file by adding a blank origin and the side labels, and keeps what is there', () => {
-    const none = { titles: [], notes: [], deleted: [], markers: [] };
-    expect(migrate({ format: 'arraysheet/5', job: { show: 'A' } })).toEqual({ format: 'arraysheet/8', job: { show: 'A', origin: '', side_labels: true, notes: '', show_date: '' }, ...none });
-    expect(migrate({ format: 'arraysheet/5', job: null })).toEqual({ format: 'arraysheet/8', job: null, ...none });
+    const none = { titles: [], notes: [], deleted: [], markers: [], underlay: null };
+    expect(migrate({ format: 'arraysheet/5', job: { show: 'A' } })).toEqual({ format: 'arraysheet/9', job: { show: 'A', origin: '', side_labels: true, notes: '', show_date: '' }, ...none });
+    expect(migrate({ format: 'arraysheet/5', job: null })).toEqual({ format: 'arraysheet/9', job: null, ...none });
   });
 
   it('upgrades a version 6 file by giving every array a blank title and note and keeping it', () => {
     const report = { sources: [{ name: 'A' }, { name: 'B' }] };
     expect(migrate({ format: 'arraysheet/6', report, keep: 'me' })).toEqual({
-      format: 'arraysheet/8',
+      format: 'arraysheet/9',
       report,
       keep: 'me',
       titles: ['', ''],
       notes: ['', ''],
       deleted: [false, false],
       markers: [plain, plain],
+      underlay: null,
     });
-    expect(migrate({ format: 'arraysheet/6' })).toEqual({ format: 'arraysheet/8', titles: [], notes: [], deleted: [], markers: [] });
+    expect(migrate({ format: 'arraysheet/6' })).toEqual({ format: 'arraysheet/9', titles: [], notes: [], deleted: [], markers: [], underlay: null });
     expect(migrate({ format: 'arraysheet/6', report: { sources: 'many' } })).toMatchObject({ titles: [], notes: [], deleted: [], markers: [] });
     expect(migrate({ format: 'arraysheet/6', job: { show: 'A' } })).toMatchObject({ job: { show: 'A', notes: '', show_date: '' } });
     expect(migrate({ format: 'arraysheet/6', job: null })).toMatchObject({ job: null });
@@ -81,15 +84,19 @@ describe('migrate', () => {
 
   it('upgrades a version 7 file by giving every pickup of every array the 1 ton symbol', () => {
     const report = { sources: [{ name: 'A' }, { name: 'B' }] };
-    expect(migrate({ format: 'arraysheet/7', report, keep: 'me' })).toEqual({ format: 'arraysheet/8', report, keep: 'me', markers: [plain, plain] });
-    expect(migrate({ format: 'arraysheet/7' })).toEqual({ format: 'arraysheet/8', markers: [] });
+    expect(migrate({ format: 'arraysheet/7', report, keep: 'me' })).toEqual({ format: 'arraysheet/9', report, keep: 'me', markers: [plain, plain], underlay: null });
+    expect(migrate({ format: 'arraysheet/7' })).toEqual({ format: 'arraysheet/9', markers: [], underlay: null });
     expect(migrate({ format: 'arraysheet/7', report: { sources: 'many' } })).toMatchObject({ markers: [] });
+  });
+
+  it('upgrades a version 8 file by giving it no venue, and keeps what is there', () => {
+    expect(migrate({ format: 'arraysheet/8', keep: 'me' })).toEqual({ format: 'arraysheet/9', keep: 'me', underlay: null });
   });
 
   it('upgrades a version 1 file all the way to the current version', () => {
     const out = migrate({ format: 'arraysheet/1', report: { sources: [{}] }, job: { show: 'A' } });
     expect(out).toEqual({
-      format: 'arraysheet/8',
+      format: 'arraysheet/9',
       report: { sources: [{}] },
       job: { show: 'A', venue: '', origin: '', side_labels: true, notes: '', show_date: '' },
       print: [true],
@@ -97,6 +104,7 @@ describe('migrate', () => {
       notes: [''],
       deleted: [false],
       markers: [plain],
+      underlay: null,
     });
   });
 
@@ -107,7 +115,7 @@ describe('migrate', () => {
   });
 
   it('refuses a file from a newer version and says what to do', () => {
-    expect(() => migrate({ format: 'arraysheet/9' })).toThrow(/newer version of RigPoint Array/);
+    expect(() => migrate({ format: 'arraysheet/10' })).toThrow(/newer version of RigPoint Array/);
   });
 
   it('runs each step in order, one version at a time', () => {

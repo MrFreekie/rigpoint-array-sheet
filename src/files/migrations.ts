@@ -56,6 +56,9 @@ export const MIGRATIONS: Record<number, Migration> = {
     const count = Array.isArray(sources) ? sources.length : 0;
     return { ...file, markers: Array.from({ length: count }, () => ({ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } })) };
   },
+  // Version 9 added the venue underlay of the rigging plot. Earlier files had none. An older copy of the app would drop it
+  // when it saved, so it refuses version 9 files.
+  8: (file) => ({ ...file, underlay: null }),
 };
 
 export function migrate(

@@ -64,7 +64,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/8', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/9', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -541,4 +541,126 @@ test('on a read-only file a symbol can still be picked for this session, and is 
   await front.getByRole('combobox').selectOption('two');
   await expect(front.getByRole('combobox')).toHaveValue('two');
   await expect(page.getByText('Unsaved changes')).toHaveCount(0);
+});
+
+const VENUE_TEXT = [
+  '"; Exported by SU4SV v7.0"',
+  '"; LengthUnit","m"',
+  '"Label","Walls 01"',
+  '-20,-6,0',
+  '20,-6,0',
+  '20,50,0',
+  '-20,50,0',
+  '";"',
+  '"Label","Roof 01"',
+  '-15,4,12',
+  '15,4,12',
+  '";"',
+].join('\n');
+const VENUE_OTHER = ['"; LengthUnit","m"', '"Label","Balcony 01"', '-5,0,3', '5,0,3', '";"'].join('\n');
+const venueFile = (text: string, name = 'venue.txt') => ({ name, mimeType: 'text/plain', buffer: Buffer.from(text) });
+
+test('a venue can be imported, shown by layer, replaced and removed, and it never changes the plot', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const plot = page.getByTestId('plot-preview');
+  const svg = plot.getByTestId('plot-svg').first();
+  const scale = async () => (await svg.textContent())?.match(/Scale 1:\d+/)?.[0];
+  const before = await scale();
+  await expect(svg.locator('path')).toHaveCount(0);
+
+  await plot.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
+  await expect(plot.getByText('Imported 5 lines in 2 layers.')).toBeVisible();
+  const layers = plot.getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });
+  await expect(layers.getByLabel(/Walls/)).toBeChecked();
+  await expect(layers.getByLabel(/Roof/)).toBeChecked();
+  expect(await svg.locator('path').count()).toBeGreaterThan(0);
+  expect(await scale()).toBe(before);
+
+  // A layer that is off is not drawn.
+  const drawn = async () => (await svg.locator('path').evaluateAll((ps) => ps.map((p) => p.getAttribute('d')?.length ?? 0).reduce((a, b) => a + b, 0)));
+  const all = await drawn();
+  await layers.getByLabel(/Roof/).uncheck();
+  expect(await drawn()).toBeLessThan(all);
+  await expect(page.getByText('● Unsaved changes')).toBeVisible();
+
+  // It is saved in the file and comes back with the layer still off.
+  const saved = await save(page);
+  expect((saved.json['format'] as string)).toBe('arraysheet/9');
+  expect(saved.text).not.toContain('Label');
+  await openJson(page, 'venue.arraysheet.json', saved.text);
+  const again = page.getByTestId('plot-preview').getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });
+  await expect(again.getByLabel(/Roof/)).not.toBeChecked();
+  await expect(again.getByLabel(/Walls/)).toBeChecked();
+
+  // Replacing starts with every layer on.
+  await page.getByTestId('plot-preview').getByTestId('venue-file').setInputFiles(venueFile(VENUE_OTHER));
+  await expect(page.getByText('Imported 1 line in 1 layer.')).toBeVisible();
+  await expect(page.getByTestId('venue-panel').getByLabel(/Balcony/)).toBeChecked();
+  await expect(page.getByTestId('venue-panel').getByLabel(/Walls/)).toHaveCount(0);
+
+  // Removing it takes it all away.
+  await page.getByRole('button', { name: 'Remove venue' }).click();
+  await expect(page.getByTestId('plot-preview').getByTestId('plot-svg').first().locator('path')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Import venue (SU4SV text file)' })).toBeVisible();
+});
+
+test('a venue file that is not in metres is refused with a plain message', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const plot = page.getByTestId('plot-preview');
+  await plot.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT.replace('"m"', '"ft"')));
+  await expect(plot.getByRole('alert')).toContainText('in ft');
+  await expect(plot.getByRole('button', { name: 'Remove venue' })).toHaveCount(0);
+});
+
+test('Download DXF can include the venue, one DXF layer for each SketchUp layer', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const plot = page.getByTestId('plot-preview');
+  await expect(plot.getByLabel(/Include venue in the DXF/)).toHaveCount(0);
+  await plot.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
+  const tick = plot.getByLabel(/Include venue in the DXF/);
+  await expect(tick).not.toBeChecked();
+  const [without] = await Promise.all([page.waitForEvent('download'), plot.getByRole('button', { name: 'Download DXF' }).click()]);
+  expect(readFileSync(await without.path(), 'ascii')).not.toContain('VENUE_');
+  await tick.check();
+  const [withVenue] = await Promise.all([page.waitForEvent('download'), plot.getByRole('button', { name: 'Download DXF' }).click()]);
+  const lines = readFileSync(await withVenue.path(), 'ascii').split('\r\n');
+  expect(lines).toContain('VENUE_Walls');
+  expect(lines).toContain('VENUE_Roof');
+});
+
+test('an approved file offers no venue changes', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const plot = page.getByTestId('plot-preview');
+  await plot.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
+  await page.getByLabel('Status').selectOption('approved');
+  const saved = await save(page);
+  await openJson(page, 'approved.arraysheet.json', saved.text);
+  const panel = page.getByTestId('plot-preview').getByTestId('venue-panel');
+  await expect(panel.getByRole('button', { name: 'Replace venue (SU4SV text file)' })).toBeDisabled();
+  await expect(panel.getByRole('button', { name: 'Remove venue' })).toBeDisabled();
+  await expect(panel.getByLabel(/Walls/)).toBeDisabled();
+});
+
+test('the on-screen plot has white space around it, stays on white, and does not scroll sideways', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const plot = page.getByTestId('plot-preview');
+  await plot.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
+  await expect(plot.getByText('Imported 5 lines in 2 layers.')).toBeVisible();
+  const frame = plot.locator('.plot-frame').first();
+  await expect(frame).toBeVisible();
+  const style = await frame.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { padding: s.paddingLeft, top: s.paddingTop, bg: s.backgroundColor };
+  });
+  expect(style).toEqual({ padding: '14px', top: '14px', bg: 'rgb(255, 255, 255)' });
+  const box = await frame.boundingBox();
+  const svgBox = await plot.getByTestId('plot-svg').first().boundingBox();
+  expect(svgBox!.x - box!.x).toBeGreaterThanOrEqual(14);
+  expect(svgBox!.x + svgBox!.width).toBeLessThanOrEqual(box!.x + box!.width - 14 + 1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });

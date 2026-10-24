@@ -24,7 +24,8 @@ import { riggingNotes } from '../print/pdf-layout';
 import { PrintSheet } from '../print/PrintSheet';
 import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
-import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withDeleted, withMarker, withNote, withPrinted, withTitle, type Doc, type Job, type Status } from './document';
+import type { Underlay } from '../engine/underlay';
+import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withDeleted, withLayerHidden, withMarker, withNote, withPrinted, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -51,6 +52,8 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [restore, setRestore] = useState<Restorable | null>(null);
+  // The browser would not keep the safety copy, so the person is told to save to a file.
+  const [autosaveFailed, setAutosaveFailed] = useState(false);
   const [compare, setCompare] = useState<PendingCompare | null>(null);
   const [showMirrors, setShowMirrors] = useState(false);
   const [printedAt, setPrintedAt] = useState(() => new Date());
@@ -107,7 +110,7 @@ export function App() {
   // Keep a copy in this browser while there are unsaved changes (a safety net, not a save).
   useEffect(() => {
     if (!doc || restore || !isDirty(doc)) return;
-    const timer = setTimeout(() => void writeAutosave(browserStore, doc, __APP_VERSION__), 800);
+    const timer = setTimeout(() => void writeAutosave(browserStore, doc, __APP_VERSION__).then((ok) => setAutosaveFailed(!ok)), 800);
     return () => clearTimeout(timer);
   }, [doc, restore]);
 
@@ -380,6 +383,8 @@ export function App() {
   const setPrinted = (index: number, printed: boolean) => setDoc((d) => (d ? withPrinted(d, index, printed) : d));
   const setTitle = (index: number, text: string) => setDoc((d) => (d ? withTitle(d, index, text) : d));
   const setNote = (index: number, text: string) => setDoc((d) => (d ? withNote(d, index, text) : d));
+  const setUnderlay = (underlay: Underlay | null) => setDoc((d) => (d ? withUnderlay(d, underlay) : d));
+  const setLayerHidden = (name: string, hidden: boolean) => setDoc((d) => (d ? withLayerHidden(d, name, hidden) : d));
   const setMarker = (index: number, side: PickupSide, marker: Marker) => setDoc((d) => (d ? withMarker(d, index, side, marker) : d));
   const deleteArray = (index: number) => {
     if (!doc || doc.locked) return;
@@ -427,7 +432,7 @@ export function App() {
             {!doc ? (
               <span>Nothing is stored or sent anywhere</span>
             ) : dirty ? (
-              <span className="unsaved">● Unsaved changes</span>
+              <span className="unsaved">● Unsaved changes{autosaveFailed ? '. This browser could not keep a safety copy, so save the file to keep your work.' : ''}</span>
             ) : locked ? (
               <span>Read-only · {doc.fileName}</span>
             ) : (
@@ -631,6 +636,8 @@ export function App() {
             onTitle={setTitle}
             onNote={setNote}
             onMarker={setMarker}
+            onUnderlay={setUnderlay}
+            onLayer={setLayerHidden}
             onPrinted={setPrinted}
             onImage={(entry) => void saveImages([entry])}
             onAllImages={() => model && void saveImages(model.entries.filter((e) => e.print))}
@@ -692,12 +699,14 @@ interface ReportProps {
   onTitle: (i: number, t: string) => void;
   onNote: (i: number, t: string) => void;
   onMarker: (i: number, side: PickupSide, marker: Marker) => void;
+  onUnderlay: (underlay: Underlay | null) => void;
+  onLayer: (name: string, hidden: boolean) => void;
   onPrinted: (i: number, printed: boolean) => void;
   onImage: (entry: SheetEntry) => void;
   onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPrinted, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onUnderlay, onLayer, onPrinted, onImage, onAllImages }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -785,7 +794,7 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
               ))}
             </div>
           </section>
-          <RiggingPlotPreview doc={doc} model={model} />
+          <RiggingPlotPreview doc={doc} model={model} onUnderlay={onUnderlay} onLayer={onLayer} />
           <RiggingSummary rows={riggingRows(model.sources, model.live)} fixations={riggingFixations(model.sources, model.live)} notes={riggingNotes(doc.job)} />
         </>
       ) : null}

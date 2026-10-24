@@ -20,6 +20,8 @@ export {
   updatedDoc,
   visibleProblems,
   withDeleted,
+  withLayerHidden,
+  withUnderlay,
   withMarker,
   withNote,
   withPrinted,

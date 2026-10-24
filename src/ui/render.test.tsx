@@ -221,7 +221,7 @@ describe('rigging plot', () => {
   });
 
   it('shows the under development note above the plot', () => {
-    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} />);
+    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} onUnderlay={() => undefined} onLayer={() => undefined} />);
     expect(html).toContain(PLOT_DEVELOPMENT_NOTE);
     expect(html).toContain('data-testid="plot-svg"');
   });

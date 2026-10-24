@@ -29,6 +29,11 @@ export function PlotSvg({ page, palette, rotated = false, testId, label = 'Riggi
         />
       );
     }
+    if (o.op === 'segs') {
+      let d = '';
+      for (let k = 0; k + 3 < o.pts.length; k += 4) d += `M${o.pts[k]} ${o.pts[k + 1]}L${o.pts[k + 2]} ${o.pts[k + 3]}`;
+      return <path key={i} d={d} fill="none" stroke={palette[o.color]} strokeWidth={o.width} />;
+    }
     if (o.op === 'circle') {
       return (
         <circle
