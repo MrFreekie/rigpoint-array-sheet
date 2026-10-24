@@ -46,7 +46,7 @@ function facts(s: ArraySource): Map<string, string> {
   }
   for (const c of s.cabinets) {
     m.set(
-      c.column ? `Enclosure C${c.column} #${c.number}` : `Enclosure #${c.number}`,
+      c.column ? `Enclosure C${c.column} #${c.number}` : c.row ? `Enclosure R${c.row} #${c.number}` : `Enclosure #${c.number}`,
       `${c.type}, angle ${show(c.angle)}, site ${show(c.site)}, top ${show(c.topZ)}, bottom ${show(c.bottomZ)}, Panflex ${show(c.panflex)}`,
     );
   }

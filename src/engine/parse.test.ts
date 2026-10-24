@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { loadItems, parseFixture } from '../testing/fixtures';
 import { parseSoundvision } from './parse';
 import { flySheetColumn } from './sheet';
-import type { ArraySource, TextItem } from './types';
+import { enclosureLabel, type ArraySource, type TextItem } from './types';
 
 const a = parseFixture('a');
 const b = parseFixture('b');
@@ -457,5 +457,74 @@ describe('fixation lines', () => {
   it('does not understand a position with a figure missing', () => {
     const r = parse((all) => all.map((i, n) => (n === firstFixationLine(all) ? { ...i, text: 'Rear left fixation position (X; Y; Z, m): Rl (-2.16; 3.9)' } : i)));
     expect(r.problems.some((p) => p.message.includes('was not understood'))).toBe(true);
+  });
+});
+
+describe('a stack laid out in rows', () => {
+  const row = (y: number, label: string) => [
+    { page: 1, x: 73, y, text: label },
+    { page: 1, x: 135, y, text: 'SB28' },
+    { page: 1, x: 250, y, text: '0' },
+    { page: 1, x: 322, y, text: '-0.2' },
+    { page: 1, x: 432, y, text: '-0.75' },
+  ];
+  const head = (y: number, text: string) => ({ page: 1, x: 71, y, text });
+  const report = (labels: string[], without?: number) =>
+    parseSoundvision([
+      head(700, 'Distance unit: m'),
+      head(690, 'Weight unit: kg'),
+      head(680, '1. Source: SB'),
+      head(670, '1. 1. Physical configuration'),
+      head(660, 'Configuration: vertical, stacked array'),
+      head(650, 'Position (X; Y; Z, m): 1; 0; 0'),
+      head(640, 'Site: 0 °'),
+      head(630, 'Total weight (Enclosures + Frames): 186 kg'),
+      { page: 1, x: 98, y: 600, text: '#' },
+      { page: 1, x: 149, y: 600, text: 'Type' },
+      { page: 1, x: 207, y: 600, text: 'Site (°)' },
+      { page: 1, x: 273, y: 600, text: 'Top Z (m)' },
+      { page: 1, x: 356, y: 600, text: 'Bottom Z (m)' },
+      ...labels.flatMap((l, i) => row(580 - i * 18, l).filter((c) => c.x !== without)),
+    ]);
+
+  it('keeps the row of each enclosure as printed, with no column', () => {
+    const r = report(['R2 #1', 'R1 #1']);
+    expect(r.problems).toEqual([]);
+    const cabinets = r.report.sources[0]?.cabinets ?? [];
+    expect(cabinets.map((c) => [c.row, c.number, c.column])).toEqual([[2, 1, undefined], [1, 1, undefined]]);
+    expect(cabinets.map((c) => enclosureLabel(c))).toEqual(['R2 #1', 'R1 #1']);
+  });
+
+  it('accepts several enclosures side by side in a row', () => {
+    expect(report(['R1 #1', 'R1 #2', 'R2 #1', 'R2 #2']).problems).toEqual([]);
+    expect(report(['R2 #2', 'R2 #1', 'R1 #2', 'R1 #1']).problems).toEqual([]);
+  });
+
+  it('still catches a missing enclosure within a row', () => {
+    const p = report(['R1 #1', 'R2 #2']).problems;
+    expect(p).toHaveLength(1);
+    expect(p[0]?.message).toMatch(/not numbered in order/);
+  });
+
+  it('catches a row of the stack that is missing', () => {
+    const p = report(['R1 #1', 'R3 #1']).problems;
+    expect(p).toHaveLength(1);
+    expect(p[0]?.message).toMatch(/rows of the stack are not numbered.*found R1, R3/);
+  });
+
+  it('catches a table that mixes plain and row labels, or rows and columns', () => {
+    expect(report(['#1', 'R1 #1']).problems[0]?.message).toMatch(/some do not/);
+    expect(report(['R1 #1', 'C1 #1']).problems[0]?.message).toMatch(/mix columns and rows/);
+  });
+
+  it('names the row when a cell is missing', () => {
+    expect(report(['R2 #1', 'R1 #1'], 250).problems.map((x) => x.message)).toEqual([
+      expect.stringContaining('Enclosure R2 #1, site angle: nothing was found'),
+      expect.stringContaining('Enclosure R1 #1, site angle: nothing was found'),
+    ]);
+  });
+
+  it('does not take row 0 as a row', () => {
+    expect(report(['R0 #1']).problems.length).toBeGreaterThan(0);
   });
 });

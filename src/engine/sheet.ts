@@ -11,6 +11,8 @@ export interface SheetRow {
   number: number;
   /** The column of a ground stack laid out in columns, or null. */
   column: number | null;
+  /** The row of a ground stack laid out in rows, or null. */
+  row: number | null;
   type: string;
   angle: number | null;
   site: number | null;
@@ -76,6 +78,7 @@ export function flySheetColumn(source: ArraySource, groundOffset = 0): FlySheetC
     rows: source.cabinets.map((c) => ({
       number: c.number,
       column: c.column ?? null,
+      row: c.row ?? null,
       type: c.type,
       angle: c.angle,
       site: c.site,

@@ -105,7 +105,7 @@ describe('carts in a saved file', () => {
     const doc = a();
     const i = indexOf(doc, 'KARA II L Main');
     const file = docToFile(withCartBreak(doc, i, 4), '0.1.0', NOW);
-    expect(file.format).toBe('arraysheet/11');
+    expect(file.format).toBe('arraysheet/12');
     expect(file.cart_sizes).toEqual(defaultCartSizes());
     expect(file.carts).toHaveLength(doc.result.report.sources.length);
     expect(file.carts[i]).toEqual({ manual: true, breaks: [3, 4, 6, 9, 12] });

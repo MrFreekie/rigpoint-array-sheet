@@ -83,6 +83,9 @@ export const MIGRATIONS: Record<number, Migration> = {
       carts: Array.isArray(sources) ? sources.map(() => ({ manual: false, breaks: [] })) : [],
     };
   },
+  // Version 12 added the optional row of an enclosure row (ground stacks laid out in rows, "R2 #1"). Nothing in an older file
+  // changes; the step makes older copies of the app refuse every version 12 file, so they cannot open one with rows and drop them.
+  11: (file) => file,
 };
 
 export function migrate(

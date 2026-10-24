@@ -57,6 +57,7 @@ interface Props {
 export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, patch, onPatch, carts, onCartBreak, onCartSize, onCartReset }: Props) {
   const id = useId();
   const hasColumns = c.rows.some((r) => r.column !== null);
+  const hasStackRows = c.rows.some((r) => r.row !== null);
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
   // Every other cart is banded on screen as it is shaded in print, counted from the top, the first one plain.
@@ -252,7 +253,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
                 <th scope="col" className="cart-strip">
                   <span className="visually-hidden">Cart break</span>
                 </th>
-                <th scope="col">{hasColumns ? 'Col #' : '#'}</th>
+                <th scope="col">{hasColumns ? 'Col #' : hasStackRows ? 'Row #' : '#'}</th>
                 <th scope="col" className="left">Type</th>
                 {hasPanflex ? <th scope="col">Panflex</th> : null}
                 {hasAngles ? <th scope="col">Angle</th> : null}

@@ -99,7 +99,7 @@ export function isMirror(a: ArraySource, b: ArraySource, across: MirrorAxis = 'l
     const c = a.cabinets[i];
     const d = b.cabinets[i];
     if (!c || !d) return false;
-    if (c.number !== d.number || (c.column ?? null) !== (d.column ?? null) || c.type !== d.type || !same(c.angle, d.angle) || !same(c.site, d.site)) return false;
+    if (c.number !== d.number || (c.column ?? null) !== (d.column ?? null) || (c.row ?? null) !== (d.row ?? null) || c.type !== d.type || !same(c.angle, d.angle) || !same(c.site, d.site)) return false;
     if (!same(c.topZ, d.topZ) || !same(c.bottomZ, d.bottomZ) || swapPanflex(c.panflex) !== d.panflex) return false;
   }
 
@@ -136,7 +136,7 @@ function isMirrorFrontBack(a: ArraySource, b: ArraySource): boolean {
     const c = a.cabinets[i];
     const d = b.cabinets[i];
     if (!c || !d) return false;
-    if (c.number !== d.number || (c.column ?? null) !== (d.column ?? null) || c.type !== d.type || !same(c.angle, d.angle) || !same(c.site, d.site)) return false;
+    if (c.number !== d.number || (c.column ?? null) !== (d.column ?? null) || (c.row ?? null) !== (d.row ?? null) || c.type !== d.type || !same(c.angle, d.angle) || !same(c.site, d.site)) return false;
     if (!same(c.topZ, d.topZ) || !same(c.bottomZ, d.bottomZ) || c.panflex !== d.panflex) return false;
   }
 

@@ -33,6 +33,8 @@ export interface Cabinet {
   number: number;
   /** The column of a ground stack that is laid out in columns: "C2 #1" is 2. Absent when the row has no column. */
   column?: number | undefined;
+  /** The row of a ground stack that is laid out in rows: "R2 #1" is 2. Absent when the row has no stack row. */
+  row?: number | undefined;
   type: string;
   /** Angle column as printed on this enclosure's row. Null when the table has no Angles column. */
   angle: number | null;
@@ -43,9 +45,11 @@ export interface Cabinet {
   panflex: string | null;
 }
 
-/** How a row's number is printed: "3", or "C2 #1" when the array is laid out in columns. */
-export function enclosureLabel(c: { number: number; column?: number | null | undefined }): string {
-  return c.column ? `C${c.column} #${c.number}` : String(c.number);
+/** How a row's number is printed: "3", "C2 #1" when the array is laid out in columns, or "R2 #1" when it is laid out in rows. */
+export function enclosureLabel(c: { number: number; column?: number | null | undefined; row?: number | null | undefined }): string {
+  if (c.column) return `C${c.column} #${c.number}`;
+  if (c.row) return `R${c.row} #${c.number}`;
+  return String(c.number);
 }
 
 export interface SoundvisionWarning {

@@ -80,8 +80,8 @@ const SOURCE = /^(\d+)\. Source: (.+)$/;
 const PHYSICAL = /^\d+\. 1\. Physical configuration$/;
 const ACOUSTIC = /^\d+\. 2\. Acoustic configuration$/;
 const SEVERITY = /^[A-Z]{4,}$/;
-/** The first cell of an enclosure row: "#3", or "C2 #1" in a ground stack laid out in columns. */
-const ROW_LABEL = /^(?:C([1-9]\d*) )?#(\d+)$/;
+/** The first cell of an enclosure row: "#3", "C2 #1" in a ground stack laid out in columns, or "R2 #1" in one laid out in rows. */
+const ROW_LABEL = /^(?:(?:C([1-9]\d*)|R([1-9]\d*)) )?#(\d+)$/;
 const POINT = '(-?[\\d.]+); (-?[\\d.]+); (-?[\\d.]+)';
 const DEGREES = '(-?[\\d.]+) \\S+';
 
@@ -271,8 +271,9 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
   function tableRow(line: Line, src: ArraySource, table: TableLayout) {
     const first = line.cells[0];
     const label = ROW_LABEL.exec(first?.text ?? '');
-    const number = Number(label?.[2]);
+    const number = Number(label?.[3]);
     const column = label?.[1] === undefined ? undefined : Number(label[1]);
+    const stackRow = label?.[2] === undefined ? undefined : Number(label[2]);
     const typeParts: string[] = [];
     const values: Partial<Record<Column, string[]>> = {};
     for (const cell of line.cells.slice(1)) {
@@ -288,11 +289,11 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     const read = (key: Column, label: string, required: boolean): number | null => {
       const parts = values[key];
       if (!parts || parts.length === 0) {
-        if (required) problem('check', msg.missingCell(number, column, label));
+        if (required) problem('check', msg.missingCell(number, column, stackRow, label));
         return null;
       }
       const value = parts.length === 1 ? num(parts[0] ?? '') : null;
-      if (value === null) problem('check', msg.unreadableCell(number, column, label, parts.join(' ')));
+      if (value === null) problem('check', msg.unreadableCell(number, column, stackRow, label, parts.join(' ')));
       return value;
     };
 
@@ -301,6 +302,7 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     const cabinet: Cabinet = {
       number,
       ...(column === undefined ? {} : { column }),
+      ...(stackRow === undefined ? {} : { row: stackRow }),
       type: typeParts.join(' '),
       // Only the first row of a flown array may have no angle (a K1 hang leaves it blank).
       angle: hasAngles ? read('angle', 'angle', src.mounting === 'flown' && src.cabinets.length > 0) : null,
@@ -426,20 +428,26 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
  * (mixed enclosures, tilted tops, HF stacks), so only their numbering is checked.
  */
 function checkTable(s: ArraySource, note: (level: Problem['level'], message: string) => void) {
-  // A stack laid out in columns numbers each column from #1.
-  const columns = new Map<number, number[]>();
-  for (const c of s.cabinets) columns.set(c.column ?? 0, [...(columns.get(c.column ?? 0) ?? []), c.number]);
-  const stackColumns = [...columns.keys()].filter((k) => k !== 0).sort((a, b) => a - b);
-  if (stackColumns.length > 0 && columns.has(0)) {
+  // A stack laid out in columns numbers each column from #1, and so does one laid out in rows.
+  const groups = new Map<string, number[]>();
+  const key = (c: { column?: number | undefined; row?: number | undefined }) => (c.column ? `C${c.column}` : c.row ? `R${c.row}` : '');
+  for (const c of s.cabinets) groups.set(key(c), [...(groups.get(key(c)) ?? []), c.number]);
+  const labelled = [...groups.keys()].filter((k) => k !== '');
+  const kinds = new Set(labelled.map((k) => k[0]));
+  if ((labelled.length > 0 && groups.has('')) || kinds.size > 1) {
     note('check', msg.mixedColumnRows());
-  } else if (stackColumns.some((k, i) => k !== i + 1)) {
-    note('check', msg.stackColumnNumbering(stackColumns.map((k) => `C${k}`).join(', ')));
+  } else {
+    const found = labelled.map((k) => Number(k.slice(1))).sort((a, b) => a - b);
+    if (found.some((k, i) => k !== i + 1)) {
+      const prefix = [...kinds][0] ?? 'C';
+      note('check', prefix === 'R' ? msg.stackRowNumbering(found.map((k) => `R${k}`).join(', ')) : msg.stackColumnNumbering(found.map((k) => `C${k}`).join(', ')));
+    }
   }
-  for (const numbers of columns.values()) {
+  for (const numbers of groups.values()) {
     const ascending = numbers.every((n, i) => n === i + 1);
     const descending = numbers.every((n, i) => n === numbers.length - i);
     if (!ascending && !descending) {
-      note('check', msg.enclosureNumbering(s.cabinets.map((c) => (c.column ? enclosureLabel(c) : `#${c.number}`)).join(', ')));
+      note('check', msg.enclosureNumbering(s.cabinets.map((c) => (c.column || c.row ? enclosureLabel(c) : `#${c.number}`)).join(', ')));
       break;
     }
   }

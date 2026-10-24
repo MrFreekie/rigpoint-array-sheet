@@ -21,7 +21,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 11;
+export const FORMAT_VERSION = 12;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */

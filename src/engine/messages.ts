@@ -28,21 +28,23 @@ export function noEnclosureTable(): string {
   return `No enclosure table was found. ${CHECK_PDF}`;
 }
 
-/** A row as the report prints it: "#3", or "C2 #1" in a stack laid out in columns. */
-function rowName(row: number, stackColumn: number | undefined): string {
-  return stackColumn === undefined ? `#${row}` : `C${stackColumn} #${row}`;
+/** A row as the report prints it: "#3", "C2 #1" in a stack laid out in columns, or "R2 #1" in one laid out in rows. */
+function rowName(row: number, stackColumn: number | undefined, stackRow: number | undefined): string {
+  if (stackColumn !== undefined) return `C${stackColumn} #${row}`;
+  if (stackRow !== undefined) return `R${stackRow} #${row}`;
+  return `#${row}`;
 }
 
-export function unreadableCell(row: number, stackColumn: number | undefined, column: string, text: string): string {
-  return `Enclosure ${rowName(row, stackColumn)}, ${column}: could not read "${text}" as a number. ${CHECK_PDF}`;
+export function unreadableCell(row: number, stackColumn: number | undefined, stackRow: number | undefined, column: string, text: string): string {
+  return `Enclosure ${rowName(row, stackColumn, stackRow)}, ${column}: could not read "${text}" as a number. ${CHECK_PDF}`;
 }
 
 export function missingColumn(column: string): string {
   return `The enclosure table has no "${column}" column. ${CHECK_PDF}`;
 }
 
-export function missingCell(row: number, stackColumn: number | undefined, column: string): string {
-  return `Enclosure ${rowName(row, stackColumn)}, ${column}: nothing was found. ${CHECK_PDF}`;
+export function missingCell(row: number, stackColumn: number | undefined, stackRow: number | undefined, column: string): string {
+  return `Enclosure ${rowName(row, stackColumn, stackRow)}, ${column}: nothing was found. ${CHECK_PDF}`;
 }
 
 export function enclosureNumbering(found: string): string {
@@ -53,8 +55,12 @@ export function stackColumnNumbering(found: string): string {
   return `The columns of the stack are not numbered C1, C2, C3… with none missing (found ${found}). A column may have been missed. ${CHECK_PDF}`;
 }
 
+export function stackRowNumbering(found: string): string {
+  return `The rows of the stack are not numbered R1, R2, R3… with none missing (found ${found}). A row may have been missed. ${CHECK_PDF}`;
+}
+
 export function mixedColumnRows(): string {
-  return `Some enclosure rows have a column (such as "C1 #1") and some do not. ${CHECK_PDF}`;
+  return `Some enclosure rows have a column or a row of the stack (such as "C1 #1" or "R1 #1") and some do not, or the labels mix columns and rows. ${CHECK_PDF}`;
 }
 
 export function siteDoesNotFollow(row: number): string {

@@ -51,7 +51,7 @@ const FIXATION_NAME_MAX = 12;
  * these leave. The print view, the PDF and the PNG all use this one map (the PNG scales it), so they agree on where each column
  * sits and on how much room Type has.
  */
-export const CARD_TABLE_WIDTHS_MM: Readonly<Record<string, number>> = { '#': 6, 'Col #': 12, Panflex: 13, Angle: 11, Feeder: 12, Way: 9 };
+export const CARD_TABLE_WIDTHS_MM: Readonly<Record<string, number>> = { '#': 6, 'Col #': 12, 'Row #': 12, Panflex: 13, Angle: 11, Feeder: 12, Way: 9 };
 /** Width of each of the X, Y and Z columns of the fixation block, in mm. */
 export const FIXATION_NUMBER_MM = 14;
 
@@ -127,9 +127,10 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
   const hasColumns = c.rows.some((r) => r.column !== null);
+  const hasStackRows = c.rows.some((r) => r.row !== null);
   // The feeder and the way come last. A blank patch is a blank cell, drawn as an empty box, never a dash, because a dash means the
   // report does not state the value. The per enclosure site angle is not on the card.
-  const columns = [hasColumns ? 'Col #' : '#', 'Type', ...(hasPanflex ? ['Panflex'] : []), ...(hasAngles ? ['Angle'] : []), ...PATCH_COLUMNS];
+  const columns = [hasColumns ? 'Col #' : hasStackRows ? 'Row #' : '#', 'Type', ...(hasPanflex ? ['Panflex'] : []), ...(hasAngles ? ['Angle'] : []), ...PATCH_COLUMNS];
   const rows = c.rows.map((r, i) => [
     enclosureLabel(r),
     r.type,
