@@ -304,8 +304,9 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
       ...(column === undefined ? {} : { column }),
       ...(stackRow === undefined ? {} : { row: stackRow }),
       type: typeParts.join(' '),
-      // Only the first row of a flown array may have no angle (a K1 hang leaves it blank).
-      angle: hasAngles ? read('angle', 'angle', src.mounting === 'flown' && src.cabinets.length > 0) : null,
+      // Only the first row of a flown array may have no angle (a K1 hang leaves it blank), and so may a rigid
+      // enclosure that does not move from the site of the one above (such as an SB18 in a hang).
+      angle: hasAngles ? read('angle', 'angle', src.mounting === 'flown' && src.cabinets.length > 0 && !(site !== null && sameSiteAsAbove(src, site))) : null,
       site,
       topZ: read('topZ', 'top height', true),
       bottomZ: read('bottomZ', 'bottom height', true),
@@ -420,6 +421,12 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
   return { report: { document, sources }, problems, ok: !problems.some((p) => p.level === 'error') };
 }
 
+/** True when a row's site is the same as the one above it, so a missing angle loses nothing. */
+function sameSiteAsAbove(src: ArraySource, site: number): boolean {
+  const above = src.cabinets[src.cabinets.length - 1];
+  return above?.site != null && Math.abs(above.site - site) <= SITE_TOLERANCE;
+}
+
 /**
  * Cross-checks that a flown table was read correctly, using figures the PDF prints. In a flown array
  * each row's site angle is the one above minus its angle, and the top and bottom site match the first
@@ -462,7 +469,10 @@ function checkTable(s: ArraySource, note: (level: Problem['level'], message: str
     const above = s.cabinets[i - 1];
     const here = s.cabinets[i];
     if (!above || !here) continue;
-    if (here.angle !== null && above.site !== null && here.site !== null && Math.abs(above.site - here.angle - here.site) > SITE_TOLERANCE) {
+    // Where the type changes and the site does not move, Soundvision prints an angle that does not
+    // subtract (an SB18 block above KARA II is read this way), so that junction is not a reading error.
+    const typeChangeAtSameSite = here.type !== above.type && above.site !== null && here.site !== null && Math.abs(above.site - here.site) <= SITE_TOLERANCE;
+    if (here.angle !== null && above.site !== null && here.site !== null && !typeChangeAtSameSite && Math.abs(above.site - here.angle - here.site) > SITE_TOLERANCE) {
       note('check', msg.siteDoesNotFollow(here.number));
     }
   }
