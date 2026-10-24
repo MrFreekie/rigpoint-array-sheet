@@ -213,7 +213,7 @@ test('update from a newer PDF: nothing to update, then a list of differences', a
   await page.getByTestId('update-file').setInputFiles({ name: 'newer.pdf', mimeType: 'application/pdf', buffer: samplePdf('b') });
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('The new PDF is different', { timeout: 20_000 });
-  await expect(dialog).toContainText('Your show details, ground offsets, titles, notes and plot symbols are kept');
+  await expect(dialog).toContainText('Your show details, ground offsets, titles, notes, plot symbols and cable patches are kept');
   await dialog.getByRole('button', { name: 'Keep as saved' }).click();
   await expect(page.locator('.card')).toHaveCount(9, { timeout: 20_000 });
 
