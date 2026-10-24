@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
-import { newDoc, withDeleted, withNote, withPrinted, withTitle } from './document';
+import { newDoc, patchOf, withDeleted, withNote, withPatch, withPrinted, withTitle } from './document';
 import { sheetModel } from './sheet-model';
 
 const docA = () => newDoc(parseFixture('a'), 'a.pdf');
@@ -11,7 +11,7 @@ describe('sheetModel', () => {
     expect(m.entries).toHaveLength(9);
     expect(m.mirrorPairs).toBe(9);
     expect(m.hidden).toHaveLength(9);
-    expect(m.hidden[0]).toEqual({ name: 'KARA II R Main', mirrorOf: 'KARA II L Main' });
+    expect(m.hidden[0]).toEqual({ name: 'KARA II R Main', mirrorOf: 'KARA II L Main', patchDiffers: false });
     expect(m.entries[0]?.coversMirror).toBe('KARA II R Main');
     expect(m.entries[0]?.mirrorOf).toBeUndefined();
   });
@@ -137,5 +137,47 @@ describe('sheetModel with deleted arrays, titles and notes', () => {
   it('still collapses a pair that carries the same note', () => {
     const doc = withNote(withNote(docA(), 0, 'Same'), 1, ' Same ');
     expect(sheetModel(doc, false).entries.find((e) => e.index === 0)?.coversMirror).toBe('KARA II R Main');
+  });
+});
+
+describe('sheetModel cable patch', () => {
+  it('gives each card its own array patch, one row for each enclosure', () => {
+    const doc = withPatch(docA(), 0, 2, 'feeder', '7');
+    const m = sheetModel(doc, false);
+    expect(m.entries[0]?.patch).toHaveLength(m.entries[0]?.column.rows.length ?? -1);
+    expect(m.entries[0]?.patch[2]).toEqual({ feeder: '7', way: '' });
+    expect(m.entries[1]?.patch.every((r) => r.feeder === '' && r.way === '')).toBe(true);
+  });
+
+  it('a collapsed pair shows the shown array patch only, and says when the partner differs', () => {
+    const doc = withPatch(docA(), 1, 0, 'way', '3');
+    const m = sheetModel(doc, false);
+    expect(m.hidden[0]).toMatchObject({ name: 'KARA II R Main', mirrorOf: 'KARA II L Main', patchDiffers: true });
+    expect(m.entries[0]?.patch.every((r) => r.way === '')).toBe(true);
+    expect(m.hidden.filter((h) => h.patchDiffers)).toHaveLength(1);
+  });
+
+  it('a pair with different patches still collapses, and each card shows its own patch when the mirrors are shown', () => {
+    const doc = withPatch(withPatch(docA(), 0, 0, 'feeder', '1'), 1, 0, 'feeder', '2');
+    const hidden = sheetModel(doc, false);
+    expect(hidden.entries).toHaveLength(9);
+    expect(hidden.mirrorPairs).toBe(9);
+    const shown = sheetModel(doc, true);
+    expect(shown.hidden).toEqual([]);
+    expect(shown.entries.find((e) => e.index === 0)?.patch[0]?.feeder).toBe('1');
+    expect(shown.entries.find((e) => e.index === 1)?.patch[0]?.feeder).toBe('2');
+  });
+
+  it('the same patch on both does not raise the notice, and a deleted partner is left alone', () => {
+    const same = withPatch(withPatch(docA(), 0, 0, 'feeder', '1'), 1, 0, 'feeder', '1');
+    expect(sheetModel(same, false).hidden.some((h) => h.patchDiffers)).toBe(false);
+    expect(patchOf(same, 1)[0]?.feeder).toBe('1');
+  });
+
+  it('does not change which arrays are paired', () => {
+    const plain = sheetModel(docA(), false);
+    const patched = sheetModel(withPatch(docA(), 1, 0, 'way', '3'), false);
+    expect(patched.hidden.map((h) => h.name)).toEqual(plain.hidden.map((h) => h.name));
+    expect(patched.mirrorPairs).toBe(plain.mirrorPairs);
   });
 });

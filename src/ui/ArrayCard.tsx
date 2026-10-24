@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import type { FlySheetColumn } from '../engine/sheet';
 import { cleanMarkerText, MARKER_TEXT_MAX, RATING_LABEL, SHAPE_NAME, SHAPES, type Marker, type MarkerPair, type PickupSide, type Shape } from '../engine/markers';
+import { PATCH_COLOURS, PATCH_DIGITS, type PatchDigit, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
 import { enclosureLabel } from '../engine/types';
 import { FIXATION_COLUMNS, fixationName, pickupFact, warningText } from '../print/card-content';
 import { NOTES_MAX, TITLE_MAX } from '../schema/array-file';
@@ -37,13 +38,16 @@ interface Props {
   /** The plot symbol of each pickup, and how to change one. A read-only file keeps a change for this session only. */
   markers: MarkerPair;
   onMarker: (side: PickupSide, marker: Marker) => void;
+  /** The feeder and way of each enclosure row, and how to change one. Read-only files cannot change. */
+  patch: PatchRow[];
+  onPatch: (row: number, field: PatchField, value: PatchValue) => void;
   /** Deletes this array. Not offered on a read-only file. */
   onDelete?: (() => void) | undefined;
   /** True when the offset in use comes from the "every array" field. */
   usingDefault: boolean;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, patch, onPatch }: Props) {
   const id = useId();
   const hasColumns = c.rows.some((r) => r.column !== null);
   const hasAngles = c.rows.some((r) => r.angle !== null);
@@ -126,7 +130,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
 
       {c.fixations.length > 0 ? (
         <div className="table-wrap fixations">
-          <table>
+          <table className="card-table">
             <caption className="visually-hidden">Fixation positions of {c.name}, as listed in the report</caption>
             <thead>
               <tr>
@@ -140,7 +144,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
             <tbody>
               {c.fixations.map((f, i) => (
                 <tr key={i}>
-                  <th scope="row" title={f.name}>
+                  <th scope="row" className="left" title={f.name}>
                     {fixationName(f.name)}
                   </th>
                   <td className="n">{f.at.x}</td>
@@ -227,22 +231,24 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         <p className="muted">No enclosure table was found for this array.</p>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="card-table">
             <caption className="visually-hidden">Enclosures of {c.name}, as listed in the report</caption>
             <thead>
               <tr>
                 <th scope="col">{hasColumns ? 'Col #' : '#'}</th>
-                <th scope="col">Type</th>
+                <th scope="col" className="left">Type</th>
                 {hasAngles ? <th scope="col">Angle</th> : null}
                 <th scope="col">Site</th>
                 {hasPanflex ? <th scope="col">Panflex</th> : null}
+                <th scope="col">Feeder</th>
+                <th scope="col">Way</th>
               </tr>
             </thead>
             <tbody>
-              {c.rows.map((r) => (
+              {c.rows.map((r, n) => (
                 <tr key={enclosureLabel(r)}>
                   <th scope="row">{enclosureLabel(r)}</th>
-                  <td>{r.type}</td>
+                  <td className="left">{r.type}</td>
                   {hasAngles ? <td className="n">{num(r.angle)}</td> : null}
                   <td className="n">{num(r.site)}</td>
                   {hasPanflex ? (
@@ -251,6 +257,16 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
                       {r.panflex?.sideUnknown ? ' (side not known)' : ''}
                     </td>
                   ) : null}
+                  {(['feeder', 'way'] as const).map((field) => (
+                    <td key={field} className="patch-cell">
+                      <PatchSelect
+                        label={`${field === 'feeder' ? 'Feeder' : 'Way'}, enclosure ${enclosureLabel(r)} of ${c.name}`}
+                        value={patch[n]?.[field] ?? ''}
+                        disabled={locked === true}
+                        onChange={(v) => onPatch(n, field, v)}
+                      />
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
@@ -285,5 +301,28 @@ function SymbolField({ label, marker, onChange }: { label: string; marker: Marke
         A guide only. A symbol with typed text is grey on the plot.
       </span>
     </fieldset>
+  );
+}
+
+/** One feeder or way: a dropdown of the digits 1 to 9 and 0, or blank, coloured as the printed chip is. */
+function PatchSelect({ label, value, disabled, onChange }: { label: string; value: PatchValue; disabled: boolean; onChange: (v: PatchValue) => void }) {
+  const colour = value === '' ? null : PATCH_COLOURS[value as PatchDigit];
+  return (
+    <select
+      className="patch-select"
+      aria-label={label}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value as PatchValue)}
+      style={colour ? { backgroundColor: colour.fill, color: colour.text, borderColor: colour.outline ?? colour.fill } : undefined}
+      title={colour?.name}
+    >
+      <option value=""> </option>
+      {PATCH_DIGITS.map((d) => (
+        <option key={d} value={d}>
+          {d}
+        </option>
+      ))}
+    </select>
   );
 }

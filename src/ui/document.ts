@@ -15,6 +15,8 @@ export {
   liveIndexes,
   markerOf,
   newDoc,
+  patchOf,
+  withPatch,
   STATUS_LABELS,
   STATUSES,
   updatedDoc,

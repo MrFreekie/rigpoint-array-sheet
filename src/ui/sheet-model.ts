@@ -1,10 +1,11 @@
 // Which arrays the fly sheet shows and with what offset. The screen cards, the print sheet and the
 // image export all use this one model, so they can never disagree.
 
+import type { PatchRow } from '../engine/patch';
 import { flySheetColumn, type FlySheetColumn } from '../engine/sheet';
 import { findMirrors } from '../engine/symmetry';
 import type { ArraySource } from '../engine/types';
-import { deletedList, displayName, effectiveOffset, isDeleted, isPrinted, type Doc, type EffectiveOffset } from './document';
+import { patchOf, deletedList, displayName, effectiveOffset, isDeleted, isPrinted, type Doc, type EffectiveOffset } from './document';
 
 export interface SheetEntry {
   /** Position of the array in the report. */
@@ -25,6 +26,8 @@ export interface SheetEntry {
   renamed: boolean;
   /** What the person wrote for the crew, or blank. */
   note: string;
+  /** This array's own cable patch, one row for each enclosure. A card that stands for a mirror pair shows this one only. */
+  patch: PatchRow[];
 }
 
 export interface SheetModel {
@@ -32,7 +35,7 @@ export interface SheetModel {
   /** Number of mirrored pairs found. */
   mirrorPairs: number;
   /** Mirror images left out of the sheet because their partner stands for them. */
-  hidden: { name: string; mirrorOf: string }[];
+  hidden: { name: string; mirrorOf: string; patchDiffers: boolean }[];
   /** True when any offset in use is not a number, so heights cannot be shown. */
   badOffsets: boolean;
   /** Arrays chosen for printing, and the mirror images they stand for. Positions in the report. */
@@ -64,7 +67,7 @@ export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
     const mirror = mirrors.get(i);
     const shown = mirrorToShown.get(i);
     if (!showMirrors && shown !== undefined) {
-      hidden.push({ name: s.name, mirrorOf: sources[shown]?.name ?? '' });
+      hidden.push({ name: s.name, mirrorOf: sources[shown]?.name ?? '', patchDiffers: JSON.stringify(patchOf(doc, i)) !== JSON.stringify(patchOf(doc, shown)) });
       return;
     }
     const offset = effectiveOffset(doc, i, mirror ?? shown);
@@ -84,6 +87,7 @@ export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
       reportName: report[i]?.name ?? s.name,
       renamed: s.name !== (report[i]?.name ?? s.name),
       note: doc.notes[i] ?? '',
+      patch: patchOf(doc, i),
     });
   });
 
