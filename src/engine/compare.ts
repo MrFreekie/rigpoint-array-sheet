@@ -77,6 +77,8 @@ export function compareReports(
   titles: Readonly<Record<number, string>> = {},
   /** Plot symbols Update from PDF cannot follow, because the array or its pickup is not in the new PDF. They go back to the default. */
   symbolsReset: readonly { array: string; side: 'front' | 'rear'; value: string }[] = [],
+  /** Cable patches Update from PDF cannot follow, because the array has a different number of enclosures in the new PDF. They are cleared. */
+  patchReset: readonly { array: string; rows: number; nowRows: number }[] = [],
 ): Change[] {
   const out: Change[] = [];
 
@@ -122,6 +124,15 @@ export function compareReports(
   }
   for (const r of symbolsReset) {
     out.push({ kind: 'changed', array: r.array, what: `Plot symbol, ${r.side} pickup`, saved: r.value, now: 'back to 1 t, because the new PDF has no such pickup for this array' });
+  }
+  for (const r of patchReset) {
+    out.push({
+      kind: 'changed',
+      array: r.array,
+      what: 'Cable patch',
+      saved: `set for ${r.rows} ${r.rows === 1 ? 'enclosure' : 'enclosures'}`,
+      now: `cleared, because the new PDF has ${r.nowRows} ${r.nowRows === 1 ? 'enclosure' : 'enclosures'} in this array`,
+    });
   }
   return out;
 }

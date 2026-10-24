@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { compareReports, type Change } from '../engine/compare';
+import { trackPatches, type PatchField, type PatchValue } from '../engine/patch';
 import { trackMarkers, type Marker, type PickupSide } from '../engine/markers';
 import { riggingFixations, riggingRows } from '../engine/sheet';
 import type { ParseResult, Problem } from '../engine/types';
@@ -25,7 +26,7 @@ import { PrintSheet } from '../print/PrintSheet';
 import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
 import type { Underlay } from '../engine/underlay';
-import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withDeleted, withLayerHidden, withMarker, withNote, withPrinted, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
+import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withDeleted, withPatch, withLayerHidden, withMarker, withNote, withPrinted, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -343,7 +344,7 @@ export function App() {
         setError(`The new PDF cannot be relied on, so nothing was changed. ${first?.message ?? ''}`.trim());
         return;
       }
-      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles, trackMarkers(doc.result.report, fresh.report, doc.markers).reset);
+      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles, trackMarkers(doc.result.report, fresh.report, doc.markers).reset, trackPatches(doc.result.report, fresh.report, doc.patches).reset);
       if (changes.length === 0) setNotice(`${file.name} matches this file. There is nothing to update.`);
       else setCompare({ fresh, sourceName: file.name, changes });
     } catch (e) {
@@ -386,6 +387,7 @@ export function App() {
   const setUnderlay = (underlay: Underlay | null) => setDoc((d) => (d ? withUnderlay(d, underlay) : d));
   const setLayerHidden = (name: string, hidden: boolean) => setDoc((d) => (d ? withLayerHidden(d, name, hidden) : d));
   const setMarker = (index: number, side: PickupSide, marker: Marker) => setDoc((d) => (d ? withMarker(d, index, side, marker) : d));
+  const setPatch = (index: number, row: number, field: PatchField, value: PatchValue) => setDoc((d) => (d ? withPatch(d, index, row, field, value) : d));
   const deleteArray = (index: number) => {
     if (!doc || doc.locked) return;
     setDoc(withDeleted(doc, index, true));
@@ -636,6 +638,7 @@ export function App() {
             onTitle={setTitle}
             onNote={setNote}
             onMarker={setMarker}
+            onPatch={setPatch}
             onUnderlay={setUnderlay}
             onLayer={setLayerHidden}
             onPrinted={setPrinted}
@@ -699,6 +702,7 @@ interface ReportProps {
   onTitle: (i: number, t: string) => void;
   onNote: (i: number, t: string) => void;
   onMarker: (i: number, side: PickupSide, marker: Marker) => void;
+  onPatch: (i: number, row: number, field: PatchField, value: PatchValue) => void;
   onUnderlay: (underlay: Underlay | null) => void;
   onLayer: (name: string, hidden: boolean) => void;
   onPrinted: (i: number, printed: boolean) => void;
@@ -706,7 +710,7 @@ interface ReportProps {
   onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onUnderlay, onLayer, onPrinted, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPatch, onUnderlay, onLayer, onPrinted, onImage, onAllImages }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -738,6 +742,13 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                 {undoLabel === null ? 'Undo delete' : `Undo delete of ${undoLabel}`}
               </button>
             </div>
+            {model.hidden
+              .filter((h) => h.patchDiffers)
+              .map((h) => (
+                <p key={h.name} className="muted source-line" data-testid="patch-differs">
+                  {`The cable patch of ${h.name} is not the same as ${h.mirrorOf}, whose card stands for both. Tick Show the mirrored arrays too to see and print it.`}
+                </p>
+              ))}
             {model.deletedList.length > 0 ? (
               <div className="muted source-line" data-testid="deleted-list">
                 <p>
@@ -786,6 +797,8 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                   onNote={(t) => onNote(entry.index, t)}
                   markers={{ front: markerOf(doc, entry.index, 'front'), rear: markerOf(doc, entry.index, 'rear') }}
                   onMarker={(side, m) => onMarker(entry.index, side, m)}
+                  patch={entry.patch}
+                  onPatch={(row, field, value) => onPatch(entry.index, row, field, value)}
                   printed={entry.print}
                   onPrinted={(p) => onPrinted(entry.index, p)}
                   onImage={entry.offset.value === null ? undefined : () => onImage(entry)}

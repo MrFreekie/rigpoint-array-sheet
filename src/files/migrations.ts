@@ -59,6 +59,17 @@ export const MIGRATIONS: Record<number, Migration> = {
   // Version 9 added the venue underlay of the rigging plot. Earlier files had none. An older copy of the app would drop it
   // when it saved, so it refuses version 9 files.
   8: (file) => ({ ...file, underlay: null }),
+  // Version 10 added the cable patch: a feeder and a way for each enclosure row of each array. Earlier files had none, so
+  // every row starts blank. An older copy of the app would drop the patch when it saved, so it refuses version 10 files.
+  9: (file) => {
+    const report = file['report'];
+    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
+    const rows = (source: unknown): number => {
+      const cabinets = typeof source === 'object' && source !== null ? (source as { cabinets?: unknown }).cabinets : undefined;
+      return Array.isArray(cabinets) ? cabinets.length : 0;
+    };
+    return { ...file, patch: Array.isArray(sources) ? sources.map((s) => Array.from({ length: rows(s) }, () => ({ feeder: '', way: '' }))) : [] };
+  },
 };
 
 export function migrate(

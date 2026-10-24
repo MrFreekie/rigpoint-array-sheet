@@ -1,8 +1,9 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/9").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/10").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
 import { MARKER_TEXT_MAX, SHAPES } from '../engine/markers';
+import { PATCH_DIGITS } from '../engine/patch';
 import { UNDERLAY_MAX_EDGES, UNDERLAY_MAX_LAYERS, UNDERLAY_NAME_MAX, UNDERLAY_STEPS, unpackEdges } from '../engine/underlay';
 import { STATUSES } from '../files/doc';
 import {
@@ -19,7 +20,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 9;
+export const FORMAT_VERSION = 10;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -34,6 +35,9 @@ const MarkerSchema = z.object({
   shape: z.enum(SHAPES, { error: 'A pickup symbol must be 2 t, 1 t, 0.5 t or 0.25 t' }),
   text: z.string({ error: 'The symbol value must be text' }).max(MARKER_TEXT_MAX, { error: 'The symbol value is too long' }),
 });
+
+const PatchValueSchema = z.enum(['', ...PATCH_DIGITS], { error: 'A feeder or a way must be one digit, 0 to 9, or blank' });
+const PatchRowSchema = z.object({ feeder: PatchValueSchema, way: PatchValueSchema });
 
 /** The longest packed line list for one shade of one layer: far more than the line limit needs. */
 const PACKED_MAX = 2_000_000;
@@ -89,6 +93,7 @@ export const ArrayFileSchema = z
     notes: z.array(text('Notes', NOTES_MAX), { error: 'Notes must be a list' }),
     deleted: z.array(z.boolean({ error: 'Deleted must be true or false' }), { error: 'Deleted choices must be a list' }),
     markers: z.array(z.object({ front: MarkerSchema, rear: MarkerSchema }), { error: 'Pickup symbols must be a list' }),
+    patch: z.array(z.array(PatchRowSchema, { error: 'The cable patch of an array must be a list' }), { error: 'Cable patches must be a list' }),
     underlay: UnderlaySchema,
     report: ReportSchema,
     problems: z.array(ProblemSchema, { error: 'Problems must be a list' }).max(MAX_PROBLEMS, { error: 'There are too many problems listed' }),
@@ -116,6 +121,14 @@ export const ArrayFileSchema = z
     }
     if (file.markers.length !== sources.length) {
       ctx.addIssue({ code: 'custom', path: ['markers'], message: 'There must be one pair of pickup symbols for each array' });
+    }
+    if (file.patch.length !== sources.length) {
+      ctx.addIssue({ code: 'custom', path: ['patch'], message: 'There must be one cable patch for each array' });
+    } else {
+      file.patch.forEach((rows, i) => {
+        const count = sources[i]?.cabinets.length ?? 0;
+        if (rows.length !== count) ctx.addIssue({ code: 'custom', path: ['patch', i], message: `The cable patch of array ${i + 1} must have one feeder and way for each of its ${count} enclosures` });
+      });
     }
     file.markers.forEach((pair, i) => {
       for (const side of ['front', 'rear'] as const) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { editKey, isDirty, isLocked, isPrinted, keepsHandle, markSaved, sameDocument, STATUSES, statusLocks, withPrinted } from '../files/doc';
+import { editKey, isDirty, isLocked, isPrinted, keepsHandle, markSaved, patchOf, sameDocument, STATUSES, statusLocks, updatedDoc, withDeleted, withPatch, withPrinted, type Doc } from '../files/doc';
 import { parseFixture } from '../testing/fixtures';
 import { effectiveOffset, newDoc, showTitle } from './document';
 
@@ -194,5 +194,65 @@ describe('which arrays are chosen for printing', () => {
     expect(isDirty(changed)).toBe(false);
     // Later changes build on the choices already made.
     expect(isPrinted(withPrinted(changed, 2, false), 1)).toBe(false);
+  });
+});
+
+describe('the cable patch of a document', () => {
+  const rows = (doc: Doc, i: number) => doc.result.report.sources[i]?.cabinets.length ?? 0;
+
+  it('is blank to begin with, one row for each enclosure', () => {
+    const doc = fresh();
+    expect(patchOf(doc, 0)).toHaveLength(rows(doc, 0));
+    expect(patchOf(doc, 0).every((r) => r.feeder === '' && r.way === '')).toBe(true);
+  });
+
+  it('sets one field of one row and leaves everything else', () => {
+    const doc = withPatch(withPatch(fresh(), 0, 1, 'feeder', '3'), 0, 1, 'way', '0');
+    expect(patchOf(doc, 0)[1]).toEqual({ feeder: '3', way: '0' });
+    expect(patchOf(doc, 0)[0]).toEqual({ feeder: '', way: '' });
+    expect(patchOf(doc, 1).every((r) => r.feeder === '' && r.way === '')).toBe(true);
+    expect(withPatch(doc, 0, 1, 'feeder', '')).toMatchObject({});
+    expect(patchOf(withPatch(doc, 0, 1, 'feeder', ''), 0)[1]).toEqual({ feeder: '', way: '0' });
+  });
+
+  it('ignores a row that does not exist', () => {
+    const doc = fresh();
+    expect(withPatch(doc, 0, rows(doc, 0), 'way', '1')).toBe(doc);
+    expect(withPatch(doc, 0, -1, 'way', '1')).toBe(doc);
+    expect(withPatch(doc, 99, 0, 'way', '1')).toBe(doc);
+  });
+
+  it('counts as a change to save, and undoing it is clean again', () => {
+    const doc = { ...fresh(), savedKey: null } as Doc;
+    const saved = { ...doc, savedKey: editKey(doc) };
+    expect(isDirty(saved)).toBe(false);
+    const changed = withPatch(saved, 0, 0, 'feeder', '1');
+    expect(isDirty(changed)).toBe(true);
+    expect(isDirty(withPatch(changed, 0, 0, 'feeder', ''))).toBe(false);
+  });
+
+  it('cannot be changed on a read-only file', () => {
+    const locked = { ...fresh(), locked: true } as Doc;
+    expect(withPatch(locked, 0, 0, 'feeder', '7')).toBe(locked);
+  });
+
+  it('stays with the array when it is deleted and restored', () => {
+    const doc = withDeleted(withPatch(fresh(), 0, 0, 'way', '5'), 0, true);
+    expect(patchOf(withDeleted(doc, 0, false), 0)[0]).toEqual({ feeder: '', way: '5' });
+  });
+
+  it('stays with the array of the same name when the PDF is updated', () => {
+    const doc = withPatch(fresh(), 0, 0, 'way', '5');
+    const same = updatedDoc(doc, parseFixture('a'), 'new.pdf');
+    expect(patchOf(same, 0)[0]).toEqual({ feeder: '', way: '5' });
+  });
+
+  it('is cleared for an array whose enclosure count changed', () => {
+    const doc = withPatch(fresh(), 0, 0, 'way', '5');
+    const fixture = parseFixture('a');
+    fixture.report.sources[0]?.cabinets.pop();
+    const updated = updatedDoc(doc, fixture, 'new.pdf');
+    expect(patchOf(updated, 0).every((r) => r.way === '' && r.feeder === '')).toBe(true);
+    expect(updated.patches).toEqual({});
   });
 });

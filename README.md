@@ -6,7 +6,7 @@ RigPoint Array Sheet is the second app in the RigPoint family, after [RigPoint L
 
 ## Where it is
 
-You can open a Soundvision PDF and see a fly sheet card for every array, a rigging plot and a rigging summary. You can type the show details and a ground offset, give an array a title (up to 60 characters) and a note for the crew (up to 300), delete an array and bring it back, save the lot as a file, open it again later, print it, save it as a PDF, and save each array as an image. The rigging plot can be downloaded as a DXF, and a venue can be drawn under it. The app installs on a computer or phone and works with no signal once it has been opened once.
+You can open a Soundvision PDF and see a fly sheet card for every array, a rigging plot and a rigging summary. You can type the show details and a ground offset, give an array a title (up to 60 characters) and a note for the crew (up to 300), choose a feeder and a way for each enclosure, delete an array and bring it back, save the lot as a file, open it again later, print it, save it as a PDF, and save each array as an image. The rigging plot can be downloaded as a DXF, and a venue can be drawn under it. The app installs on a computer or phone and works with no signal once it has been opened once.
 
 ## The rigging plot
 
@@ -44,11 +44,11 @@ See the [user guide](docs/user-guide.md) for a short walk through. A plan for pr
 
 Save writes a file named like `Main stage - Rev B.arraysheet.json`. In every browser it arrives as a download. In Chrome and Edge on a computer, Open and Save use the browser's own file picker, so Save writes back to the same file each time, Save As picks a new one, and Recent lists the files you used last. A new revision never writes over the file it came from. The file holds what the PDF said, what you typed, the status and the revision, so it reopens exactly as saved, without the PDF. Open takes either a PDF or one of these files. In the installed app on a computer, double-clicking one of these files opens it. On Android you can share one of these files, or a Soundvision PDF, straight into the app.
 
-The file format is `arraysheet/9`. Older files are upgraded when opened, and a file from a newer version of the app is refused rather than opened and trimmed. Each step added something: formats 6 to 9 added the origin note and side labels, card titles, notes, deleted arrays and the show notes and date, the plot symbols, and the venue.
+The file format is `arraysheet/10`. Older files are upgraded when opened, and a file from a newer version of the app is refused rather than opened and trimmed. Each step added something: formats 6 to 10 added the origin note and side labels, card titles, notes, deleted arrays and the show notes and date, the plot symbols, the venue, and the cable patch.
 
 Each file has a status: Draft, Issued, Approved or Superseded. Approved and superseded files open read-only. To change one, press Create new revision. That starts a draft with the next revision letter (blank, then A, B, C), which you save under its new name.
 
-If you have a saved file open and a newer PDF arrives, press Update from PDF. The app lists exactly what differs, and you choose Update from new PDF or Keep as saved. Your show details, offsets, print choices, titles, notes, plot symbols and venue stay with the arrays of the same name. A symbol goes back to 1 t if its pickup is gone. An array you deleted comes back if the new PDF has it.
+If you have a saved file open and a newer PDF arrives, press Update from PDF. The app lists exactly what differs, and you choose Update from new PDF or Keep as saved. Your show details, offsets, print choices, titles, notes, plot symbols, cable patches and venue stay with the arrays of the same name. A symbol goes back to 1 t if its pickup is gone. A cable patch is cleared, and listed, if the array has a different number of enclosures. An array you deleted comes back if the new PDF has it.
 
 While you have unsaved changes, this browser also keeps a copy and offers it back after a crash or an accidental close. That copy is a safety net. Save to a file to keep your work.
 
@@ -72,11 +72,13 @@ Figures are shown as the PDF prints them, in kilograms and metres. The acoustic 
 
 It does not calculate anything. Totals, loads and angles come from the PDF and nothing else. If the PDF and your own sums disagree, the PDF is what the app shows.
 
+The cable patch is only what you type: a feeder and a way digit for each enclosure. It does not count them, check them or work out a length or a load.
+
 It does not check that a rig is safe. Soundvision's own warnings are passed through, and that is all.
 
 When something cannot be read, the app says so and names the array. It never fills the gap with a guess. A report in pounds or feet is refused, because the app reads kilograms and metres only.
 
-When two arrays are exact mirror images, left to right or front to back, the fly sheet shows one and says `Also mirrored with: <name>` under its title. A checkbox shows both. Two mirrors with different notes keep a card each. A front to back pair is only found when the arrays have no fixations and the same Panflex figures.
+When two arrays are exact mirror images, left to right or front to back, the fly sheet shows one and says `Also mirrored with: <name>` under its title. A checkbox shows both. Two mirrors with different notes keep a card each. A card that stands for a pair shows the cable patch of the array it shows. A front to back pair is only found when the arrays have no fixations and the same Panflex figures.
 
 The one value it works out itself is the Panflex label on a fly sheet (for example 90 On). That rule is described in [docs/development.md](docs/development.md).
 

@@ -23,7 +23,7 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} markers={{ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }} onMarker={() => {}} {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} markers={{ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }} onMarker={() => {}} patch={[]} onPatch={() => {}} {...extra} />,
   );
 
 describe('ArrayCard', () => {
@@ -52,7 +52,7 @@ describe('ArrayCard', () => {
       { name: 'F'.repeat(60), at: { x: 7, y: 8, z: 9 } },
     ];
     const html = card('KARA II 2', sources);
-    expect(html.match(/<th scope="row" title=/g)).toHaveLength(3);
+    expect(html.match(/<th scope="row" class="left" title=/g)).toHaveLength(3);
     expect(html).toContain(`>${'F'.repeat(11)}…</th>`);
   });
 
@@ -304,6 +304,42 @@ describe('ArrayCard plot symbol picker', () => {
 
   it('can still be changed on a read-only file, for this session', () => {
     const locked = pick({ locked: true });
-    expect(locked.match(/<(select|input type="text" value="" maxLength="12")[^>]*disabled/g)).toBeNull();
+    expect(locked.match(/<(select(?![^>]*patch-select)|input type="text" value="" maxLength="12")[^>]*disabled/g)).toBeNull();
+  });
+});
+
+describe('ArrayCard cable patch', () => {
+  const rows = byName(a, 'KARA II L Main').cabinets.length;
+  const patch = Array.from({ length: rows }, (_, i) => (i === 1 ? { feeder: '1' as const, way: '4' as const } : { feeder: '' as const, way: '' as const }));
+
+  it('has a Feeder and a Way dropdown for every enclosure row, after Panflex, offering 1 to 9, then 0, then blank', () => {
+    const html = card('KARA II L Main', a);
+    expect(html.match(/<select class="patch-select"/g)).toHaveLength(2 * rows);
+    expect(html.indexOf('>Panflex</th>')).toBeLessThan(html.indexOf('>Feeder</th>'));
+    expect(html.indexOf('>Feeder</th>')).toBeLessThan(html.indexOf('>Way</th>'));
+    expect(html).toContain('aria-label="Feeder, enclosure 2 of KARA II L Main"');
+    expect(html).toContain('aria-label="Way, enclosure 2 of KARA II L Main"');
+    const start = html.indexOf('<select class="patch-select"');
+    const first = html.slice(start, html.indexOf('</select>', start));
+    expect([...first.matchAll(/<option value="([^"]*)"/g)].map((m) => m[1])).toEqual(['', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0']);
+  });
+
+  it('shows the chosen digit on its colour chip', () => {
+    const html = card('KARA II L Main', a, { patch });
+    expect(html).toContain('background-color:#3f1d08');
+    expect(html).toContain('background-color:#fff040');
+    expect(html).not.toContain('background-color:#ec4444');
+  });
+
+  it('is disabled on a read-only file', () => {
+    const locked = card('KARA II L Main', a, { locked: true });
+    expect(locked.match(/<select class="patch-select"[^>]*disabled/g)).toHaveLength(2 * rows);
+    expect(card('KARA II L Main', a).match(/<select class="patch-select"[^>]*disabled/g)).toBeNull();
+  });
+
+  it('centres every column of the enclosure table except Type', () => {
+    const html = card('KARA II L Main', a);
+    expect(html).toContain('<table class="card-table">');
+    expect(html).toContain('<th scope="col" class="left">Type</th>');
   });
 });

@@ -172,3 +172,17 @@ describe('compareReports with deleted arrays', () => {
     expect(changes.map((c) => c.kind)).toEqual(['restored', 'changed']);
   });
 });
+
+describe('compareReports and cable patches', () => {
+  it('lists a patch that is cleared because the enclosure count changed, with the counts', () => {
+    const out = compareReports(a(), a(), new Set(), {}, [], [{ array: 'KARA II L Main', rows: 12, nowRows: 14 }]);
+    expect(out).toEqual([
+      { kind: 'changed', array: 'KARA II L Main', what: 'Cable patch', saved: 'set for 12 enclosures', now: 'cleared, because the new PDF has 14 enclosures in this array' },
+    ]);
+    expect(compareReports(a(), a(), new Set(), {}, [], [{ array: 'X', rows: 1, nowRows: 1 }])[0]).toMatchObject({ saved: 'set for 1 enclosure', now: expect.stringContaining('1 enclosure in') });
+  });
+
+  it('says nothing about patches that carry over', () => {
+    expect(compareReports(a(), a(), new Set(), {}, [], [])).toEqual([]);
+  });
+});

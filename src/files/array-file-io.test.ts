@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- these tests poke arbitrary JSON into a saved file */
 import { describe, expect, it } from 'vitest';
-import { newDoc, editKey, type Doc } from './doc';
+import { newDoc, editKey, patchOf, withPatch, type Doc } from './doc';
 import { docToFile, openFileText, serialiseDoc } from './array-file-io';
 import { MAX_FILE_BYTES } from './limits';
 import { FileError } from './migrations';
@@ -257,7 +257,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/9');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/10');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -303,7 +303,7 @@ describe('opening a bad file', () => {
   });
 
   it('refuses a file from a newer version', () => {
-    expect(() => open(edited((f) => (f.format = 'arraysheet/10')))).toThrow(/newer version/);
+    expect(() => open(edited((f) => (f.format = 'arraysheet/11')))).toThrow(/newer version/);
   });
 
   it('refuses a file over the size limit', () => {
@@ -486,5 +486,69 @@ describe('pickup symbols', () => {
     bad((f) => (f.markers[0].rear.text = 'x'.repeat(13)), /symbol value is too long/);
     bad((f) => (f.markers[0].rear.text = 'a\nb'), /cannot hold line breaks or control characters/);
     bad((f) => (f.markers = 'many'), /must be a list/);
+  });
+});
+
+describe('cable patch', () => {
+  const a = () => sample();
+  const rowsOf = (doc: Doc, i: number) => doc.result.report.sources[i]?.cabinets.length ?? 0;
+
+  it('is saved as one feeder and way for each enclosure row of each array, blank where nothing was chosen', () => {
+    const doc = withPatch(withPatch(a(), 1, 0, 'feeder', '1'), 1, 2, 'way', '0');
+    const file = docToFile(doc, '0.1.0', NOW);
+    expect(file.patch).toHaveLength(doc.result.report.sources.length);
+    file.patch.forEach((rows, i) => expect(rows).toHaveLength(rowsOf(doc, i)));
+    expect(file.patch[1]?.[0]).toEqual({ feeder: '1', way: '' });
+    expect(file.patch[1]?.[2]).toEqual({ feeder: '', way: '0' });
+    expect(file.patch[0]?.every((r) => r.feeder === '' && r.way === '')).toBe(true);
+  });
+
+  it('comes back when the file is opened, and an array with nothing set is not listed', () => {
+    const doc = withPatch(withPatch(a(), 2, 1, 'feeder', '9'), 2, 1, 'way', '4');
+    const back = roundTrip(doc).doc;
+    expect(back.patches).toEqual({ 2: expect.arrayContaining([{ feeder: '9', way: '4' }]) });
+    expect(Object.keys(back.patches)).toEqual(['2']);
+    expect(roundTrip(a()).doc.patches).toEqual({});
+  });
+
+  it('is not counted as unsaved after opening, and a change is', () => {
+    const opened = roundTrip(withPatch(a(), 0, 0, 'feeder', '2')).doc;
+    expect(editKey(opened)).toBe(opened.savedKey);
+    expect(editKey(withPatch(opened, 0, 0, 'feeder', '3'))).not.toBe(opened.savedKey);
+    expect(editKey(withPatch(opened, 0, 0, 'feeder', ''))).not.toBe(opened.savedKey);
+  });
+
+  it('is blank everywhere in a version 9 file', () => {
+    const f = JSON.parse(serialiseDoc(withPatch(a(), 0, 0, 'feeder', '2'), '0.1.0', NOW)) as { format: string; patch?: unknown };
+    f.format = 'arraysheet/9';
+    delete f.patch;
+    const opened = openFileText(JSON.stringify(f), null).doc;
+    expect(opened.patches).toEqual({});
+    expect(docToFile(opened, '0.1.0', NOW).patch[0]).toHaveLength(rowsOf(opened, 0));
+  });
+
+  it('cannot be changed once the file is approved or superseded, and is kept when it is opened', () => {
+    const approved = roundTrip({ ...withPatch(a(), 0, 0, 'way', '5'), status: 'approved' }).doc;
+    expect(approved.locked).toBe(true);
+    expect(withPatch(approved, 0, 0, 'way', '6')).toBe(approved);
+    expect(patchOf(approved, 0)[0]).toEqual({ feeder: '', way: '5' });
+  });
+
+  it('is refused when the lists are the wrong length, or a value is not one digit or blank', () => {
+    const bad = (change: (f: any) => void, message: RegExp) => {
+      const f = JSON.parse(serialiseDoc(a(), '0.1.0', NOW));
+      change(f);
+      expect(() => openFileText(JSON.stringify(f), null)).toThrow(message);
+    };
+    bad((f) => f.patch.pop(), /one cable patch for each array/);
+    bad((f) => f.patch[0].pop(), /must have one feeder and way for each of its \d+ enclosures/);
+    bad((f) => f.patch[0].push({ feeder: '', way: '' }), /must have one feeder and way/);
+    bad((f) => (f.patch[0][0].feeder = '10'), /one digit, 0 to 9, or blank/);
+    bad((f) => (f.patch[0][0].way = 'a'), /one digit, 0 to 9, or blank/);
+    bad((f) => (f.patch[0][0].way = 4), /one digit, 0 to 9, or blank/);
+    bad((f) => (f.patch[0][0].feeder = ' 1'), /one digit, 0 to 9, or blank/);
+    bad((f) => (f.patch = 'many'), /must be a list/);
+    bad((f) => (f.patch[0] = 'x'), /must be a list/);
+    bad((f) => delete f.patch, /Cable patches must be a list|Required|expected array/i);
   });
 });

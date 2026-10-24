@@ -2,6 +2,7 @@
 // it has passed the size limit, the format check, any upgrade steps and the schema.
 
 import { defaultPair, isDefaultPair, type MarkerPair } from '../engine/markers';
+import { fitPatch, patchUsed, type PatchRow } from '../engine/patch';
 import { packEdges, unpackEdges, type Underlay } from '../engine/underlay';
 import { ArrayFileSchema, FORMAT, type ArrayFile } from '../schema/array-file';
 import { formatIssues } from '../schema/errors';
@@ -39,6 +40,7 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
       const pair = doc.markers[i] ?? defaultPair();
       return { front: { ...pair.front }, rear: { ...pair.rear } };
     }),
+    patch: Array.from({ length: count }, (_, i) => fitPatch(doc.patches[i], doc.result.report.sources[i]?.cabinets.length ?? 0)),
     underlay: doc.underlay
       ? { layers: doc.underlay.layers.map((l) => ({ name: l.name, hidden: l.hidden, shades: l.shades.map((sh) => ({ step: sh.step, edges: packEdges(sh.edges) })) })) }
       : null,
@@ -98,6 +100,10 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
   f.markers.forEach((pair, i) => {
     if (!isDefaultPair(pair)) markers[i] = pair;
   });
+  const patches: Record<number, PatchRow[]> = {};
+  f.patch.forEach((rows, i) => {
+    if (patchUsed(rows)) patches[i] = rows;
+  });
   const underlay: Underlay | null = f.underlay
     ? { layers: f.underlay.layers.map((l) => ({ name: l.name, hidden: l.hidden, shades: l.shades.map((sh) => ({ step: sh.step, edges: unpackEdges(sh.edges) ?? [] })) })) }
     : null;
@@ -129,6 +135,7 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
     printOverride: null,
     markers,
     markerOverride: null,
+    patches,
     underlay,
   };
   doc.savedKey = editKey(doc);

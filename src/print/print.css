@@ -275,7 +275,7 @@
 .pc-fix td {
   padding: 0.25mm 0.8mm;
   border: 0.15mm solid #777;
-  text-align: right;
+  text-align: center;
   font-size: 7pt;
 }
 
@@ -285,9 +285,44 @@
   font-weight: 700;
 }
 
-.pc-table th:nth-child(2),
-.pc-table td:nth-child(2) {
+/* Fixed columns that match the PDF's. Every value is centred except Type, which is left and cut with an ellipsis. */
+.pc-table {
+  table-layout: fixed;
+}
+
+.pc-table th,
+.pc-table td {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.pc-table th.pc-left,
+.pc-table td.pc-left {
   text-align: left;
+  text-overflow: ellipsis;
+}
+
+/* The colour chip behind a feeder or way digit. Printed in colour on the pocket cards. */
+.pc-chip {
+  display: block;
+  box-sizing: border-box;
+  width: 3.4mm;
+  height: 8.4pt;
+  margin: 0 auto;
+  border: 0.2mm solid transparent;
+  font-size: 7pt;
+  font-weight: 700;
+  line-height: 8.4pt;
+  text-align: center;
+}
+
+.pc-chip-outlined {
+  border-color: #000;
+}
+
+/* A blank feeder or way: an empty box to write in with a pencil. */
+.pc-chip-empty {
+  background-color: #fff;
 }
 
 .pc-table td.pc-no {

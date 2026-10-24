@@ -530,6 +530,38 @@ td.n {
   font-variant-numeric: tabular-nums;
 }
 
+/* The enclosure and fixation tables on a card centre every value except the Type column and the fixation name. */
+.card-table th,
+.card-table td {
+  padding-inline: 0.3rem;
+  text-align: center;
+}
+
+.card-table th.left,
+.card-table td.left {
+  text-align: left;
+}
+
+.card-table td.patch-cell {
+  padding: 0.15rem 0.15rem;
+}
+
+.patch-select {
+  width: 2.4rem;
+  padding: 0.15rem 0.2rem;
+  border: 2px solid var(--border-strong);
+  border-radius: 0.25rem;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+  text-align-last: center;
+}
+
+.patch-select option {
+  background: Canvas;
+  color: CanvasText;
+}
+
 @media (max-width: 30rem) {
   .main {
     padding: 0.75rem;

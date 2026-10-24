@@ -64,7 +64,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/9', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/10', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -213,7 +213,7 @@ test('update from a newer PDF: nothing to update, then a list of differences', a
   await page.getByTestId('update-file').setInputFiles({ name: 'newer.pdf', mimeType: 'application/pdf', buffer: samplePdf('b') });
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('The new PDF is different', { timeout: 20_000 });
-  await expect(dialog).toContainText('Your show details, ground offsets, titles, notes and plot symbols are kept');
+  await expect(dialog).toContainText('Your show details, ground offsets, titles, notes, plot symbols and cable patches are kept');
   await dialog.getByRole('button', { name: 'Keep as saved' }).click();
   await expect(page.locator('.card')).toHaveCount(9, { timeout: 20_000 });
 
@@ -585,7 +585,7 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
 
   // It is saved in the file and comes back with the layer still off.
   const saved = await save(page);
-  expect((saved.json['format'] as string)).toBe('arraysheet/9');
+  expect((saved.json['format'] as string)).toBe('arraysheet/10');
   expect(saved.text).not.toContain('Label');
   await openJson(page, 'venue.arraysheet.json', saved.text);
   const again = page.getByTestId('plot-preview').getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });
