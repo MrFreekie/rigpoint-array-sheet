@@ -23,7 +23,7 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} markers={{ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }} onMarker={() => {}} patch={[]} onPatch={() => {}} {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} markers={{ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }} onMarker={() => {}} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartSize={() => {}} onCartReset={() => {}} {...extra} />,
   );
 
 describe('ArrayCard', () => {
@@ -221,7 +221,7 @@ describe('rigging plot', () => {
   });
 
   it('shows the under development note above the plot', () => {
-    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} onUnderlay={() => undefined} onLayer={() => undefined} />);
+    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} />);
     expect(html).toContain(PLOT_DEVELOPMENT_NOTE);
     expect(html).toContain('data-testid="plot-svg"');
   });
@@ -341,5 +341,58 @@ describe('ArrayCard cable patch', () => {
     const html = card('KARA II L Main', a);
     expect(html).toContain('<table class="card-table">');
     expect(html).toContain('<th scope="col" class="left">Type</th>');
+  });
+});
+
+describe('ArrayCard carts', () => {
+  const column = flySheetColumn(byName(a, 'KARA II L Main'));
+  const carts = { breaks: [3, 6, 9, 12], manual: false, groups: [3, 3, 3, 3, 3], forced: [] as number[] };
+
+  it('says what the carts are, and whether they are automatic or set by hand, in a live region', () => {
+    const html = card('KARA II L Main', a, { carts });
+    expect(html).toContain('Carts: 3 + 3 + 3 + 3 + 3, automatic');
+    expect(html).toContain('aria-live="polite"');
+    expect(card('KARA II L Main', a, { carts: { ...carts, manual: true } })).toContain('Carts: 3 + 3 + 3 + 3 + 3, set by hand');
+    expect(card('SB28 L Front', a)).toContain('Carts: 1, one block, automatic');
+  });
+
+  it('offers the sizes 3, 4 and 6, a custom size and a Reset that is disabled while the carts are automatic', () => {
+    const html = card('KARA II L Main', a, { carts });
+    for (const k of [3, 4, 6]) expect(html).toContain(`aria-label="Cut KARA II L Main into carts of ${k}"`);
+    expect(html).toContain('Custom cart size, 1 to 24');
+    expect(html).toMatch(/<button type="button" class="button" disabled="">Reset to automatic<\/button>/);
+    expect(card('KARA II L Main', a, { carts: { ...carts, manual: true } })).not.toMatch(/disabled="">Reset to automatic/);
+  });
+
+  it('has a break button between every pair of rows, pressed where a cart starts, and none above the first row', () => {
+    const html = card('KARA II L Main', a, { carts });
+    const buttons = html.match(/<button type="button" class="cart-break"[^>]*>/g) ?? [];
+    expect(buttons).toHaveLength(column.rows.length - 1);
+    expect(buttons.filter((b) => b.includes('aria-pressed="true"'))).toHaveLength(4);
+    expect(html).toContain('aria-label="Cart break between enclosures 3 and 4"');
+    expect(html).not.toContain('aria-label="Cart break between enclosures  and 1"');
+  });
+
+  it('shows no break button where the type changes, only a fixed line', () => {
+    const html = card('GS KARA II L', b, { carts: { breaks: [4], manual: false, groups: [4, 2], forced: [4] } });
+    expect(html).toContain('The type changes here, so a new cart starts');
+    expect(html).not.toContain('aria-label="Cart break between enclosures 4 and 5"');
+  });
+
+  it('bands every other cart, and leaves the Feeder and Way cells unbanded', () => {
+    const html = card('KARA II L Main', a, { carts });
+    expect(html.match(/cart-band/g)?.length).toBeGreaterThan(0);
+    const banded = html.match(/<td class="patch-cell cart-band/g);
+    expect(banded).toBeNull();
+    expect(html).toContain('<tr class="cart-start" data-testid="enclosure-row">');
+  });
+
+  it('shows the carts but no buttons on a read-only file', () => {
+    const html = card('KARA II L Main', a, { carts, locked: true });
+    expect(html).toContain('Carts: 3 + 3 + 3 + 3 + 3, automatic');
+    expect(html).not.toContain('class="cart-break"');
+    expect(html).not.toContain('Reset to automatic');
+    expect(html).not.toContain('Cut KARA II L Main into carts of');
+    expect(html).toContain('A new cart starts here');
   });
 });

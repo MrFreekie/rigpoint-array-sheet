@@ -1,6 +1,6 @@
 import { cleanRevision } from '../files/revision';
-import { ORIGIN_MAX, SHOW_NOTES_MAX } from '../schema/array-file';
-import { effectiveOffset, STATUS_LABELS, STATUSES, type Doc, type Job, type Status } from './document';
+import { SHOW_NOTES_MAX } from '../schema/array-file';
+import { STATUS_LABELS, STATUSES, type Doc, type Job, type Status } from './document';
 import { plain } from './plain';
 
 interface Props {
@@ -13,7 +13,6 @@ interface Props {
 
 /** The details a printed fly sheet carries that the PDF does not hold. */
 export function JobForm({ doc, locked, onJob, onStatus, onRevision }: Props) {
-  const badDefault = effectiveOffset({ ...doc, offsets: {} }, 0).value === null;
   return (
     <section className="panel" aria-labelledby="job-heading">
       <h2 id="job-heading">Show details</h2>
@@ -50,43 +49,6 @@ export function JobForm({ doc, locked, onJob, onStatus, onRevision }: Props) {
             autoComplete="off"
           />
         </label>
-        <label className="field">
-          <span>Ground offset for every array (m)</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={doc.job.defaultOffset}
-            disabled={locked}
-            onChange={(e) => onJob({ defaultOffset: e.target.value })}
-            aria-invalid={badDefault}
-            aria-describedby="default-offset-hint"
-            placeholder="0"
-            autoComplete="off"
-          />
-          <span id="default-offset-hint" className={badDefault ? 'field-error' : 'field-hint'}>
-            {badDefault ? 'Enter a number of metres, such as 0.3.' : 'Taken off the report heights. Each array can have its own.'}
-          </span>
-        </label>
-        <label className="field">
-          <span>Origin (P0)</span>
-          <input
-            type="text"
-            value={doc.job.origin}
-            disabled={locked}
-            maxLength={ORIGIN_MAX}
-            onChange={(e) => onJob({ origin: e.target.value })}
-            placeholder="e.g. DSE, Iron Line, Arena Centre"
-            autoComplete="off"
-          />
-          <span className="field-hint">Where the Soundvision origin is. Printed on the rigging plot.</span>
-        </label>
-        <div className="field">
-          <label className="check-field">
-            <input type="checkbox" checked={doc.job.sideLabels} disabled={locked} onChange={(e) => onJob({ sideLabels: e.target.checked })} />
-            <span>Show side labels on the rigging plot</span>
-          </label>
-          <span className="field-hint">Names House left, House right, Stage and Audience. Turn off for a show in the round.</span>
-        </div>
         <label className="field note-field">
           <span>Notes</span>
           <textarea

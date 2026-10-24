@@ -6,9 +6,7 @@ import { PlotSvg } from '../print/PlotSvg';
 import { DXF_MIME, DXF_UNITS_NOTE, plotDxf } from '../print/plot-dxf';
 import { plotContent } from '../print/plot-input';
 import { layoutPlotPages, SCREEN_PALETTE } from '../print/plot-layout';
-import type { Underlay } from '../engine/underlay';
 import { showTitle, type Doc } from './document';
-import { VenuePanel } from './VenuePanel';
 import type { SheetModel } from './sheet-model';
 
 export const PLOT_DEVELOPMENT_NOTE = 'The rigging plot is under development and may include errors. Check it against the Soundvision report.';
@@ -19,11 +17,9 @@ const measure = () => (typeof document === 'undefined' ? estimateWidth : canvasM
 interface Props {
   doc: Doc;
   model: SheetModel;
-  onUnderlay: (underlay: Underlay | null) => void;
-  onLayer: (name: string, hidden: boolean) => void;
 }
 
-export function RiggingPlotPreview({ doc, model, onUnderlay, onLayer }: Props) {
+export function RiggingPlotPreview({ doc, model }: Props) {
   const [error, setError] = useState<string | null>(null);
   // Whether the DXF carries the venue. A choice for this download, not saved.
   const [venueInDxf, setVenueInDxf] = useState(false);
@@ -48,7 +44,7 @@ export function RiggingPlotPreview({ doc, model, onUnderlay, onLayer }: Props) {
     <section className="panel" aria-labelledby="plot-heading" data-testid="plot-preview">
       <h2 id="plot-heading">Rigging plot</h2>
       <p className="muted">{PLOT_DEVELOPMENT_NOTE}</p>
-      <VenuePanel underlay={doc.underlay} locked={doc.locked} onUnderlay={onUnderlay} onLayer={onLayer} />
+      <p className="muted">The origin note, the side labels and the venue under the plot are in Settings.</p>
       {pages.length === 0 ? (
         <p className="muted">No array chosen for printing has a position, a size and an azimuth in the report, so there is nothing to draw.</p>
       ) : (

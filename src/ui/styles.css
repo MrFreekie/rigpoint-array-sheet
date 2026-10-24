@@ -12,6 +12,7 @@
   --muted: #444a52;
   --border: #b9bec6;
   --border-strong: #6b7280;
+  --band: #e8ebf0;
   --accent: #0b57d0;
   --accent-text: #ffffff;
   --focus: #0b57d0;
@@ -41,6 +42,7 @@
     --muted: #b8bec8;
     --border: #3d434e;
     --border-strong: #8a93a1;
+    --band: #262b34;
     --accent: #8ab4f8;
     --accent-text: #0e1014;
     --focus: #8ab4f8;
@@ -65,6 +67,7 @@
   --muted: #b8bec8;
   --border: #3d434e;
   --border-strong: #8a93a1;
+  --band: #262b34;
   --accent: #8ab4f8;
   --accent-text: #0e1014;
   --focus: #8ab4f8;
@@ -540,6 +543,143 @@ td.n {
 .card-table th.left,
 .card-table td.left {
   text-align: left;
+}
+
+/* Carts: every other group of rows is banded on screen as it is shaded in print. The band is decoration; the summary line, the
+   solid line at each break and the pressed state of the break buttons carry the meaning. Nothing here depends on hover. */
+.card-table td.cart-band,
+.card-table th.cart-band {
+  background: var(--band);
+}
+
+.card-table tr.cart-start > th,
+.card-table tr.cart-start > td {
+  box-shadow: inset 0 2px 0 var(--border-strong);
+}
+
+.card-table th.cart-strip,
+.card-table td.cart-strip {
+  width: 1.75rem;
+  min-width: 1.75rem;
+  padding: 0;
+}
+
+.cart-break {
+  display: block;
+  width: 100%;
+  min-height: 1.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  position: relative;
+}
+
+/* A small rule across the handle: dashed when there is no break, solid and strong when there is. */
+.cart-break::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0.25rem;
+  top: 50%;
+  border-top: 2px dashed var(--border);
+}
+
+.cart-break[aria-pressed='true']::before {
+  border-top: 3px solid var(--text);
+}
+
+.cart-break:hover::before,
+.cart-break:focus-visible::before {
+  border-top-color: var(--accent);
+}
+
+.cart-forced {
+  display: block;
+  min-height: 1.5rem;
+  position: relative;
+}
+
+.cart-forced::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0.25rem;
+  top: 50%;
+  border-top: 3px solid var(--muted);
+}
+
+.carts-field {
+  margin: 0.5rem 0 0.25rem;
+}
+
+.carts-summary {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
+
+.carts-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+}
+
+.carts-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.carts-sizes .button {
+  min-width: 2.75rem;
+}
+
+.carts-custom {
+  width: 4rem;
+  min-height: var(--touch);
+  padding: 0 0.5rem;
+  font: inherit;
+  text-align: center;
+}
+
+/* Settings: the box of whole job choices. Each cart size is a label and a short field on one line. */
+.settings section + section {
+  margin-top: 1.25rem;
+}
+
+.settings h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.settings-sizes {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+}
+
+.settings-size {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.settings-size label {
+  flex: 0 1 12rem;
+  min-width: 7rem;
+}
+
+.settings-size input {
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+  min-height: var(--touch);
+  padding: 0 0.5rem;
+  font: inherit;
+  text-align: center;
 }
 
 .card-table td.patch-cell {

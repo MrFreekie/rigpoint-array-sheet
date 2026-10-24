@@ -2,6 +2,8 @@
 // tested without a browser) and then drawn on a canvas. Drawing text on a canvas needs no markup, so
 // it works under the strict Content Security Policy.
 
+import { CART_SHADE } from '../engine/carts';
+import { isPatchColumn } from '../engine/patch';
 import { CARD_TABLE_WIDTHS_MM, FIXATION_COLUMNS, isLeftColumn, PATCH_CHIP, patchChip, warningText, type CardContent } from './card-content';
 import { CREDIT_TEXT } from './footer';
 import { CARD_W_MM } from './layout';
@@ -221,8 +223,12 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
   const typeIndex = content.columns.findIndex(isLeftColumn);
   widths[typeIndex] = inner - widths.reduce((a, b) => a + b, 0);
   const xs = widths.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? PAD) + w], [PAD]);
-  const tableRow = (cells: string[], header: boolean) => {
+  // A shaded cart fills its rows from the left edge to the first patch column, so the chips and the pencil boxes stay on white.
+  const firstPatch = content.columns.findIndex(isPatchColumn);
+  const shadeTo = firstPatch === -1 ? IMAGE_W - PAD : (xs[firstPatch] ?? IMAGE_W - PAD);
+  const tableRow = (cells: string[], header: boolean, shaded = false) => {
     if (header) ops.push({ op: 'rect', x: PAD, y, w: inner, h: rowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
+    else if (shaded) ops.push({ op: 'rect', x: PAD, y: y + 1, w: shadeTo - PAD, h: rowH - 1, fill: CART_SHADE, stroke: null, lineWidth: 0 });
     cells.forEach((cell, i) => {
       const left = i === typeIndex;
       const x0 = xs[i] ?? PAD;
@@ -242,7 +248,7 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
     y += rowH;
   };
   tableRow(content.columns, true);
-  for (const row of content.rows) tableRow(row, false);
+  content.rows.forEach((row, i) => tableRow(row, false, content.cartShade[i] === true));
   y += 16;
 
   // Footer: which file, which version, when.

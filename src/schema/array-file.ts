@@ -2,6 +2,7 @@
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
+import { CART_SIZE_MAX, CART_SIZES_MAX, CART_TYPE_MAX } from '../engine/carts';
 import { MARKER_TEXT_MAX, SHAPES } from '../engine/markers';
 import { PATCH_DIGITS } from '../engine/patch';
 import { UNDERLAY_MAX_EDGES, UNDERLAY_MAX_LAYERS, UNDERLAY_NAME_MAX, UNDERLAY_STEPS, unpackEdges } from '../engine/underlay';
@@ -20,7 +21,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 10;
+export const FORMAT_VERSION = 11;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -34,6 +35,23 @@ export const SHOW_NOTES_MAX = 500;
 const MarkerSchema = z.object({
   shape: z.enum(SHAPES, { error: 'A pickup symbol must be 2 t, 1 t, 0.5 t or 0.25 t' }),
   text: z.string({ error: 'The symbol value must be text' }).max(MARKER_TEXT_MAX, { error: 'The symbol value is too long' }),
+});
+
+const CartSizeSchema = z.object({
+  type: z
+    .string({ error: 'A cart size needs the type of enclosure as text' })
+    .min(1, { error: 'A cart size needs the type of enclosure' })
+    .max(CART_TYPE_MAX, { error: 'The type of a cart size is too long' }),
+  size: z
+    .number({ error: 'A cart size must be a number' })
+    .int({ error: 'A cart size must be a whole number' })
+    .min(1, { error: `A cart size must be between 1 and ${CART_SIZE_MAX}` })
+    .max(CART_SIZE_MAX, { error: `A cart size must be between 1 and ${CART_SIZE_MAX}` }),
+});
+
+const CartSchema = z.object({
+  manual: z.boolean({ error: 'Carts must be set by hand or automatic' }),
+  breaks: z.array(z.number({ error: 'A cart break must be a number' }).int({ error: 'A cart break must be a whole number' }), { error: 'Cart breaks must be a list' }),
 });
 
 const PatchValueSchema = z.enum(['', ...PATCH_DIGITS], { error: 'A feeder or a way must be one digit, 0 to 9, or blank' });
@@ -94,6 +112,8 @@ export const ArrayFileSchema = z
     deleted: z.array(z.boolean({ error: 'Deleted must be true or false' }), { error: 'Deleted choices must be a list' }),
     markers: z.array(z.object({ front: MarkerSchema, rear: MarkerSchema }), { error: 'Pickup symbols must be a list' }),
     patch: z.array(z.array(PatchRowSchema, { error: 'The cable patch of an array must be a list' }), { error: 'Cable patches must be a list' }),
+    cart_sizes: z.array(CartSizeSchema, { error: 'Cart sizes must be a list' }).max(CART_SIZES_MAX, { error: `There are more than ${CART_SIZES_MAX} cart sizes` }),
+    carts: z.array(CartSchema, { error: 'Carts must be a list' }),
     underlay: UnderlaySchema,
     report: ReportSchema,
     problems: z.array(ProblemSchema, { error: 'Problems must be a list' }).max(MAX_PROBLEMS, { error: 'There are too many problems listed' }),
@@ -128,6 +148,26 @@ export const ArrayFileSchema = z
       file.patch.forEach((rows, i) => {
         const count = sources[i]?.cabinets.length ?? 0;
         if (rows.length !== count) ctx.addIssue({ code: 'custom', path: ['patch', i], message: `The cable patch of array ${i + 1} must have one feeder and way for each of its ${count} enclosures` });
+      });
+    }
+    const seenTypes = new Set<string>();
+    file.cart_sizes.forEach((c, i) => {
+      const key = c.type.trim().toLowerCase();
+      // eslint-disable-next-line no-control-regex
+      if (c.type.trim() === '' || /[\u0000-\u001f\u007f]/.test(c.type)) ctx.addIssue({ code: 'custom', path: ['cart_sizes', i, 'type'], message: 'The type of a cart size cannot be blank or hold control characters' });
+      else if (seenTypes.has(key)) ctx.addIssue({ code: 'custom', path: ['cart_sizes', i, 'type'], message: `The cart size for ${c.type} is listed twice` });
+      seenTypes.add(key);
+    });
+    if (file.carts.length !== sources.length) {
+      ctx.addIssue({ code: 'custom', path: ['carts'], message: 'There must be one set of carts for each array' });
+    } else {
+      file.carts.forEach((c, i) => {
+        const count = sources[i]?.cabinets.length ?? 0;
+        if (!c.manual && c.breaks.length > 0) ctx.addIssue({ code: 'custom', path: ['carts', i], message: `The carts of array ${i + 1} are automatic, so they cannot list breaks` });
+        c.breaks.forEach((b, n) => {
+          if (b < 1 || b >= count) ctx.addIssue({ code: 'custom', path: ['carts', i, 'breaks', n], message: `A cart break of array ${i + 1} must fall between two of its ${count} enclosures` });
+          else if (n > 0 && b <= (c.breaks[n - 1] as number)) ctx.addIssue({ code: 'custom', path: ['carts', i, 'breaks', n], message: `The cart breaks of array ${i + 1} must run from the top down, once each` });
+        });
       });
     }
     file.markers.forEach((pair, i) => {

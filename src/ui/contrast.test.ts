@@ -37,7 +37,7 @@ export function ratio(a: string, b: string): number {
 const TEXT_PAIRS: [string, string][] = [
   ['text', 'bg'], ['text', 'surface'], ['text', 'surface-2'], ['muted', 'surface'], ['muted', 'bg'],
   ['danger', 'surface'], ['ok-text', 'ok-bg'], ['check-text', 'check-bg'], ['over-text', 'over-bg'],
-  ['accent-text', 'accent'],
+  ['accent-text', 'accent'], ['text', 'band'], ['muted', 'band'],
 ];
 const NON_TEXT_PAIRS: [string, string][] = [['border-strong', 'surface'], ['focus', 'surface'], ['focus', 'bg'], ['check-border', 'check-bg'], ['over-border', 'over-bg']];
 

@@ -6,6 +6,8 @@ import { edgeText, riggingEdgeNote, riggingNote, type FixationRow, type RiggingR
 import { showDateText } from '../files/show-date';
 import { NOT_STATED } from '../ui/format';
 import { clipMiddle, clipToWidth, noteLines, wrap, wrapAfterLead, type DrawOp, type Measure } from './array-image';
+import { CART_SHADE } from '../engine/carts';
+import { isPatchColumn } from '../engine/patch';
 import { CARD_TABLE_WIDTHS_MM, FIXATION_COLUMNS, FIXATION_NUMBER_MM, isLeftColumn, PATCH_CHIP, patchChip, warningText, type CardContent } from './card-content';
 import { CARD_W_MM, PX_PER_MM } from './layout';
 import { SMALL_PRINT } from './small-print';
@@ -127,12 +129,16 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
    * `left` is the index of the column that is set left and takes whatever the others leave; every other cell is centred.
    * A cell of a patch column that holds a digit is a colour chip with the digit on it.
    */
-  const table = (columns: string[], rows: string[][], left: number, widthsMm: Readonly<Record<string, number>>) => {
+  const table = (columns: string[], rows: string[][], left: number, widthsMm: Readonly<Record<string, number>>, shade: readonly boolean[] = []) => {
     const widths = columns.map((c) => mm(widthsMm[c] ?? 0));
     widths[left] = W - widths.reduce((a, b) => a + b, 0);
     const xs = widths.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? 0) + w], [0]);
-    const cell = (cells: string[], header: boolean) => {
+    // A shaded cart fills its rows from the left edge to the first patch column, so the chips and the pencil boxes stay on white.
+    const firstPatch = columns.findIndex(isPatchColumn);
+    const shadeTo = firstPatch === -1 ? W : (xs[firstPatch] ?? W);
+    const cell = (cells: string[], header: boolean, shaded = false) => {
       if (header) ops.push({ op: 'rect', x: 0, y, w: W, h: tableRowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
+      else if (shaded) ops.push({ op: 'rect', x: 0, y: y + 0.2, w: shadeTo, h: tableRowH - 0.2, fill: CART_SHADE, stroke: null, lineWidth: 0 });
       cells.forEach((text, i) => {
         const isLeft = i === left;
         const bold = header || i === 0;
@@ -158,14 +164,14 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
     ops.push({ op: 'line', x1: 0, y1: y, x2: W, y2: y, width: 0.4, color: '#777777' });
     y += TABLE_EDGE_PT;
     cell(columns, true);
-    for (const row of rows) cell(row, false);
+    rows.forEach((row, i) => cell(row, false, shade[i] === true));
   };
   // Fixations sit under the facts, with the same 1 mm gap below as the facts have (.pc-fix in print.css).
   if (content.fixations.length > 0) {
     table(FIXATION_COLUMNS, content.fixations, 0, { 'X (m)': FIXATION_NUMBER_MM, 'Y (m)': FIXATION_NUMBER_MM, 'Z (m)': FIXATION_NUMBER_MM });
     y += mm(1);
   }
-  table(content.columns, content.rows, content.columns.findIndex(isLeftColumn), CARD_TABLE_WIDTHS_MM);
+  table(content.columns, content.rows, content.columns.findIndex(isLeftColumn), CARD_TABLE_WIDTHS_MM, content.cartShade);
 
   return { width: W, height: y, ops };
 }

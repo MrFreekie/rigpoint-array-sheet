@@ -79,6 +79,8 @@ export function compareReports(
   symbolsReset: readonly { array: string; side: 'front' | 'rear'; value: string }[] = [],
   /** Cable patches Update from PDF cannot follow, because the array has a different number of enclosures in the new PDF. They are cleared. */
   patchReset: readonly { array: string; rows: number; nowRows: number }[] = [],
+  /** Carts the person cut by hand that Update from PDF cannot follow, because the rows or their types differ in the new PDF. They go back to automatic. */
+  cartReset: readonly { array: string; groups: string }[] = [],
 ): Change[] {
   const out: Change[] = [];
 
@@ -132,6 +134,15 @@ export function compareReports(
       what: 'Cable patch',
       saved: `set for ${r.rows} ${r.rows === 1 ? 'enclosure' : 'enclosures'}`,
       now: `cleared, because the new PDF has ${r.nowRows} ${r.nowRows === 1 ? 'enclosure' : 'enclosures'} in this array`,
+    });
+  }
+  for (const r of cartReset) {
+    out.push({
+      kind: 'changed',
+      array: r.array,
+      what: 'Carts',
+      saved: `set by hand: ${r.groups}`,
+      now: 'back to automatic, because the new PDF has a different number or order of enclosure types in this array',
     });
   }
   return out;

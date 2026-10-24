@@ -6,7 +6,7 @@ RigPoint Array Sheet is the second app in the RigPoint family, after [RigPoint L
 
 ## Where it is
 
-You can open a Soundvision PDF and see a fly sheet card for every array, a rigging plot and a rigging summary. You can type the show details and a ground offset, give an array a title (up to 60 characters) and a note for the crew (up to 300), choose a feeder and a way for each enclosure, delete an array and bring it back, save the lot as a file, open it again later, print it, save it as a PDF, and save each array as an image. The rigging plot can be downloaded as a DXF, and a venue can be drawn under it. The app installs on a computer or phone and works with no signal once it has been opened once.
+You can open a Soundvision PDF and see a fly sheet card for every array, a rigging plot and a rigging summary. You can type the show details and a ground offset, give an array a title (up to 60 characters) and a note for the crew (up to 300), choose a feeder and a way for each enclosure, group the enclosures of an array into carts, delete an array and bring it back, save the lot as a file, open it again later, print it, save it as a PDF, and save each array as an image. The rigging plot can be downloaded as a DXF, and a venue can be drawn under it. The app installs on a computer or phone and works with no signal once it has been opened once.
 
 ## The rigging plot
 
@@ -18,7 +18,9 @@ Each pickup has a symbol for a nominal rating: 2 t, 1 t, 0.5 t or 0.25 t. You pi
 
 Download DXF saves the plot for a CAD program, in millimetres at full size (1:1), with the origin at 0,0 and the elements on separate layers.
 
-Under the plot you can import a venue from the text file that SU4SV, the SketchUp to Soundvision converter, writes. It is drawn as pale grey lines under the plot, shaded by height, with a tick for each SketchUp layer. A model over 60,000 lines, 300 layers or 8 MB is refused. A file holds one venue. The venue never changes the scale or the page, and it goes into the DXF only if you tick Include venue in the DXF.
+In Settings you can import a venue from the text file that SU4SV, the SketchUp to Soundvision converter, writes. It is drawn as pale grey lines under the plot, shaded by height, with a tick for each SketchUp layer. A model over 60,000 lines, 300 layers or 8 MB is refused. A file holds one venue. The venue never changes the scale or the page, and it goes into the DXF only if you tick Include venue in the DXF.
+
+An array is built from carts of three or four enclosures, sometimes six. Each card shows its carts and prints every other cart shaded, so a crew can see where one cart ends and the next begins. The carts are cut from a size for each type of enclosure (the Settings button holds the table, and it starts with K2 four to a cart and KARA II and KARA three), and a new cart always starts where the type changes. A flown array is counted from the top and a stack from the bottom. You can cut any array by hand, with the size buttons or a break between two rows, and the app keeps what you did. Settings also holds the origin note, the side labels of the plot, the venue, the ground offset every array uses, and whether the exact mirror images are shown.
 
 ## Printing, PDF and images
 
@@ -44,7 +46,7 @@ See the [user guide](docs/user-guide.md) for a short walk through. A plan for pr
 
 Save writes a file named like `Main stage - Rev B.arraysheet.json`. In every browser it arrives as a download. In Chrome and Edge on a computer, Open and Save use the browser's own file picker, so Save writes back to the same file each time, Save As picks a new one, and Recent lists the files you used last. A new revision never writes over the file it came from. The file holds what the PDF said, what you typed, the status and the revision, so it reopens exactly as saved, without the PDF. Open takes either a PDF or one of these files. In the installed app on a computer, double-clicking one of these files opens it. On Android you can share one of these files, or a Soundvision PDF, straight into the app.
 
-The file format is `arraysheet/10`. Older files are upgraded when opened, and a file from a newer version of the app is refused rather than opened and trimmed. Each step added something: formats 6 to 10 added the origin note and side labels, card titles, notes, deleted arrays and the show notes and date, the plot symbols, the venue, and the cable patch.
+The file format is `arraysheet/11`. Older files are upgraded when opened, and a file from a newer version of the app is refused rather than opened and trimmed. Each step added something: formats 6 to 11 added the origin note and side labels, card titles, notes, deleted arrays and the show notes and date, the plot symbols, the venue, the cable patch, and the carts.
 
 Each file has a status: Draft, Issued, Approved or Superseded. Approved and superseded files open read-only. To change one, press Create new revision. That starts a draft with the next revision letter (blank, then A, B, C), which you save under its new name.
 
@@ -78,7 +80,7 @@ It does not check that a rig is safe. Soundvision's own warnings are passed thro
 
 When something cannot be read, the app says so and names the array. It never fills the gap with a guess. A report in pounds or feet is refused, because the app reads kilograms and metres only.
 
-When two arrays are exact mirror images, left to right or front to back, the fly sheet shows one and says `Also mirrored with: <name>` under its title. A checkbox shows both. Two mirrors with different notes keep a card each. A card that stands for a pair shows the cable patch of the array it shows. A front to back pair is only found when the arrays have no fixations and the same Panflex figures.
+When two arrays are exact mirror images, left to right or front to back, the fly sheet shows one and says `Also mirrored with: <name>` under its title. A button above the cards, and a tick in Settings, show both. Two mirrors with different notes keep a card each. A card that stands for a pair shows the cable patch and the carts of the array it shows. A front to back pair is only found when the arrays have no fixations and the same Panflex figures.
 
 The one value it works out itself is the Panflex label on a fly sheet (for example 90 On). That rule is described in [docs/development.md](docs/development.md).
 

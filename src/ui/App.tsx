@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { compareReports, type Change } from '../engine/compare';
+import { trackCarts } from '../engine/carts';
 import { trackPatches, type PatchField, type PatchValue } from '../engine/patch';
 import { trackMarkers, type Marker, type PickupSide } from '../engine/markers';
 import { riggingFixations, riggingRows } from '../engine/sheet';
@@ -25,14 +26,16 @@ import { riggingNotes } from '../print/pdf-layout';
 import { PrintSheet } from '../print/PrintSheet';
 import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
+import type { CartSize } from '../engine/carts';
 import type { Underlay } from '../engine/underlay';
-import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withDeleted, withPatch, withLayerHidden, withMarker, withNote, withPrinted, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
+import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withCartBreak, withCartReset, withCartSize, withCartSizes, withDeleted, withPatch, withLayerHidden, withMarker, withNote, withPrinted, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
 import { RecentFilesDialog } from './RecentFilesDialog';
 import { RiggingPlotPreview } from './RiggingPlotPreview';
 import { RiggingSummary } from './RiggingSummary';
+import { SettingsDialog } from './SettingsDialog';
 import { sheetModel, type SheetEntry, type SheetModel } from './sheet-model';
 import { ThemeButton } from './ThemeButton';
 import { UpdatePrompt } from './UpdatePrompt';
@@ -57,6 +60,7 @@ export function App() {
   const [autosaveFailed, setAutosaveFailed] = useState(false);
   const [compare, setCompare] = useState<PendingCompare | null>(null);
   const [showMirrors, setShowMirrors] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [printedAt, setPrintedAt] = useState(() => new Date());
   const [printOverflow, setPrintOverflow] = useState(false);
   const [handle, setHandle] = useState<FileSystemFileHandle | null>(null);
@@ -344,7 +348,7 @@ export function App() {
         setError(`The new PDF cannot be relied on, so nothing was changed. ${first?.message ?? ''}`.trim());
         return;
       }
-      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles, trackMarkers(doc.result.report, fresh.report, doc.markers).reset, trackPatches(doc.result.report, fresh.report, doc.patches).reset);
+      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles, trackMarkers(doc.result.report, fresh.report, doc.markers).reset, trackPatches(doc.result.report, fresh.report, doc.patches).reset, trackCarts(doc.result.report, fresh.report, doc.carts).reset);
       if (changes.length === 0) setNotice(`${file.name} matches this file. There is nothing to update.`);
       else setCompare({ fresh, sourceName: file.name, changes });
     } catch (e) {
@@ -387,6 +391,10 @@ export function App() {
   const setUnderlay = (underlay: Underlay | null) => setDoc((d) => (d ? withUnderlay(d, underlay) : d));
   const setLayerHidden = (name: string, hidden: boolean) => setDoc((d) => (d ? withLayerHidden(d, name, hidden) : d));
   const setMarker = (index: number, side: PickupSide, marker: Marker) => setDoc((d) => (d ? withMarker(d, index, side, marker) : d));
+  const setCartBreak = (index: number, row: number) => setDoc((d) => (d ? withCartBreak(d, index, row) : d));
+  const setCartSize = (index: number, size: number) => setDoc((d) => (d ? withCartSize(d, index, size) : d));
+  const resetCarts = (index: number) => setDoc((d) => (d ? withCartReset(d, index) : d));
+  const setCartSizes = (sizes: CartSize[]) => setDoc((d) => (d ? withCartSizes(d, sizes) : d));
   const setPatch = (index: number, row: number, field: PatchField, value: PatchValue) => setDoc((d) => (d ? withPatch(d, index, row, field, value) : d));
   const deleteArray = (index: number) => {
     if (!doc || doc.locked) return;
@@ -418,7 +426,7 @@ export function App() {
     >
       <header className="app-header">
         <div className="brand">
-          <span className="brand-name">RigPoint</span> <span className="brand-app">Array</span>
+          <span className="brand-name">RigPoint</span> <span className="brand-app">Array Sheet</span>
         </div>
         <div className="show-heading">
           <p className="show-title">
@@ -506,6 +514,9 @@ export function App() {
               Create new revision
             </button>
           ) : null}
+          <button type="button" className="button" disabled={!doc || !doc.result.ok || busy} onClick={() => setSettingsOpen(true)}>
+            Settings
+          </button>
           <ThemeButton />
           <input
             ref={openInput}
@@ -639,8 +650,9 @@ export function App() {
             onNote={setNote}
             onMarker={setMarker}
             onPatch={setPatch}
-            onUnderlay={setUnderlay}
-            onLayer={setLayerHidden}
+            onCartBreak={setCartBreak}
+            onCartSize={setCartSize}
+            onCartReset={resetCarts}
             onPrinted={setPrinted}
             onImage={(entry) => void saveImages([entry])}
             onAllImages={() => model && void saveImages(model.entries.filter((e) => e.print))}
@@ -654,6 +666,20 @@ export function App() {
           onOpen={(f) => void openRecent(f)}
           onRemove={(f) => void removeRecent(idbStore, f.handle, sameHandle).then(setRecent)}
           onClose={() => setRecentOpen(false)}
+        />
+      ) : null}
+      {settingsOpen && doc && model && doc.result.ok ? (
+        <SettingsDialog
+          doc={doc}
+          model={model}
+          locked={locked}
+          onJob={patchJob}
+          onCartSizes={setCartSizes}
+          onUnderlay={setUnderlay}
+          onLayer={setLayerHidden}
+          showMirrors={showMirrors}
+          onShowMirrors={setShowMirrors}
+          onClose={() => setSettingsOpen(false)}
         />
       ) : null}
       {compare ? (
@@ -703,14 +729,15 @@ interface ReportProps {
   onNote: (i: number, t: string) => void;
   onMarker: (i: number, side: PickupSide, marker: Marker) => void;
   onPatch: (i: number, row: number, field: PatchField, value: PatchValue) => void;
-  onUnderlay: (underlay: Underlay | null) => void;
-  onLayer: (name: string, hidden: boolean) => void;
+  onCartBreak: (i: number, row: number) => void;
+  onCartSize: (i: number, size: number) => void;
+  onCartReset: (i: number) => void;
   onPrinted: (i: number, printed: boolean) => void;
   onImage: (entry: SheetEntry) => void;
   onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPatch, onUnderlay, onLayer, onPrinted, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPatch, onCartBreak, onCartSize, onCartReset, onPrinted, onImage, onAllImages }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -727,14 +754,6 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
               </span>
             </h2>
             <div className="sheet-tools">
-              {model.mirrorPairs > 0 ? (
-                <label className="check-field">
-                  <input type="checkbox" checked={showMirrors} onChange={(e) => onShowMirrors(e.target.checked)} />
-                  <span>
-                    Show the {model.mirrorPairs} mirrored {model.mirrorPairs === 1 ? 'array' : 'arrays'} too (exact mirror images are hidden)
-                  </span>
-                </label>
-              ) : null}
               <button type="button" className="button" disabled={busy || model.badOffsets || printCount === 0} onClick={onAllImages}>
                 Save selected as images
               </button>
@@ -742,11 +761,21 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                 {undoLabel === null ? 'Undo delete' : `Undo delete of ${undoLabel}`}
               </button>
             </div>
+            {model.mirrorPairs > 0 ? (
+              <p className="muted source-line" data-testid="mirrors-line">
+                {showMirrors
+                  ? `The ${model.mirrorPairs} mirrored ${model.mirrorPairs === 1 ? 'array is' : 'arrays are'} shown too. `
+                  : `${model.mirrorPairs} exact mirror ${model.mirrorPairs === 1 ? 'image is' : 'images are'} hidden, because ${model.mirrorPairs === 1 ? 'its partner stands' : 'their partners stand'} for ${model.mirrorPairs === 1 ? 'it' : 'them'}. `}
+                <button type="button" className="button" aria-pressed={showMirrors} onClick={() => onShowMirrors(!showMirrors)}>
+                  {showMirrors ? 'Hide them' : 'Show them'}
+                </button>
+              </p>
+            ) : null}
             {model.hidden
-              .filter((h) => h.patchDiffers)
+              .filter((h) => h.patchDiffers || h.cartsDiffer)
               .map((h) => (
                 <p key={h.name} className="muted source-line" data-testid="patch-differs">
-                  {`The cable patch of ${h.name} is not the same as ${h.mirrorOf}, whose card stands for both. Tick Show the mirrored arrays too to see and print it.`}
+                  {`The ${h.patchDiffers && h.cartsDiffer ? 'cable patch and the carts' : h.patchDiffers ? 'cable patch' : 'carts'} of ${h.name} ${h.patchDiffers && !h.cartsDiffer ? 'is' : 'are'} not the same as ${h.mirrorOf}, whose card stands for both. Choose Show them to see and print ${h.patchDiffers && !h.cartsDiffer ? 'it' : 'each'}.`}
                 </p>
               ))}
             {model.deletedList.length > 0 ? (
@@ -799,6 +828,10 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                   onMarker={(side, m) => onMarker(entry.index, side, m)}
                   patch={entry.patch}
                   onPatch={(row, field, value) => onPatch(entry.index, row, field, value)}
+                  carts={entry.carts}
+                  onCartBreak={(row) => onCartBreak(entry.index, row)}
+                  onCartSize={(size) => onCartSize(entry.index, size)}
+                  onCartReset={() => onCartReset(entry.index)}
                   printed={entry.print}
                   onPrinted={(p) => onPrinted(entry.index, p)}
                   onImage={entry.offset.value === null ? undefined : () => onImage(entry)}
@@ -807,7 +840,7 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
               ))}
             </div>
           </section>
-          <RiggingPlotPreview doc={doc} model={model} onUnderlay={onUnderlay} onLayer={onLayer} />
+          <RiggingPlotPreview doc={doc} model={model} />
           <RiggingSummary rows={riggingRows(model.sources, model.live)} fixations={riggingFixations(model.sources, model.live)} notes={riggingNotes(doc.job)} />
         </>
       ) : null}

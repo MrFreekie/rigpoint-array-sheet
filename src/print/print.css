@@ -325,6 +325,11 @@
   background-color: #fff;
 }
 
+/* Every other cart is shaded, but never the feeder and way cells, which stay white for the chips and the pencil boxes. */
+.pc-table td.pc-cart {
+  background: #ebebeb;
+}
+
 .pc-table td.pc-no {
   font-weight: 700;
 }

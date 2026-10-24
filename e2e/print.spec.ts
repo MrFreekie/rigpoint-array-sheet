@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { changedPdf, openPdf, samplePdf, save, start } from './helpers';
+import { changedPdf, inSettings, openPdf, samplePdf, save, start } from './helpers';
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'PDF printing is Chromium-only in Playwright');
 
@@ -156,7 +156,7 @@ test('report B: eight arrays make two pages of cards and the rigging page', asyn
 test('showing the mirrored arrays prints them too', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  await page.getByRole('checkbox', { name: /Show the 9 mirrored arrays/ }).check();
+  await page.getByRole('button', { name: 'Show them' }).click();
   await expect(page.locator('.card')).toHaveCount(18);
   // 18 = 4 + 4 + 4 + 4 + 2, then the plot, then the rigging page.
   expect(pdfPages(await printToPdf(page, 'report-a-all.pdf'))).toBe(7);
@@ -166,7 +166,7 @@ test('showing the mirrored arrays prints them too', async ({ page }) => {
 test('approved: no watermark; ground offsets show in the printed heights', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  await page.getByLabel('Ground offset for every array (m)').fill('0.4');
+  await inSettings(page, (d) => d.getByLabel('Ground offset for every array (m)').fill('0.4'));
   await page.getByLabel('Status').selectOption('approved');
   await page.getByLabel('Show', { exact: true }).fill('Main stage');
   await page.getByLabel('Venue').fill('Grand Hall');
@@ -260,7 +260,7 @@ test('two tall arrays share one long page: two columns, a dashed centre line, a 
 test('the sheet is not printable while the report has an error', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  await page.getByLabel('Ground offset for every array (m)').fill('x');
+  await inSettings(page, (d) => d.getByLabel('Ground offset for every array (m)').fill('x'));
   await expect(page.getByRole('button', { name: 'Print / PDF' })).toBeDisabled();
 });
 
@@ -602,7 +602,7 @@ test('the rigging plot is previewed on screen with its note, and typing the orig
   await expect(preview).toContainText('The rigging plot is under development and may include errors. Check it against the Soundvision report.');
   await expect(preview.getByTestId('plot-svg')).toBeVisible();
   await expect(preview).toContainText('Soundvision origin');
-  await page.getByLabel('Origin (P0)').fill('Iron Line');
+  await inSettings(page, (d) => d.getByLabel('Origin (P0)').fill('Iron Line'));
   await expect(preview).toContainText('Soundvision origin: Iron Line');
 });
 
@@ -611,7 +611,7 @@ test('unticking the side labels takes the four side names off the plot in the pr
   await openPdf(page, samplePdf('e'));
   const preview = page.getByTestId('plot-preview');
   await expect(preview).toContainText('House left');
-  await page.getByLabel('Show side labels on the rigging plot').uncheck();
+  await inSettings(page, (d) => d.getByLabel('Show side labels on the rigging plot').uncheck());
   for (const side of ['House left', 'House right', 'Stage', 'Audience']) await expect(preview).not.toContainText(side);
   await expect(preview).toContainText('Soundvision origin');
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
@@ -625,7 +625,7 @@ for (const name of ['a', 'c', 'e'] as const) {
   test(`report ${name}: the plot sits before the rigging page, with a 100 mm check bar, and Download PDF agrees on its page`, async ({ page }) => {
     await start(page);
     await openPdf(page, samplePdf(name));
-    await page.getByLabel('Origin (P0)').fill('DSE');
+    await inSettings(page, (d) => d.getByLabel('Origin (P0)').fill('DSE'));
     await page.emulateMedia({ media: 'print' });
     await expect.poll(async () => (await pageKinds(page)).slice(-2)).toEqual(['plot', 'rigging']);
     const kinds = await pageKinds(page);
@@ -698,7 +698,7 @@ test('picking a pickup symbol and typing a value shows on the plot preview, in t
   // The choice is saved with the file, in the new format.
   const { json } = await save(page);
   const markers = json['markers'] as { front: { shape: string; text: string }; rear: { shape: string; text: string } }[];
-  expect(json['format']).toBe('arraysheet/10');
+  expect(json['format']).toBe('arraysheet/11');
   expect(markers.some((m) => m.front.shape === 'two')).toBe(true);
   expect(markers.some((m) => m.rear.text === '1.5 t')).toBe(true);
 });

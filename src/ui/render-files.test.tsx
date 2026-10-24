@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { Change } from '../engine/compare';
-import { ORIGIN_MAX } from '../schema/array-file';
 import { parseFixture } from '../testing/fixtures';
 import { CompareDialog } from './CompareDialog';
 import { newDoc } from './document';
@@ -9,17 +8,6 @@ import { JobForm } from './JobForm';
 
 const doc = () => newDoc(parseFixture('a'), 'a.pdf');
 const noop = () => {};
-
-describe('JobForm origin', () => {
-  it('has an Origin (P0) field with the typed note', () => {
-    const d = doc();
-    d.job.origin = 'Iron Line';
-    const html = renderToStaticMarkup(<JobForm doc={d} locked={false} onJob={noop} onStatus={noop} onRevision={noop} />);
-    expect(html).toContain('Origin (P0)');
-    expect(html).toContain('value="Iron Line"');
-    expect(html).toContain(`maxLength="${ORIGIN_MAX}"`);
-  });
-});
 
 describe('JobForm status and revision', () => {
   it('offers every status and explains the lock', () => {
@@ -32,7 +20,8 @@ describe('JobForm status and revision', () => {
 
   it('disables every field of a locked file', () => {
     const html = renderToStaticMarkup(<JobForm doc={doc()} locked onJob={noop} onStatus={noop} onRevision={noop} />);
-    expect(html.match(/disabled=""/g)).toHaveLength(12);
+    // The origin note, the side labels and the ground offset for every array moved to Settings.
+    expect(html.match(/disabled=""/g)).toHaveLength(9);
   });
 
   it('shows the revision that was typed', () => {

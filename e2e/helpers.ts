@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { expect, type Download, type Page } from '@playwright/test';
+import { expect, type Download, type Locator, type Page } from '@playwright/test';
 import { parseSoundvision } from '../src/engine/parse';
 import type { ArraySource, TextItem } from '../src/engine/types';
 import { makePdf } from '../src/testing/make-pdf';
@@ -41,6 +41,29 @@ export async function start(page: Page, opts: { fsAccess?: boolean } = {}) {
   }
   await page.goto('./');
   await expect(page.getByRole('button', { name: 'Open', exact: true }).first()).toBeVisible();
+}
+
+/** Open the Settings dialog and return it. */
+export async function openSettings(page: Page): Promise<Locator> {
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** Close the Settings dialog with its Close button. */
+export async function closeSettings(page: Page) {
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(dialog).toBeHidden();
+}
+
+/** Open Settings, run `fn` with the dialog, close it again. */
+export async function inSettings<T>(page: Page, fn: (dialog: Locator) => Promise<T>): Promise<T> {
+  const dialog = await openSettings(page);
+  const result = await fn(dialog);
+  await closeSettings(page);
+  return result;
 }
 
 export async function openPdf(page: Page, pdf: Buffer, name = 'report.pdf') {

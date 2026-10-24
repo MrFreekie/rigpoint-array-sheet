@@ -8,6 +8,7 @@ import { edgeText, riggingEdgeNote, riggingFixations, riggingNote, riggingRows }
 import type { Doc } from '../files/doc';
 import { NOT_STATED, num } from '../ui/format';
 import type { SheetModel } from '../ui/sheet-model';
+import { isPatchColumn } from '../engine/patch';
 import { CARD_TABLE_WIDTHS_MM, cardContent, FIXATION_COLUMNS, FIXATION_NUMBER_MM, isLeftColumn, patchChip, warningText, type CardContent } from './card-content';
 import { CREDIT_TEXT, pageFooterText } from './footer';
 import { panelHeader, type PanelHeader } from './panel-header';
@@ -106,7 +107,10 @@ function CardView({ content }: { content: CardContent }) {
                 const column = content.columns[j] ?? '';
                 const chip = patchChip(column, cell);
                 return (
-                  <td key={j} className={j === 0 ? 'pc-no' : isLeftColumn(column) ? 'pc-left' : undefined}>
+                  <td
+                    key={j}
+                    className={[j === 0 ? 'pc-no' : isLeftColumn(column) ? 'pc-left' : '', content.cartShade[i] && !isPatchColumn(column) ? 'pc-cart' : ''].filter(Boolean).join(' ') || undefined}
+                  >
                     {chip ? (
                       <span className={`pc-chip${chip.outline ? ' pc-chip-outlined' : ''}${cell === '' ? ' pc-chip-empty' : ''}`} style={{ backgroundColor: chip.fill, color: chip.text }}>
                         {cell}

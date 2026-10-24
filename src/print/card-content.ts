@@ -36,6 +36,8 @@ export interface CardContent {
   warnings: { severity: string; title: string; message: string }[];
   columns: string[];
   rows: string[][];
+  /** One flag for each row of the table: true when the row is in a shaded cart. All false when the array is one block. */
+  cartShade: boolean[];
 }
 
 /** Heading of the fixation block and its columns. Z is the report's own, with no ground offset taken off. */
@@ -150,5 +152,6 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
     warnings: c.warnings.map((w) => ({ ...w })),
     columns,
     rows,
+    cartShade: c.rows.map((_, i) => entry.carts.shade[i] === true),
   };
 }

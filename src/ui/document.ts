@@ -4,6 +4,7 @@ import { parseOffset } from '../engine/sheet';
 import type { Doc } from '../files/doc';
 
 export {
+  cartsOf,
   deletedList,
   displayName,
   editKey,
@@ -21,6 +22,10 @@ export {
   STATUSES,
   updatedDoc,
   visibleProblems,
+  withCartBreak,
+  withCartReset,
+  withCartSize,
+  withCartSizes,
   withDeleted,
   withLayerHidden,
   withUnderlay,

@@ -11,7 +11,7 @@ describe('sheetModel', () => {
     expect(m.entries).toHaveLength(9);
     expect(m.mirrorPairs).toBe(9);
     expect(m.hidden).toHaveLength(9);
-    expect(m.hidden[0]).toEqual({ name: 'KARA II R Main', mirrorOf: 'KARA II L Main', patchDiffers: false });
+    expect(m.hidden[0]).toEqual({ name: 'KARA II R Main', mirrorOf: 'KARA II L Main', patchDiffers: false, cartsDiffer: false });
     expect(m.entries[0]?.coversMirror).toBe('KARA II R Main');
     expect(m.entries[0]?.mirrorOf).toBeUndefined();
   });

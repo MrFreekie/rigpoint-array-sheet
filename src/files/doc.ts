@@ -1,6 +1,7 @@
 // What the person is working on: a report read from a PDF, plus what they typed on top of it.
 // The report itself is never edited. Everything it states is shown as printed.
 
+import { autoBreaks, cartRows, defaultCartSizes, forcedBreaks, groupsOf, normaliseBreaks, sizeFor, toggleBreak, trackCarts, type CartSize } from '../engine/carts';
 import { matchByName } from '../engine/compare';
 import { defaultPair, isDefaultPair, trackMarkers, type Marker, type MarkerPair, type PickupSide } from '../engine/markers';
 import { fitPatch, patchUsed, trackPatches, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
@@ -80,6 +81,10 @@ export interface Doc {
   patches: Record<number, PatchRow[]>;
   /** The venue drawn grey under the rigging plot, as plan lines, or null when none was imported. Saved in the file. */
   underlay: Underlay | null;
+  /** How many enclosures of each type make a cart. Automatic arrays are cut from this. Saved in the file. */
+  cartSizes: CartSize[];
+  /** The carts of an array the person cut by hand, by position in the report: the index of the first row of every cart after the first. Arrays not listed are automatic. Saved in the file. */
+  carts: Record<number, number[]>;
 }
 
 export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true, notes: '', showDate: '' };
@@ -104,6 +109,8 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     markerOverride: null,
     patches: {},
     underlay: null,
+    cartSizes: defaultCartSizes(),
+    carts: {},
   };
 }
 
@@ -152,7 +159,7 @@ export function editKey(doc: Doc): string {
     Object.entries(r)
       .filter(([, text]) => text.trim() !== '')
       .sort(([a], [b]) => Number(a) - Number(b));
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), savedPatches(doc), doc.underlay]);
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc)]);
 }
 
 /** The plot symbols that are not the default, by position, in order. Only what is saved counts, not a read-only file's override. */
@@ -169,6 +176,58 @@ function savedPatches(doc: Doc): [number, PatchRow[]][] {
     .filter(([, rows]) => patchUsed(rows))
     .map(([i, rows]): [number, PatchRow[]] => [Number(i), rows])
     .sort((a, b) => a[0] - b[0]);
+}
+
+/** The hand cut carts, by position, in order. */
+function savedCarts(doc: Doc): [number, number[]][] {
+  return Object.entries(doc.carts)
+    .map(([i, breaks]): [number, number[]] => [Number(i), breaks])
+    .sort((a, b) => a[0] - b[0]);
+}
+
+/** The carts of one array as the card shows them: where the breaks are, whether the person cut them, and the size of each cart. */
+export interface CartsOf {
+  breaks: number[];
+  manual: boolean;
+  groups: number[];
+  /** The breaks no one can remove: where the type or the stack column changes. */
+  forced: number[];
+}
+
+export function cartsOf(doc: Doc, index: number): CartsOf {
+  const source = doc.result.report.sources[index];
+  const rows = cartRows(source?.cabinets ?? []);
+  const forced = forcedBreaks(rows);
+  const stored = doc.carts[index];
+  const manual = stored !== undefined;
+  const breaks = manual ? normaliseBreaks(stored, forced, rows.length) : autoBreaks(rows, (type) => sizeFor(doc.cartSizes, type), source?.mounting ?? null);
+  return { breaks, manual, groups: groupsOf(breaks, rows.length), forced };
+}
+
+/** Add or remove the break before row `row` of an array. The array becomes hand cut. A read-only file cannot change. */
+export function withCartBreak(doc: Doc, index: number, row: number): Doc {
+  const rows = doc.result.report.sources[index]?.cabinets.length ?? 0;
+  if (doc.locked || row < 1 || row >= rows) return doc;
+  const c = cartsOf(doc, index);
+  return { ...doc, carts: { ...doc.carts, [index]: toggleBreak(c.breaks, row, c.forced, rows) } };
+}
+
+/** Cut an array into carts of one size, from the top (from the bottom for a stack), still breaking at every change of type. The array becomes hand cut. */
+export function withCartSize(doc: Doc, index: number, size: number): Doc {
+  const source = doc.result.report.sources[index];
+  if (doc.locked || !source || !Number.isInteger(size) || size < 1) return doc;
+  return { ...doc, carts: { ...doc.carts, [index]: autoBreaks(cartRows(source.cabinets), () => size, source.mounting) } };
+}
+
+/** Put an array back to automatic carts. */
+export function withCartReset(doc: Doc, index: number): Doc {
+  if (doc.locked || doc.carts[index] === undefined) return doc;
+  return { ...doc, carts: Object.fromEntries(Object.entries(doc.carts).filter(([i]) => Number(i) !== index)) };
+}
+
+/** Replace the table of cart sizes. A read-only file cannot change. */
+export function withCartSizes(doc: Doc, sizes: CartSize[]): Doc {
+  return doc.locked ? doc : { ...doc, cartSizes: sizes };
 }
 
 /** The cable patch of an array, one row for each enclosure. */
@@ -270,6 +329,7 @@ export function updatedDoc(doc: Doc, fresh: ParseResult, sourceName: string): Do
     markers: trackMarkers(doc.result.report, fresh.report, doc.markerOverride ?? doc.markers).kept,
     markerOverride: null,
     patches: trackPatches(doc.result.report, fresh.report, doc.patches).kept,
+    carts: trackCarts(doc.result.report, fresh.report, doc.carts).kept,
   };
 }
 

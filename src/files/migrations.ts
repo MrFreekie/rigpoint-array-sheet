@@ -1,6 +1,7 @@
 // Each saved-file version has a step that upgrades it to the next. A file from a newer version of
 // the app is refused, because it may hold things this version would silently lose.
 
+import { defaultCartSizes } from '../engine/carts';
 import { FORMAT_NAME, FORMAT_VERSION } from '../schema/array-file';
 
 export class FileError extends Error {}
@@ -69,6 +70,18 @@ export const MIGRATIONS: Record<number, Migration> = {
       return Array.isArray(cabinets) ? cabinets.length : 0;
     };
     return { ...file, patch: Array.isArray(sources) ? sources.map((s) => Array.from({ length: rows(s) }, () => ({ feeder: '', way: '' }))) : [] };
+  },
+  // Version 11 added carts: the groups of enclosures an array is built from, cut from a size for each type of enclosure, or by
+  // hand. Earlier files start with the usual sizes and every array automatic. An older copy of the app would drop the sizes and
+  // any hand cut carts when it saved, so it refuses version 11 files.
+  10: (file) => {
+    const report = file['report'];
+    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
+    return {
+      ...file,
+      cart_sizes: defaultCartSizes(),
+      carts: Array.isArray(sources) ? sources.map(() => ({ manual: false, breaks: [] })) : [],
+    };
   },
 };
 

@@ -6,7 +6,7 @@ import { fitPatch, patchUsed, type PatchRow } from '../engine/patch';
 import { packEdges, unpackEdges, type Underlay } from '../engine/underlay';
 import { ArrayFileSchema, FORMAT, type ArrayFile } from '../schema/array-file';
 import { formatIssues } from '../schema/errors';
-import { editKey, statusLocks, type Doc } from './doc';
+import { cartsOf, editKey, statusLocks, type Doc } from './doc';
 import { MAX_FILE_BYTES } from './limits';
 import { FileError, migrate } from './migrations';
 
@@ -41,6 +41,11 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
       return { front: { ...pair.front }, rear: { ...pair.rear } };
     }),
     patch: Array.from({ length: count }, (_, i) => fitPatch(doc.patches[i], doc.result.report.sources[i]?.cabinets.length ?? 0)),
+    cart_sizes: doc.cartSizes.map((c) => ({ type: c.type, size: c.size })),
+    carts: Array.from({ length: count }, (_, i) => {
+      const c = cartsOf(doc, i);
+      return c.manual ? { manual: true, breaks: c.breaks } : { manual: false, breaks: [] };
+    }),
     underlay: doc.underlay
       ? { layers: doc.underlay.layers.map((l) => ({ name: l.name, hidden: l.hidden, shades: l.shades.map((sh) => ({ step: sh.step, edges: packEdges(sh.edges) })) })) }
       : null,
@@ -104,6 +109,10 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
   f.patch.forEach((rows, i) => {
     if (patchUsed(rows)) patches[i] = rows;
   });
+  const carts: Record<number, number[]> = {};
+  f.carts.forEach((c, i) => {
+    if (c.manual) carts[i] = c.breaks;
+  });
   const underlay: Underlay | null = f.underlay
     ? { layers: f.underlay.layers.map((l) => ({ name: l.name, hidden: l.hidden, shades: l.shades.map((sh) => ({ step: sh.step, edges: unpackEdges(sh.edges) ?? [] })) })) }
     : null;
@@ -137,6 +146,8 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
     markerOverride: null,
     patches,
     underlay,
+    cartSizes: f.cart_sizes.map((c) => ({ type: c.type, size: c.size })),
+    carts,
   };
   doc.savedKey = editKey(doc);
   return { doc, savedAt: f.saved_at };

@@ -22,7 +22,7 @@ export function CompareDialog({
     <Dialog title="The new PDF is different" onClose={onKeep}>
       <p>
         {sourceName} differs from this file in {changes.length} {changes.length === 1 ? 'place' : 'places'}. Your show details, ground
-        offsets, titles, notes, plot symbols and cable patches are kept. They stay with an array of the same name, and a symbol stays with the same pickup. A symbol the new PDF cannot follow is listed and goes back to 1 t. A cable patch stays row for row while the array has the same number of enclosures. If the number differs, that patch is listed and cleared. An array you deleted comes back if the new PDF has it.
+        offsets, titles, notes, plot symbols and cable patches are kept. They stay with an array of the same name, and a symbol stays with the same pickup. A symbol the new PDF cannot follow is listed and goes back to 1 t. A cable patch stays row for row while the array has the same number of enclosures. If the number differs, that patch is listed and cleared. Carts you cut by hand stay while the array has the same enclosures in the same order. If they differ, that array goes back to automatic carts and is listed. The table of cart sizes is not touched. An array you deleted comes back if the new PDF has it.
       </p>
       <ul className="change-list" aria-label="Differences">
         {shown.map((c, i) => (

@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { changedPdf, openJson, openPdf, samplePdf, save, savedName, start } from './helpers';
+import { changedPdf, closeSettings, inSettings, openJson, openPdf, openSettings, samplePdf, save, savedName, start } from './helpers';
 
 test('opens a Soundvision PDF and shows one card per array without sideways scrolling', async ({ page }) => {
   await start(page);
@@ -57,14 +57,16 @@ test('save, reopen, approve and lock', async ({ page }) => {
   await expect(page.getByText('● Unsaved changes')).toBeVisible();
 
   await page.getByLabel('Show', { exact: true }).fill('Main stage');
-  await page.getByLabel('Origin (P0)').fill('Iron Line');
-  await page.getByLabel('Ground offset for every array (m)').fill('0.3');
+  await inSettings(page, async (d) => {
+    await d.getByLabel('Origin (P0)').fill('Iron Line');
+    await d.getByLabel('Ground offset for every array (m)').fill('0.3');
+  });
   const first = page.locator('.card').first();
   await expect(first.getByTestId('top-height')).toHaveText('9.1 m');
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/10', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/11', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -73,7 +75,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Open a Soundvision report' })).toBeVisible();
   await openJson(page, 'Main stage.arraysheet.json', draft.text);
   await expect(page.getByLabel('Show', { exact: true })).toHaveValue('Main stage');
-  await expect(page.getByLabel('Origin (P0)')).toHaveValue('Iron Line');
+  await inSettings(page, (d) => expect(d.getByLabel('Origin (P0)')).toHaveValue('Iron Line'));
   await expect(page.locator('.card').first().getByTestId('top-height')).toHaveText('9.1 m');
 
   // Approve it: still editable until saved, then read-only.
@@ -255,7 +257,7 @@ test('each array can be saved as an image, one at a time or all together', async
 test('images are not offered while an offset is not a number', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  await page.getByLabel('Ground offset for every array (m)').fill('x');
+  await inSettings(page, (d) => d.getByLabel('Ground offset for every array (m)').fill('x'));
   await expect(page.getByRole('button', { name: 'Save selected as images' })).toBeDisabled();
   await expect(page.getByRole('button', { name: /as an image$/ })).toHaveCount(0);
 });
@@ -346,7 +348,7 @@ test('Download DXF saves the plot in millimetres at full size, and says so besid
   await start(page);
   await openPdf(page, samplePdf('a'));
   await page.getByLabel('Show', { exact: true }).fill('Main stage');
-  await page.getByLabel('Origin (P0)').fill('DSE');
+  await inSettings(page, (d) => d.getByLabel('Origin (P0)').fill('DSE'));
   const plot = page.getByTestId('plot-preview');
   await expect(plot.getByText('DXF units are millimetres at full size (1:1).')).toBeVisible();
   const [download] = await Promise.all([page.waitForEvent('download'), plot.getByRole('button', { name: 'Download DXF' }).click()]);
@@ -568,9 +570,10 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
   const before = await scale();
   await expect(svg.locator('path')).toHaveCount(0);
 
-  await plot.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
-  await expect(plot.getByText('Imported 5 lines in 2 layers.')).toBeVisible();
-  const layers = plot.getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });
+  const settings = await openSettings(page);
+  await settings.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
+  await expect(settings.getByText('Imported 5 lines in 2 layers.')).toBeVisible();
+  const layers = settings.getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });
   await expect(layers.getByLabel(/Walls/)).toBeChecked();
   await expect(layers.getByLabel(/Roof/)).toBeChecked();
   expect(await svg.locator('path').count()).toBeGreaterThan(0);
@@ -581,36 +584,39 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
   const all = await drawn();
   await layers.getByLabel(/Roof/).uncheck();
   expect(await drawn()).toBeLessThan(all);
+  await closeSettings(page);
   await expect(page.getByText('● Unsaved changes')).toBeVisible();
 
   // It is saved in the file and comes back with the layer still off.
   const saved = await save(page);
-  expect((saved.json['format'] as string)).toBe('arraysheet/10');
+  expect((saved.json['format'] as string)).toBe('arraysheet/11');
   expect(saved.text).not.toContain('Label');
   await openJson(page, 'venue.arraysheet.json', saved.text);
-  const again = page.getByTestId('plot-preview').getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });
+  const again = (await openSettings(page)).getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });
   await expect(again.getByLabel(/Roof/)).not.toBeChecked();
   await expect(again.getByLabel(/Walls/)).toBeChecked();
 
   // Replacing starts with every layer on.
-  await page.getByTestId('plot-preview').getByTestId('venue-file').setInputFiles(venueFile(VENUE_OTHER));
-  await expect(page.getByText('Imported 1 line in 1 layer.')).toBeVisible();
-  await expect(page.getByTestId('venue-panel').getByLabel(/Balcony/)).toBeChecked();
-  await expect(page.getByTestId('venue-panel').getByLabel(/Walls/)).toHaveCount(0);
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  await dialog.getByTestId('venue-file').setInputFiles(venueFile(VENUE_OTHER));
+  await expect(dialog.getByText('Imported 1 line in 1 layer.')).toBeVisible();
+  await expect(dialog.getByTestId('venue-panel').getByLabel(/Balcony/)).toBeChecked();
+  await expect(dialog.getByTestId('venue-panel').getByLabel(/Walls/)).toHaveCount(0);
 
   // Removing it takes it all away.
-  await page.getByRole('button', { name: 'Remove venue' }).click();
-  await expect(page.getByTestId('plot-preview').getByTestId('plot-svg').first().locator('path')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Import venue (SU4SV text file)' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Remove venue' }).click();
+  await expect(plot.getByTestId('plot-svg').first().locator('path')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Import venue (SU4SV text file)' })).toBeVisible();
+  await closeSettings(page);
 });
 
 test('a venue file that is not in metres is refused with a plain message', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  const plot = page.getByTestId('plot-preview');
-  await plot.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT.replace('"m"', '"ft"')));
-  await expect(plot.getByRole('alert')).toContainText('in ft');
-  await expect(plot.getByRole('button', { name: 'Remove venue' })).toHaveCount(0);
+  const settings = await openSettings(page);
+  await settings.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT.replace('"m"', '"ft"')));
+  await expect(settings.getByRole('alert')).toContainText('in ft');
+  await expect(settings.getByRole('button', { name: 'Remove venue' })).toHaveCount(0);
 });
 
 test('Download DXF can include the venue, one DXF layer for each SketchUp layer', async ({ page }) => {
@@ -618,7 +624,10 @@ test('Download DXF can include the venue, one DXF layer for each SketchUp layer'
   await openPdf(page, samplePdf('a'));
   const plot = page.getByTestId('plot-preview');
   await expect(plot.getByLabel(/Include venue in the DXF/)).toHaveCount(0);
-  await plot.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
+  await inSettings(page, async (d) => {
+    await d.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
+    await expect(d.getByText('Imported 5 lines in 2 layers.')).toBeVisible();
+  });
   const tick = plot.getByLabel(/Include venue in the DXF/);
   await expect(tick).not.toBeChecked();
   const [without] = await Promise.all([page.waitForEvent('download'), plot.getByRole('button', { name: 'Download DXF' }).click()]);
@@ -633,12 +642,11 @@ test('Download DXF can include the venue, one DXF layer for each SketchUp layer'
 test('an approved file offers no venue changes', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  const plot = page.getByTestId('plot-preview');
-  await plot.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
+  await inSettings(page, (d) => d.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT)));
   await page.getByLabel('Status').selectOption('approved');
   const saved = await save(page);
   await openJson(page, 'approved.arraysheet.json', saved.text);
-  const panel = page.getByTestId('plot-preview').getByTestId('venue-panel');
+  const panel = (await openSettings(page)).getByTestId('venue-panel');
   await expect(panel.getByRole('button', { name: 'Replace venue (SU4SV text file)' })).toBeDisabled();
   await expect(panel.getByRole('button', { name: 'Remove venue' })).toBeDisabled();
   await expect(panel.getByLabel(/Walls/)).toBeDisabled();
@@ -648,8 +656,10 @@ test('the on-screen plot has white space around it, stays on white, and does not
   await start(page);
   await openPdf(page, samplePdf('a'));
   const plot = page.getByTestId('plot-preview');
-  await plot.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
-  await expect(plot.getByText('Imported 5 lines in 2 layers.')).toBeVisible();
+  await inSettings(page, async (d) => {
+    await d.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
+    await expect(d.getByText('Imported 5 lines in 2 layers.')).toBeVisible();
+  });
   const frame = plot.locator('.plot-frame').first();
   await expect(frame).toBeVisible();
   const style = await frame.evaluate((el) => {

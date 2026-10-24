@@ -1,8 +1,10 @@
-import { Fragment, useId } from 'react';
+import { Fragment, useId, useState } from 'react';
+import { CART_SIZE_MAX, cartShade, groupsText } from '../engine/carts';
 import type { FlySheetColumn } from '../engine/sheet';
 import { cleanMarkerText, MARKER_TEXT_MAX, RATING_LABEL, SHAPE_NAME, SHAPES, type Marker, type MarkerPair, type PickupSide, type Shape } from '../engine/markers';
 import { PATCH_COLOURS, PATCH_DIGITS, type PatchDigit, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
 import { enclosureLabel } from '../engine/types';
+import type { CartsOf } from '../files/doc';
 import { FIXATION_COLUMNS, fixationName, frameFacts, warningText } from '../print/card-content';
 import { NOTES_MAX, TITLE_MAX } from '../schema/array-file';
 import { plain } from './plain';
@@ -41,17 +43,24 @@ interface Props {
   /** The feeder and way of each enclosure row, and how to change one. Read-only files cannot change. */
   patch: PatchRow[];
   onPatch: (row: number, field: PatchField, value: PatchValue) => void;
+  /** The carts of this array, and how to change them. A read-only file shows them but cannot change them. */
+  carts: CartsOf;
+  onCartBreak: (row: number) => void;
+  onCartSize: (size: number) => void;
+  onCartReset: () => void;
   /** Deletes this array. Not offered on a read-only file. */
   onDelete?: (() => void) | undefined;
   /** True when the offset in use comes from the "every array" field. */
   usingDefault: boolean;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, patch, onPatch }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, patch, onPatch, carts, onCartBreak, onCartSize, onCartReset }: Props) {
   const id = useId();
   const hasColumns = c.rows.some((r) => r.column !== null);
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
+  // Every other cart is banded on screen as it is shaded in print, counted from the top, the first one plain.
+  const shade = cartShade(carts.breaks, c.rows.length);
 
   return (
     <article className="card" aria-labelledby={`${id}-name`}>
@@ -227,11 +236,22 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
       {c.rows.length === 0 ? (
         <p className="muted">No enclosure table was found for this array.</p>
       ) : (
+        <>
+        <CartControls
+          name={c.name}
+          carts={carts}
+          locked={locked === true}
+          onSize={onCartSize}
+          onReset={onCartReset}
+        />
         <div className="table-wrap">
           <table className="card-table">
             <caption className="visually-hidden">Enclosures of {c.name}, as listed in the report</caption>
             <thead>
               <tr>
+                <th scope="col" className="cart-strip">
+                  <span className="visually-hidden">Cart break</span>
+                </th>
                 <th scope="col">{hasColumns ? 'Col #' : '#'}</th>
                 <th scope="col" className="left">Type</th>
                 {hasPanflex ? <th scope="col">Panflex</th> : null}
@@ -241,17 +261,44 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
               </tr>
             </thead>
             <tbody>
-              {c.rows.map((r, n) => (
-                <tr key={enclosureLabel(r)}>
-                  <th scope="row">{enclosureLabel(r)}</th>
-                  <td className="left">{r.type}</td>
+              {c.rows.map((r, n) => {
+                const banded = shade[n] === true;
+                const band = banded ? ' cart-band' : '';
+                const starts = n > 0 && carts.breaks.includes(n);
+                const forced = starts && carts.forced.includes(n);
+                const previous = c.rows[n - 1];
+                return (
+                <tr key={enclosureLabel(r)} className={starts ? 'cart-start' : undefined} data-testid="enclosure-row">
+                  <td className={`cart-strip${band}`}>
+                    {n === 0 ? null : forced ? (
+                      <span className="cart-forced" title="The type changes here, so a new cart starts">
+                        <span className="visually-hidden">A new cart starts here, because the type changes</span>
+                      </span>
+                    ) : locked === true ? (
+                      starts ? (
+                        <span className="cart-forced">
+                          <span className="visually-hidden">A new cart starts here</span>
+                        </span>
+                      ) : null
+                    ) : (
+                      <button
+                        type="button"
+                        className="cart-break"
+                        aria-pressed={starts}
+                        aria-label={`Cart break between enclosures ${previous ? enclosureLabel(previous) : ''} and ${enclosureLabel(r)}`}
+                        onClick={() => onCartBreak(n)}
+                      />
+                    )}
+                  </td>
+                  <th scope="row" className={band.trim() || undefined}>{enclosureLabel(r)}</th>
+                  <td className={`left${band}`}>{r.type}</td>
                   {hasPanflex ? (
-                    <td className="n" title={r.panflexPrinted ? `Report: ${r.panflexPrinted}` : undefined}>
+                    <td className={`n${band}`} title={r.panflexPrinted ? `Report: ${r.panflexPrinted}` : undefined}>
                       {r.panflex ? r.panflex.text : r.panflexPrinted ?? NOT_STATED}
                       {r.panflex?.sideUnknown ? ' (side not known)' : ''}
                     </td>
                   ) : null}
-                  {hasAngles ? <td className="n">{num(r.angle)}</td> : null}
+                  {hasAngles ? <td className={`n${band}`}>{num(r.angle)}</td> : null}
                   {(['feeder', 'way'] as const).map((field) => (
                     <td key={field} className="patch-cell">
                       <PatchSelect
@@ -263,10 +310,12 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
                     </td>
                   ))}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
+        </>
       )}
     </article>
   );
@@ -319,5 +368,54 @@ function PatchSelect({ label, value, disabled, onChange }: { label: string; valu
         </option>
       ))}
     </select>
+  );
+}
+
+/** The carts of one array: what they are now, buttons to cut the array into carts of one size, and a way back to automatic. */
+function CartControls({ name, carts, locked, onSize, onReset }: { name: string; carts: CartsOf; locked: boolean; onSize: (size: number) => void; onReset: () => void }) {
+  const id = useId();
+  const [custom, setCustom] = useState('');
+  const n = Number(custom.trim());
+  const customOk = custom.trim() !== '' && Number.isInteger(n) && n >= 1 && n <= CART_SIZE_MAX;
+  return (
+    <div className="carts-field" data-testid="carts">
+      <p className="carts-summary" role="status" aria-live="polite" data-testid="carts-summary">
+        {`Carts: ${groupsText(carts.groups)}, ${carts.manual ? 'set by hand' : 'automatic'}`}
+      </p>
+      {locked ? null : (
+        <div className="carts-tools">
+          <span id={`${id}-size`}>Cart size</span>
+          <div className="carts-sizes" role="group" aria-labelledby={`${id}-size`}>
+            {[3, 4, 6].map((k) => (
+              <button key={k} type="button" className="button" aria-label={`Cut ${name} into carts of ${k}`} onClick={() => onSize(k)}>
+                {k}
+              </button>
+            ))}
+            <label className="visually-hidden" htmlFor={`${id}-custom`}>
+              Custom cart size, 1 to {CART_SIZE_MAX}
+            </label>
+            <input
+              id={`${id}-custom`}
+              type="text"
+              inputMode="numeric"
+              className="carts-custom"
+              value={custom}
+              placeholder="other"
+              maxLength={2}
+              aria-invalid={custom.trim() !== '' && !customOk}
+              onChange={(e) => setCustom(e.target.value.replace(/[^0-9]/g, ''))}
+              autoComplete="off"
+            />
+            <button type="button" className="button" disabled={!customOk} onClick={() => onSize(n)}>
+              Apply
+            </button>
+          </div>
+          <button type="button" className="button" disabled={!carts.manual} onClick={onReset}>
+            Reset to automatic
+          </button>
+          {custom.trim() !== '' && !customOk ? <span className="field-error">Enter a whole number from 1 to {CART_SIZE_MAX}.</span> : null}
+        </div>
+      )}
+    </div>
   );
 }

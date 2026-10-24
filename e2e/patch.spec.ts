@@ -67,17 +67,17 @@ test('a collapsed mirror pair shows the shown array patch and says when the part
   await feeder(left, 1).selectOption('1');
   await expect(page.getByTestId('patch-differs')).toHaveCount(1);
 
-  await page.getByLabel(/Show the \d+ mirrored arrays too/).check();
+  await page.getByRole('button', { name: 'Show them' }).click();
   const right = card(page, 'KARA II R Main');
   await expect(feeder(right, 1)).toHaveValue('');
   await feeder(right, 1).selectOption('2');
-  await page.getByLabel(/Show the \d+ mirrored arrays too/).uncheck();
+  await page.getByRole('button', { name: 'Hide them' }).click();
   await expect(card(page, 'KARA II R Main')).toHaveCount(0);
   await expect(feeder(card(page, 'KARA II L Main'), 1)).toHaveValue('1');
   await expect(page.getByTestId('patch-differs')).toHaveText(
-    'The cable patch of KARA II R Main is not the same as KARA II L Main, whose card stands for both. Tick Show the mirrored arrays too to see and print it.',
+    'The cable patch of KARA II R Main is not the same as KARA II L Main, whose card stands for both. Choose Show them to see and print it.',
   );
-  await page.getByLabel(/Show the \d+ mirrored arrays too/).check();
+  await page.getByRole('button', { name: 'Show them' }).click();
   await expect(feeder(card(page, 'KARA II R Main'), 1)).toHaveValue('2');
   await expect(feeder(card(page, 'KARA II L Main'), 1)).toHaveValue('1');
 });
