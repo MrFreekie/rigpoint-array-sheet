@@ -65,7 +65,7 @@ describe('CompareDialog', () => {
   });
 
   it('says it keeps what was typed', () => {
-    expect(html).toContain('Your show details, ground offsets, titles and notes are kept');
+    expect(html).toContain('Your show details, ground offsets, titles, notes and plot symbols are kept');
     expect(html).toContain('An array you deleted comes back if the new PDF has it');
   });
 

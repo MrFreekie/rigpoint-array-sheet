@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { compareReports, type Change } from '../engine/compare';
+import { trackMarkers, type Marker, type PickupSide } from '../engine/markers';
 import { riggingFixations, riggingRows } from '../engine/sheet';
 import type { ParseResult, Problem } from '../engine/types';
 import { openFileText, serialiseDoc } from '../files/array-file-io';
@@ -23,7 +24,7 @@ import { riggingNotes } from '../print/pdf-layout';
 import { PrintSheet } from '../print/PrintSheet';
 import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
-import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, withDeleted, withNote, withPrinted, withTitle, type Doc, type Job, type Status } from './document';
+import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withDeleted, withMarker, withNote, withPrinted, withTitle, type Doc, type Job, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -317,7 +318,7 @@ export function App() {
   function createRevision() {
     if (!doc) return;
     const revision = nextRevision(doc.revision);
-    setDoc({ ...doc, status: 'draft', revision, fileName: null, savedKey: null, locked: false, noPrint: doc.printOverride ?? doc.noPrint, printOverride: null });
+    setDoc({ ...doc, status: 'draft', revision, fileName: null, savedKey: null, locked: false, noPrint: doc.printOverride ?? doc.noPrint, printOverride: null, markers: doc.markerOverride ?? doc.markers, markerOverride: null });
     // A new revision never writes over the file it came from: Save asks where.
     setHandle(null);
     setNotice(`Revision ${revision} started as a draft. It is not saved yet. Save it to keep it under its new name.`);
@@ -339,7 +340,7 @@ export function App() {
         setError(`The new PDF cannot be relied on, so nothing was changed. ${first?.message ?? ''}`.trim());
         return;
       }
-      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles);
+      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles, trackMarkers(doc.result.report, fresh.report, doc.markers).reset);
       if (changes.length === 0) setNotice(`${file.name} matches this file. There is nothing to update.`);
       else setCompare({ fresh, sourceName: file.name, changes });
     } catch (e) {
@@ -379,6 +380,7 @@ export function App() {
   const setPrinted = (index: number, printed: boolean) => setDoc((d) => (d ? withPrinted(d, index, printed) : d));
   const setTitle = (index: number, text: string) => setDoc((d) => (d ? withTitle(d, index, text) : d));
   const setNote = (index: number, text: string) => setDoc((d) => (d ? withNote(d, index, text) : d));
+  const setMarker = (index: number, side: PickupSide, marker: Marker) => setDoc((d) => (d ? withMarker(d, index, side, marker) : d));
   const deleteArray = (index: number) => {
     if (!doc || doc.locked) return;
     setDoc(withDeleted(doc, index, true));
@@ -628,6 +630,7 @@ export function App() {
             onOffset={setOffset}
             onTitle={setTitle}
             onNote={setNote}
+            onMarker={setMarker}
             onPrinted={setPrinted}
             onImage={(entry) => void saveImages([entry])}
             onAllImages={() => model && void saveImages(model.entries.filter((e) => e.print))}
@@ -688,12 +691,13 @@ interface ReportProps {
   onOffset: (i: number, t: string) => void;
   onTitle: (i: number, t: string) => void;
   onNote: (i: number, t: string) => void;
+  onMarker: (i: number, side: PickupSide, marker: Marker) => void;
   onPrinted: (i: number, printed: boolean) => void;
   onImage: (entry: SheetEntry) => void;
   onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onPrinted, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPrinted, onImage, onAllImages }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -771,6 +775,8 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                   onTitle={(t) => onTitle(entry.index, t)}
                   note={doc.notes[entry.index] ?? ''}
                   onNote={(t) => onNote(entry.index, t)}
+                  markers={{ front: markerOf(doc, entry.index, 'front'), rear: markerOf(doc, entry.index, 'rear') }}
+                  onMarker={(side, m) => onMarker(entry.index, side, m)}
                   printed={entry.print}
                   onPrinted={(p) => onPrinted(entry.index, p)}
                   onImage={entry.offset.value === null ? undefined : () => onImage(entry)}

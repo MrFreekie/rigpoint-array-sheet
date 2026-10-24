@@ -41,13 +41,19 @@ Pickups are numbered in rows from the audience end to the stage end, and from ho
 
 The page also lists every point with its X and Y. The Pickup column says Front or Rear for an array with two pickups and Single for an array with one. The page also has a key, the scale and the small print. A bar 100 mm long lets you check the scale with a ruler. For the right scale, print the file from Download PDF at 100 percent. Above 24 points the table continues on a second page.
 
+### Pickup symbols
+
+Each pickup is drawn as a symbol that stands for a nominal rating in metric tonnes: a square with a cross for 2 t, a circle with a cross for 1 t, a triangle with a vertical line for 0.5 t and a diamond with a cross for 0.25 t. The circle is the default. Choose another on the card, under Plot symbol. An array with a front and a rear pickup has one choice for each. All the symbols are the same size, and the table gives each point's symbol in the Symbol column.
+
+A symbol is grey on the plot, and its shape is greyed in the list, when its rating is below the array's stated total weight. That is only a guide. A shape below the total weight cannot be picked from the list, but one already chosen stays, so the default 1 t circle on a heavy array shows grey until you choose a bigger one. If you type a value such as 1.5 t, it replaces the rating in the table and under the pickup label, and a typed value is never grey. A mirror image that shares a card with its partner has the same symbols as that card. On an approved or superseded file you can still pick symbols for this session, but they are not saved. Update from PDF keeps a symbol when the array of the same name still has the same pickup, and tells you about any it cannot keep, which go back to 1 t.
+
 The plot is drawn only from the report. It does not show shackles, slings, trusses, motors or any other rigging, and the pickup symbol is a nominal guide. It is a design aid, not a CAD drawing.
 
 ### Download DXF
 
 Under the plot on screen is a Download DXF button. It saves the same plot as a DXF file that CAD programs open. The units are millimetres at full size (1:1), and the app says so beside the button and inside the file. The origin of the Soundvision report is 0,0, +X is towards house left and +Y is towards the audience, so every coordinate is the report's figure in metres times 1000. A 1.2 m wide array is 1200 units wide. When you bring the file into your CAD program, choose millimetres if it asks.
 
-The file has the same arrays, pickups, labels and axes as the plot, drawn on separate layers: ARRAYS for arrays with pickups, ARRAYS_NO_PICKUP, STACKS and STACK_DIAGONALS, POSITIONS, PICKUPS and PICKUP_LINKS, LABELS and LEADERS, ORIGIN, AXIS_X and AXIS_Y, SIDES and NOTES. Pickup symbols are 250 mm across. Labels are plain text with no formatting, placed where the plot page puts them and sized so they read at the scale of the plot page, so at a different scale in your CAD program you may want to resize them. The small print of the plot page is in the file as text under the drawing.
+The file has the same arrays, pickups, labels and axes as the plot, drawn on separate layers: ARRAYS for arrays with pickups, ARRAYS_NO_PICKUP, STACKS and STACK_DIAGONALS, POSITIONS, PICKUPS, PICKUP_LINKS and PICKUPS_GREYED (symbols whose rating is below the array's total weight), LABELS and LEADERS, ORIGIN, AXIS_X and AXIS_Y, SIDES and NOTES. Pickup symbols are 250 mm across. Labels are plain text with no formatting, placed where the plot page puts them and sized so they read at the scale of the plot page, so at a different scale in your CAD program you may want to resize them. The small print of the plot page is in the file as text under the drawing.
 
 The DXF has no scale bar, because it is already full size. It is a design aid and not a definitive CAD drawing. Check every figure against the Soundvision report.
 

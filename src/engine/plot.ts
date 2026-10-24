@@ -3,6 +3,7 @@
 // Nothing here works out a load, an angle or a height. The one figure it derives is the plan distance between an array's
 // front and rear pickups, from their X and Y only.
 
+import { DEFAULT_MARKER, isGreyed, type Marker, type PickupSide } from './markers';
 import type { ArraySource, Pickup, Point3 } from './types';
 
 export interface Pt2 {
@@ -45,6 +46,10 @@ export interface PlotPoint {
   load: number | null;
   /** On a front pickup whose array also has a rear one: the plan distance between the two, in metres to 2 decimals. */
   spacing: number | null;
+  /** The symbol chosen for this pickup. */
+  marker: Marker;
+  /** True when the symbol's rating is below the array's stated total weight, so it is drawn grey. A guide only. */
+  greyed: boolean;
 }
 
 /** The distance between two pickups on the plan, from X and Y only (never Z), rounded to 2 decimals. */
@@ -126,7 +131,11 @@ export function plotArrays(sources: readonly ArraySource[], include?: ReadonlySe
  * a row being arrays within `toleranceM` of the first one in it. Inside a row the highest x (house left) comes first.
  * An array's front pickup has the lower number. Arrays with no pickup are not numbered.
  */
-export function numberPickups(arrays: readonly PlotArray[], toleranceM = BAND_TOLERANCE_M): PlotPoint[] {
+export function numberPickups(
+  arrays: readonly PlotArray[],
+  toleranceM = BAND_TOLERANCE_M,
+  markerOf: (arrayIndex: number, side: PickupSide) => Marker = () => DEFAULT_MARKER,
+): PlotPoint[] {
   const withPickups = arrays.filter((a) => a.pickups.length > 0).sort((a, b) => b.position.y - a.position.y);
   const bands: PlotArray[][] = [];
   let anchor = Number.NaN;
@@ -146,6 +155,7 @@ export function numberPickups(arrays: readonly PlotArray[], toleranceM = BAND_TO
       const rear = ordered.find((p) => p.which === 'rear');
       for (const p of ordered) {
         const number = points.length + 1;
+        const marker = markerOf(a.index, p.which);
         points.push({
           label: `PA${number}`,
           number,
@@ -157,6 +167,8 @@ export function numberPickups(arrays: readonly PlotArray[], toleranceM = BAND_TO
           at: p.at,
           load: p.which === 'front' ? a.frontMotorLoad : a.rearMotorLoad,
           spacing: p === front && rear ? planSpacing(front.at, rear.at) : null,
+          marker,
+          greyed: isGreyed(marker, a.totalWeight),
         });
       }
     }

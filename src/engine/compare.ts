@@ -70,7 +70,14 @@ function diffFacts(array: string, a: Map<string, string>, b: Map<string, string>
  * An array in `deleted` (positions in the saved report) that is in the new PDF comes back, so it is listed as restored
  * instead of figure by figure. One that is not in the new PDF is not listed.
  */
-export function compareReports(saved: Report, next: Report, deleted: ReadonlySet<number> = new Set(), titles: Readonly<Record<number, string>> = {}): Change[] {
+export function compareReports(
+  saved: Report,
+  next: Report,
+  deleted: ReadonlySet<number> = new Set(),
+  titles: Readonly<Record<number, string>> = {},
+  /** Plot symbols Update from PDF cannot follow, because the array or its pickup is not in the new PDF. They go back to the default. */
+  symbolsReset: readonly { array: string; side: 'front' | 'rear'; value: string }[] = [],
+): Change[] {
   const out: Change[] = [];
 
   const doc: [string, string | null, string | null][] = [
@@ -112,6 +119,9 @@ export function compareReports(saved: Report, next: Report, deleted: ReadonlySet
   }
   for (const s of next.sources) {
     if (!matched.has(s)) out.push({ kind: 'added', array: s.name, what: 'Array', saved: null, now: 'in the new PDF' });
+  }
+  for (const r of symbolsReset) {
+    out.push({ kind: 'changed', array: r.array, what: `Plot symbol, ${r.side} pickup`, saved: r.value, now: 'back to 1 t, because the new PDF has no such pickup for this array' });
   }
   return out;
 }

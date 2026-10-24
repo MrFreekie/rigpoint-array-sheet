@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { changedPdf, openPdf, samplePdf, start } from './helpers';
+import { changedPdf, openPdf, samplePdf, save, start } from './helpers';
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'PDF printing is Chromium-only in Playwright');
 
@@ -671,4 +671,34 @@ test('the plot preview and the print view carry the credit line', async ({ page 
   const credit = 'Created with RigPoint Array Sheet. Find it at https://mrfreekie.github.io/rigpoint-array-sheet/';
   await expect(page.getByTestId('plot-preview').getByText(credit)).toBeVisible();
   await expect(page.getByTestId('print-plot').getByText(credit)).toHaveCount(1);
+});
+
+test('picking a pickup symbol and typing a value shows on the plot preview, in the print view, in Download PDF and in the saved file', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('c'));
+  const front = page.getByRole('group', { name: 'Plot symbol, front pickup' }).first();
+  const rear = page.getByRole('group', { name: 'Plot symbol, rear pickup' }).first();
+  await front.getByRole('combobox').selectOption('two');
+  await rear.getByLabel('Typed value, instead of the rating (optional)').fill('1.5 t');
+  const preview = page.getByTestId('plot-preview');
+  await expect(preview.getByText('1.5 t', { exact: true }).first()).toBeVisible();
+  await expect(preview.getByText('2 t', { exact: true }).first()).toBeVisible();
+
+  // The print view draws the same text on the turned plot page.
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.getByTestId('print-plot').getByText('1.5 t', { exact: true }).first()).toHaveCount(1);
+  await page.emulateMedia({ media: 'screen' });
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+  const text = items.map((i) => i.text);
+  expect(text).toContain('1.5 t');
+  expect(text).toContain('Pickup symbols, nominal rating, a guide only');
+
+  // The choice is saved with the file, in the new format.
+  const { json } = await save(page);
+  const markers = json['markers'] as { front: { shape: string; text: string }; rear: { shape: string; text: string } }[];
+  expect(json['format']).toBe('arraysheet/8');
+  expect(markers.some((m) => m.front.shape === 'two')).toBe(true);
+  expect(markers.some((m) => m.rear.text === '1.5 t')).toBe(true);
 });

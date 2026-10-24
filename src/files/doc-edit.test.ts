@@ -7,10 +7,12 @@ import {
   editKey,
   isDeleted,
   liveIndexes,
+  markerOf,
   newDoc,
   updatedDoc,
   visibleProblems,
   withDeleted,
+  withMarker,
   withNote,
   withPrinted,
   withTitle,
@@ -138,5 +140,53 @@ describe('visibleProblems', () => {
     const twin = { ...base.result.report.sources[3]!, name: name(3) };
     const doc = { ...base, result: { ...base.result, report: { ...base.result.report, sources: [...base.result.report.sources, twin] } } };
     expect(visibleProblems(withDeleted(doc, 3, true))).toHaveLength(1);
+  });
+});
+
+describe('plot symbols', () => {
+  const choose = { shape: 'two', text: '' } as const;
+
+  it('are the 1 ton circle until one is chosen, and a choice is kept for the front and the rear separately', () => {
+    const doc = fresh();
+    expect(markerOf(doc, 3, 'front')).toEqual({ shape: 'one', text: '' });
+    const set = withMarker(doc, 3, 'rear', choose);
+    expect(markerOf(set, 3, 'rear')).toEqual(choose);
+    expect(markerOf(set, 3, 'front')).toEqual({ shape: 'one', text: '' });
+    expect(markerOf(set, 4, 'rear')).toEqual({ shape: 'one', text: '' });
+  });
+
+  it('count as a change to save, and changing back puts it right again', () => {
+    const doc = fresh();
+    doc.savedKey = editKey(doc);
+    const set = withMarker(doc, 3, 'front', choose);
+    expect(editKey(set)).not.toBe(doc.savedKey);
+    expect(editKey(withMarker(set, 3, 'front', { shape: 'one', text: '' }))).toBe(doc.savedKey);
+  });
+
+  it('on a read-only file are kept for this session only, like the print choice', () => {
+    const locked = { ...fresh(), locked: true };
+    locked.savedKey = editKey(locked);
+    const set = withMarker(locked, 3, 'front', choose);
+    expect(markerOf(set, 3, 'front')).toEqual(choose);
+    expect(set.markers).toEqual({});
+    expect(editKey(set)).toBe(locked.savedKey);
+    const again = withMarker(set, 5, 'rear', { shape: 'half', text: '' });
+    expect(markerOf(again, 3, 'front')).toEqual(choose);
+    expect(markerOf(again, 5, 'rear')).toEqual({ shape: 'half', text: '' });
+  });
+
+  it('go with an array through Update from PDF when its pickup is still there, and are reset when it is not', () => {
+    const doc = newDoc(parseFixture('c'), 'c.pdf');
+    const sources = doc.result.report.sources;
+    const i = sources.findIndex((s) => s.pickups.some((p) => p.which === 'front') && s.pickups.some((p) => p.which === 'rear'));
+    const set = withMarker(withMarker(doc, i, 'front', choose), i, 'rear', { shape: 'half', text: '1.5 t' });
+    const same = updatedDoc(set, parseFixture('c'), 'c2.pdf');
+    expect(markerOf(same, i, 'front')).toEqual(choose);
+    expect(markerOf(same, i, 'rear')).toEqual({ shape: 'half', text: '1.5 t' });
+    const changed = structuredClone(parseFixture('c'));
+    changed.report.sources[i]!.pickups.find((p) => p.which === 'rear')!.position += 1;
+    const next = updatedDoc(set, changed, 'c3.pdf');
+    expect(markerOf(next, i, 'front')).toEqual(choose);
+    expect(markerOf(next, i, 'rear')).toEqual({ shape: 'one', text: '' });
   });
 });

@@ -156,9 +156,9 @@ describe('the plot page', () => {
     const ops = p[0]!.ops;
     const flown = content.arrays.filter((a) => a.kind === 'flown');
     const stacks = content.arrays.filter((a) => a.kind === 'stacked');
-    // The key repeats one of each.
+    // The key repeats a Position dot, and draws the 1 ton circle twice: among the four symbols and as the grey example.
     expect(ops.filter((o) => o.op === 'circle' && o.fill)).toHaveLength(flown.length + 1);
-    expect(ops.filter((o) => o.op === 'circle' && !o.fill)).toHaveLength(content.points.length + 1);
+    expect(ops.filter((o) => o.op === 'circle' && !o.fill)).toHaveLength(content.points.length + 2);
     expect(ops.filter((o) => o.op === 'line' && o.dash?.length === 2)).toHaveLength(flown.filter((a) => a.pickups.length > 0).length * 4 + 4);
     expect(ops.filter((o) => o.op === 'line' && !o.dash && o.width === 0.25)).toHaveLength((flown.filter((a) => a.pickups.length === 0).length + stacks.length) * 4 + 8);
   });
@@ -456,7 +456,7 @@ describe('plotContent', () => {
 });
 
 describe('the Pickup column of the table', () => {
-  const point = { label: 'PA1', number: 1, arrayIndex: 0, source: 'A', which: 'front' as const, single: false, pickupPosition: 6, at: { x: 1, y: 2, z: 3 }, load: 100, spacing: null };
+  const point = { label: 'PA1', number: 1, arrayIndex: 0, source: 'A', which: 'front' as const, single: false, pickupPosition: 6, at: { x: 1, y: 2, z: 3 }, load: 100, spacing: null, marker: { shape: 'one' as const, text: '' }, greyed: false };
   it('says Single for an array with one pickup, whichever side it is, and Front or Rear for a pair', () => {
     expect(tableRow({ ...point, single: true })[2]).toBe('Single');
     expect(tableRow({ ...point, single: true, which: 'rear' })[2]).toBe('Single');
@@ -480,6 +480,118 @@ describe('the credit line', () => {
         expect(box.y1).toBeLessThanOrEqual(PLOT_H_MM);
         expect(c.text).not.toMatch(/[\u2013\u2014]/);
         for (const o of p.ops) if (o.op === 'text' && o !== c) expect(crosses(box, textBox(o)), `${o.text} against the credit line`).toBe(false);
+      }
+    }
+  });
+});
+
+describe('pickup symbols on the plot', () => {
+  const choose = (shape: 'two' | 'one' | 'half' | 'quarter', text = '') => ({ shape, text });
+
+  it('are drawn in the shape chosen for each pickup, centred on it, at the marker size', () => {
+    const { content, pages: p } = pages('c', (d) => {
+      const i = d.result.report.sources.findIndex((s) => s.pickups.length === 2);
+      d.markers = { [i]: { front: choose('two'), rear: choose('half') } };
+    });
+    const ops = p[0]!.ops;
+    const plan = p[0]!.plan!;
+    const [front, rear] = ['front', 'rear'].map((w) => content.points.find((q) => q.marker.shape === (w === 'front' ? 'two' : 'half'))!);
+    expect(front?.which).toBe('front');
+    expect(rear?.which).toBe('rear');
+    const d = markerSizeMm(plan.ratio);
+    const px = (x: number) => plan.ox + x * plan.mmPerM;
+    const py = (y: number) => plan.oy - y * plan.mmPerM;
+    const near = (o: PlotOp, q: NonNullable<typeof front>) => o.op === 'line' && [o.x1, o.x2].every((x) => Math.abs(x - px(q.at.x)) <= d / 2 + 0.01) && [o.y1, o.y2].every((y) => Math.abs(y - py(q.at.y)) <= d / 2 + 0.01);
+    // A square with a cross is six strokes in the box of the marker, a triangle with a vertical line is four.
+    expect(ops.filter((o) => near(o, front!) && o.op === 'line' && o.width === 0.22)).toHaveLength(6);
+    expect(ops.filter((o) => near(o, rear!) && o.op === 'line' && o.width === 0.22)).toHaveLength(4);
+    expect(ops.filter((o) => o.op === 'circle' && !o.fill && Math.abs(o.cx - px(front!.at.x)) < 0.01 && Math.abs(o.cy - py(front!.at.y)) < 0.01)).toHaveLength(0);
+  });
+
+  it('are drawn in the faint grey when the rating is below the stated total weight, and in black when not', () => {
+    const { content, pages: p } = pages('c');
+    const plan = p[0]!.plan!;
+    const px = (x: number) => plan.ox + x * plan.mmPerM;
+    const py = (y: number) => plan.oy - y * plan.mmPerM;
+    const circleOf = (q: (typeof content.points)[number]) => p[0]!.ops.find((o) => o.op === 'circle' && !o.fill && Math.abs(o.cx - px(q.at.x)) < 0.01 && Math.abs(o.cy - py(q.at.y)) < 0.01);
+    const greyed = content.points.filter((q) => q.greyed);
+    const plain = content.points.filter((q) => !q.greyed);
+    expect(greyed.length).toBeGreaterThan(0);
+    expect(plain.length).toBeGreaterThan(0);
+    for (const q of greyed) expect(circleOf(q)).toMatchObject({ color: 'faint' });
+    for (const q of plain) expect(circleOf(q)).toMatchObject({ color: 'ink' });
+    expect(PRINT_PALETTE.faint).not.toBe(PRINT_PALETTE.ink);
+    expect(SCREEN_PALETTE.faint).not.toBe(SCREEN_PALETTE.grey);
+  });
+
+  it('turn black again when a bigger symbol is chosen, and typed text is never grey', () => {
+    const { content, pages: p } = pages('c', (d) => {
+      d.markers = Object.fromEntries(d.result.report.sources.map((_, i) => [i, { front: choose('quarter', '1.5 t'), rear: choose('two') }]));
+    });
+    expect(content.points.every((q) => !q.greyed || q.marker.text === '')).toBe(true);
+    expect(content.points.filter((q) => q.marker.text === '1.5 t').every((q) => !q.greyed)).toBe(true);
+    // Only the grey example in the key is left, which is outside the plan.
+    expect(p[0]!.ops.filter((o) => o.op === 'line' && o.color === 'faint' && o.x1 < 212)).toHaveLength(0);
+  });
+
+  it('show their value in the Symbol column: the rating, or the text typed', () => {
+    const { content } = pages('c', (d) => {
+      const i = d.result.report.sources.findIndex((s) => s.pickups.length === 2);
+      d.markers = { [i]: { front: choose('half'), rear: choose('one', '1.5 t') } };
+    });
+    const values = content.points.map((q) => tableRow(q)[4]);
+    expect(values).toContain('0.5 t');
+    expect(values).toContain('1.5 t');
+    expect(values).toContain('1 t');
+  });
+
+  it('put typed text on its own line under the pickup label, and nothing extra when there is none', () => {
+    const typed = pages('c', (d) => {
+      const i = d.result.report.sources.findIndex((s) => s.pickups.length === 2);
+      d.markers = { [i]: { front: choose('one', '1.5 t'), rear: choose('one') } };
+    });
+    // The label and the table row of each pickup that carries the text (a collapsed mirror image shares it).
+    const withText = typed.content.points.filter((q) => q.marker.text === '1.5 t').length;
+    expect(withText).toBeGreaterThan(0);
+    expect(texts(typed.pages[0]!.ops).filter((t) => t === '1.5 t')).toHaveLength(withText * 2);
+    const plain = pages('c');
+    expect(texts(plain.pages[0]!.ops).filter((t) => /^\d(\.\d+)? t$/.test(t))).toHaveLength(plain.content.points.length + 4);
+  });
+
+  it('are explained in the key: the four shapes with their ratings, what grey means and what typed text does', () => {
+    const t = texts(pages('c').pages[0]!.ops).join(' ');
+    for (const label of ['2 t', '1 t', '0.5 t', '0.25 t']) expect(t).toContain(label);
+    expect(t).toContain('Pickup symbols, nominal rating, a guide only');
+    expect(t).toContain('Grey: the rating is below the stated total weight of the array');
+    expect(t).toContain('Typed text replaces the rating and is never grey');
+    expect(t).not.toContain('Pickup, 1 t symbol');
+  });
+
+  it('give a collapsed mirror image the symbol of the card that stands for it', () => {
+    const { content } = pages('a', (d) => {
+      const sources = d.result.report.sources;
+      const shown = sources.findIndex((s) => s.name === 'KARA II L Main');
+      d.markers = { [shown]: { front: choose('two'), rear: choose('two') } };
+    });
+    const mirror = content.points.find((q) => q.source === 'KARA II R Main')!;
+    const shown = content.points.find((q) => q.source === 'KARA II L Main')!;
+    expect(shown.marker.shape).toBe('two');
+    expect(mirror.marker.shape).toBe('two');
+  });
+
+  it('keep the label placer clear of every shape: no label covers a marker on a, c or e', () => {
+    for (const name of ['a', 'c', 'e'] as const) {
+      const { content, pages: p } = pages(name, (d) => {
+        d.markers = Object.fromEntries(d.result.report.sources.map((_, i) => [i, { front: choose('two'), rear: choose('half') }]));
+      });
+      const plan = p[0]!.plan!;
+      const half = markerSizeMm(plan.ratio) / 2;
+      const boxes = p[0]!.ops.filter((o): o is TextOp => o.op === 'text' && o.size === 5.5).map(textBox);
+      for (const q of content.points) {
+        const cx = plan.ox + q.at.x * plan.mmPerM;
+        const cy = plan.oy - q.at.y * plan.mmPerM;
+        const marker = { x0: cx - half, x1: cx + half, y0: cy - half, y1: cy + half };
+        for (const b of boxes) expect(crosses(b, marker), `${name} ${q.label}`).toBe(false);
       }
     }
   });

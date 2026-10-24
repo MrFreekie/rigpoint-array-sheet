@@ -2,6 +2,7 @@
 // The report itself is never edited. Everything it states is shown as printed.
 
 import { matchByName } from '../engine/compare';
+import { defaultPair, isDefaultPair, trackMarkers, type Marker, type MarkerPair, type PickupSide } from '../engine/markers';
 import type { ParseResult, Problem } from '../engine/types';
 
 export const STATUSES = ['draft', 'issued', 'approved', 'superseded'] as const;
@@ -66,6 +67,10 @@ export interface Doc {
    * still pick what to print this time. Never saved. Null when there is nothing to override.
    */
   printOverride: Record<number, boolean> | null;
+  /** The plot symbol chosen for the front and rear pickup of an array, by position in the report. Arrays not listed use the default. Saved in the file. */
+  markers: Record<number, MarkerPair>;
+  /** The same choices while the file is read-only. Never saved. Null when there is nothing to override. */
+  markerOverride: Record<number, MarkerPair> | null;
 }
 
 export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true, notes: '', showDate: '' };
@@ -86,6 +91,8 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     locked: false,
     noPrint: {},
     printOverride: null,
+    markers: {},
+    markerOverride: null,
   };
 }
 
@@ -134,7 +141,27 @@ export function editKey(doc: Doc): string {
     Object.entries(r)
       .filter(([, text]) => text.trim() !== '')
       .sort(([a], [b]) => Number(a) - Number(b));
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc)]);
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc)]);
+}
+
+/** The plot symbols that are not the default, by position, in order. Only what is saved counts, not a read-only file's override. */
+function savedMarkers(doc: Doc): [number, MarkerPair][] {
+  return Object.entries(doc.markers)
+    .filter(([, pair]) => !isDefaultPair(pair))
+    .map(([i, pair]): [number, MarkerPair] => [Number(i), pair])
+    .sort((a, b) => a[0] - b[0]);
+}
+
+/** The plot symbol of one pickup side of an array. A read-only file shows its session choice, if it has one. */
+export function markerOf(doc: Doc, index: number, side: PickupSide): Marker {
+  return (doc.markerOverride ?? doc.markers)[index]?.[side] ?? defaultPair()[side];
+}
+
+/** Choose the plot symbol of one pickup side. A read-only file keeps the choice for this session only. */
+export function withMarker(doc: Doc, index: number, side: PickupSide, marker: Marker): Doc {
+  const set = (from: Record<number, MarkerPair>): Record<number, MarkerPair> => ({ ...from, [index]: { ...(from[index] ?? defaultPair()), [side]: marker } });
+  if (doc.locked) return { ...doc, markerOverride: set(doc.markerOverride ?? doc.markers) };
+  return { ...doc, markers: set(doc.markers), markerOverride: null };
 }
 
 /** Positions in the report of the deleted arrays, in order. */
@@ -196,6 +223,8 @@ export function updatedDoc(doc: Doc, fresh: ParseResult, sourceName: string): Do
     noPrint: carry(doc.noPrint, (skip) => skip),
     deleted: {},
     printOverride: null,
+    markers: trackMarkers(doc.result.report, fresh.report, doc.markerOverride ?? doc.markers).kept,
+    markerOverride: null,
   };
 }
 

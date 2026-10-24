@@ -64,7 +64,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/7', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/8', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -213,7 +213,7 @@ test('update from a newer PDF: nothing to update, then a list of differences', a
   await page.getByTestId('update-file').setInputFiles({ name: 'newer.pdf', mimeType: 'application/pdf', buffer: samplePdf('b') });
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('The new PDF is different', { timeout: 20_000 });
-  await expect(dialog).toContainText('Your show details, ground offsets, titles and notes are kept');
+  await expect(dialog).toContainText('Your show details, ground offsets, titles, notes and plot symbols are kept');
   await dialog.getByRole('button', { name: 'Keep as saved' }).click();
   await expect(page.locator('.card')).toHaveCount(9, { timeout: 20_000 });
 
@@ -495,4 +495,50 @@ test('update from PDF brings a deleted array back, and says so', async ({ page }
   await expect(page.getByRole('heading', { name: 'KARA II L Main', exact: true })).toBeVisible();
   await expect(page.getByTestId('deleted-list')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Undo delete', exact: true })).toBeDisabled();
+});
+
+test('a symbol below the stated total weight is greyed in the picker, and typed text is never greyed', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('c'));
+  const front = page.getByRole('group', { name: 'Plot symbol, front pickup' }).first();
+  const quarter = front.locator('option[value="quarter"]');
+  await expect(quarter).toBeDisabled();
+  await expect(front).toContainText('Greyed on the plot');
+  await front.getByLabel('Typed value, instead of the rating (optional)').fill('1.5 t');
+  await expect(quarter).toBeEnabled();
+  await expect(front).not.toContainText('Greyed on the plot');
+});
+
+test('update from PDF keeps a symbol for the same pickup and resets one the new PDF cannot follow, and says so', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('c'));
+  const card = page.locator('article.card').filter({ has: page.getByRole('group', { name: 'Plot symbol, rear pickup' }) }).first();
+  const name = (await card.getByRole('heading', { level: 3 }).innerText()).trim();
+  await card.getByRole('group', { name: 'Plot symbol, front pickup' }).getByRole('combobox').selectOption('two');
+  await card.getByRole('group', { name: 'Plot symbol, rear pickup' }).getByLabel('Typed value, instead of the rating (optional)').fill('1.5 t');
+
+  const moved = changedPdf((sources) => sources.map((s) => (s.name === name ? { ...s, pickups: s.pickups.map((p) => (p.which === 'rear' ? { ...p, position: p.position + 1 } : p)) } : s)), 'c');
+  await page.getByTestId('update-file').setInputFiles({ name: 'newer.pdf', mimeType: 'application/pdf', buffer: moved });
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('The new PDF is different', { timeout: 20_000 });
+  await expect(dialog).toContainText('Plot symbol, rear pickup');
+  await expect(dialog).toContainText('back to 1 t');
+  await dialog.getByRole('button', { name: 'Update from new PDF' }).click();
+
+  const again = page.locator('article.card').filter({ has: page.getByRole('heading', { level: 3, name, exact: true }) }).first();
+  await expect(again.getByRole('group', { name: 'Plot symbol, front pickup' }).getByRole('combobox')).toHaveValue('two');
+  await expect(again.getByRole('group', { name: 'Plot symbol, rear pickup' }).getByLabel('Typed value, instead of the rating (optional)')).toHaveValue('');
+});
+
+test('on a read-only file a symbol can still be picked for this session, and is not saved', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('c'));
+  await page.getByLabel('Status').selectOption('approved');
+  const { text } = await save(page);
+  await openJson(page, 'locked.arraysheet.json', text);
+  const front = page.getByRole('group', { name: 'Plot symbol, front pickup' }).first();
+  await expect(front.getByRole('combobox')).toBeEnabled();
+  await front.getByRole('combobox').selectOption('two');
+  await expect(front.getByRole('combobox')).toHaveValue('two');
+  await expect(page.getByText('Unsaved changes')).toHaveCount(0);
 });

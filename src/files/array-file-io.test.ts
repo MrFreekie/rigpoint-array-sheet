@@ -257,7 +257,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/7');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/8');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -434,5 +434,57 @@ describe('titles, notes and deleted arrays', () => {
     expect(back.titles).toEqual({});
     expect(back.notes).toEqual({});
     expect(back.deleted).toEqual({});
+  });
+});
+
+describe('pickup symbols', () => {
+  const v7 = () => {
+    const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { format: string; markers?: unknown; [k: string]: unknown };
+    f.format = 'arraysheet/7';
+    delete f.markers;
+    return f;
+  };
+
+  it('are saved, one pair for each array, and come back', () => {
+    const doc = sample();
+    doc.markers = { 2: { front: { shape: 'two', text: '' }, rear: { shape: 'quarter', text: '1.5 t' } } };
+    const file = docToFile(doc, '0.1.0', NOW);
+    expect(file.markers).toHaveLength(doc.result.report.sources.length);
+    expect(file.markers[0]).toEqual({ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } });
+    expect(file.markers[2]).toEqual({ front: { shape: 'two', text: '' }, rear: { shape: 'quarter', text: '1.5 t' } });
+    expect(roundTrip(doc).doc.markers).toEqual(doc.markers);
+  });
+
+  it('are not listed for an array left at the default, so an opened file has none', () => {
+    expect(roundTrip(sample()).doc.markers).toEqual({});
+  });
+
+  it('are not counted as unsaved after opening, and a change is', () => {
+    const opened = roundTrip({ ...sample(), markers: { 1: { front: { shape: 'half', text: '' }, rear: { shape: 'one', text: '' } } } }).doc;
+    expect(editKey(opened)).toBe(opened.savedKey);
+    expect(editKey({ ...opened, markers: {} })).not.toBe(opened.savedKey);
+  });
+
+  it('are the 1 ton symbol everywhere in a version 7 file', () => {
+    const opened = openFileText(JSON.stringify(v7()), null).doc;
+    expect(opened.markers).toEqual({});
+  });
+
+  it('a read-only override is not saved', () => {
+    const doc = { ...sample(), markerOverride: { 0: { front: { shape: 'two', text: '' }, rear: { shape: 'two', text: '' } } } } as Doc;
+    expect(docToFile(doc, '0.1.0', NOW).markers[0]).toEqual({ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } });
+  });
+
+  it('are refused when the list is the wrong length, a shape is not one of the four, or the text is too long or holds a control character', () => {
+    const bad = (change: (f: any) => void, message: RegExp) => {
+      const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW));
+      change(f);
+      expect(() => openFileText(JSON.stringify(f), null)).toThrow(message);
+    };
+    bad((f) => f.markers.pop(), /one pair of pickup symbols for each array/);
+    bad((f) => (f.markers[0].front.shape = 'three'), /pickup symbol must be/);
+    bad((f) => (f.markers[0].rear.text = 'x'.repeat(13)), /symbol value is too long/);
+    bad((f) => (f.markers[0].rear.text = 'a\nb'), /cannot hold line breaks or control characters/);
+    bad((f) => (f.markers = 'many'), /must be a list/);
   });
 });

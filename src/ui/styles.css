@@ -682,3 +682,22 @@ select {
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
 }
+
+.symbol-field {
+  border: 1px solid var(--line, #c8c8c8);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+  /* A fieldset is as wide as its widest content unless told otherwise, and the options are long. */
+  min-width: 0;
+}
+.symbol-field legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+}
+.symbol-field select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
+}

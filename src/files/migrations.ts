@@ -48,6 +48,14 @@ export const MIGRATIONS: Record<number, Migration> = {
       deleted: Array.from({ length: count }, () => false),
     };
   },
+  // Version 8 added the plot symbol of each pickup. Earlier files had the 1 ton symbol everywhere. An older copy of the app
+  // would drop the choices when it saved, so it refuses version 8 files.
+  7: (file) => {
+    const report = file['report'];
+    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
+    const count = Array.isArray(sources) ? sources.length : 0;
+    return { ...file, markers: Array.from({ length: count }, () => ({ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } })) };
+  },
 };
 
 export function migrate(

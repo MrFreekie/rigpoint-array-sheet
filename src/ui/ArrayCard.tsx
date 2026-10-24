@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import type { FlySheetColumn } from '../engine/sheet';
+import { cleanMarkerText, isCustom, MARKER_TEXT_MAX, RATING_KG, RATING_LABEL, SHAPE_NAME, SHAPES, shapeBelow, type Marker, type MarkerPair, type PickupSide, type Shape } from '../engine/markers';
 import { enclosureLabel } from '../engine/types';
 import { FIXATION_COLUMNS, fixationName, pickupFact, warningText } from '../print/card-content';
 import { NOTES_MAX, TITLE_MAX } from '../schema/array-file';
@@ -33,13 +34,16 @@ interface Props {
   /** What the person wrote for the crew. */
   note: string;
   onNote: (text: string) => void;
+  /** The plot symbol of each pickup, and how to change one. A read-only file keeps a change for this session only. */
+  markers: MarkerPair;
+  onMarker: (side: PickupSide, marker: Marker) => void;
   /** Deletes this array. Not offered on a read-only file. */
   onDelete?: (() => void) | undefined;
   /** True when the offset in use comes from the "every array" field. */
   usingDefault: boolean;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onDelete, titleText, reportName, onTitle, note, onNote }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker }: Props) {
   const id = useId();
   const hasColumns = c.rows.some((r) => r.column !== null);
   const hasAngles = c.rows.some((r) => r.angle !== null);
@@ -179,6 +183,16 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         </span>
       </label>
 
+      {c.pickups.map((p) => (
+        <SymbolField
+          key={p.which}
+          label={c.pickups.length > 1 ? `Plot symbol, ${p.which} pickup` : 'Plot symbol'}
+          marker={markers[p.which]}
+          total={c.totalMass}
+          onChange={(m) => onMarker(p.which, m)}
+        />
+      ))}
+
       <label className="field offset-field">
         <span>Ground offset (m)</span>
         <input
@@ -245,5 +259,38 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         </div>
       )}
     </article>
+  );
+}
+
+/** The symbol of one pickup on the rigging plot: a shape, and optionally text such as 1.5 t shown in place of its rating. */
+function SymbolField({ label, marker, total, onChange }: { label: string; marker: Marker; total: number | null; onChange: (m: Marker) => void }) {
+  const id = useId();
+  const custom = isCustom(marker);
+  return (
+    <fieldset className="field symbol-field">
+      <legend>{label}</legend>
+      <label htmlFor={`${id}-shape`} className="visually-hidden">
+        {label}: shape
+      </label>
+      <select id={`${id}-shape`} value={marker.shape} onChange={(e) => onChange({ ...marker, shape: e.target.value as Shape })} aria-describedby={`${id}-help`}>
+        {SHAPES.map((shape) => {
+          const below = !custom && shapeBelow(shape, total);
+          return (
+            <option key={shape} value={shape} disabled={below && shape !== marker.shape}>
+              {`${RATING_LABEL[shape]}, ${SHAPE_NAME[shape]}${below ? ', below the total weight' : ''}`}
+            </option>
+          );
+        })}
+      </select>
+      <label className="field">
+        <span>Typed value, instead of the rating (optional)</span>
+        <input type="text" value={marker.text} maxLength={MARKER_TEXT_MAX} placeholder="for example 1.5 t" autoComplete="off" onChange={(e) => onChange({ ...marker, text: cleanMarkerText(e.target.value) })} />
+      </label>
+      <span id={`${id}-help`} className="muted">
+        {total !== null && !custom && RATING_KG[marker.shape] < total
+          ? `Greyed on the plot: the rating is below the stated total weight of ${total} kg. A guide only.`
+          : 'A guide only. A symbol is grey on the plot when its rating is below the stated total weight.'}
+      </span>
+    </fieldset>
   );
 }

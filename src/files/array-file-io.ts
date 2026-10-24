@@ -1,6 +1,7 @@
 // Turning a document into a saved file and back. Opening is strict: the text is untrusted until
 // it has passed the size limit, the format check, any upgrade steps and the schema.
 
+import { defaultPair, isDefaultPair, type MarkerPair } from '../engine/markers';
 import { ArrayFileSchema, FORMAT, type ArrayFile } from '../schema/array-file';
 import { formatIssues } from '../schema/errors';
 import { editKey, statusLocks, type Doc } from './doc';
@@ -33,6 +34,10 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
     titles: Array.from({ length: count }, (_, i) => doc.titles[i] ?? ''),
     notes: Array.from({ length: count }, (_, i) => doc.notes[i] ?? ''),
     deleted: Array.from({ length: count }, (_, i) => doc.deleted[i] === true),
+    markers: Array.from({ length: count }, (_, i) => {
+      const pair = doc.markers[i] ?? defaultPair();
+      return { front: { ...pair.front }, rear: { ...pair.rear } };
+    }),
     report: doc.result.report,
     problems: doc.result.problems,
   };
@@ -85,6 +90,10 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
   f.deleted.forEach((gone, i) => {
     if (gone) deleted[i] = true;
   });
+  const markers: Record<number, MarkerPair> = {};
+  f.markers.forEach((pair, i) => {
+    if (!isDefaultPair(pair)) markers[i] = pair;
+  });
   const doc: Doc = {
     result: { report: f.report, problems: f.problems, ok: !f.problems.some((p) => p.level === 'error') },
     sourceName: f.source_name,
@@ -111,6 +120,8 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
     locked: statusLocks(f.status),
     noPrint,
     printOverride: null,
+    markers,
+    markerOverride: null,
   };
   doc.savedKey = editKey(doc);
   return { doc, savedAt: f.saved_at };

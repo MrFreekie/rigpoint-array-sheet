@@ -131,20 +131,39 @@ describe('plot DXF', () => {
     expect(dot).toBeDefined();
   });
 
-  it('draws a 250 mm pickup marker at each pickup, at full size', () => {
+  it('draws a 250 mm pickup marker at each pickup, at full size, and puts the ones greyed on the plot on their own layer', () => {
     for (const name of ['a', 'c', 'e'] as const) {
       const { content, text } = build(name);
       const f = read(text);
-      const circles = f.entities.filter((e) => e.type === 'CIRCLE' && e.layer === 'PICKUPS');
+      const onLayer = (type: string) => f.entities.filter((e) => e.type === type && (e.layer === 'PICKUPS' || e.layer === 'PICKUPS_GREYED'));
+      const circles = onLayer('CIRCLE');
       expect(circles).toHaveLength(content.points.length);
       for (const p of content.points) {
         const c = circles.find((e) => Math.abs(n(e, 10) - p.at.x * 1000) < 0.01 && Math.abs(n(e, 20) - p.at.y * 1000) < 0.01);
         expect(c, p.label).toBeDefined();
         expect(n(c as Entity, 40)).toBe(125);
+        expect((c as Entity).layer, p.label).toBe(p.greyed ? 'PICKUPS_GREYED' : 'PICKUPS');
       }
       // A cross: two lines for every circle.
-      expect(f.entities.filter((e) => e.type === 'LINE' && e.layer === 'PICKUPS')).toHaveLength(content.points.length * 2);
+      expect(onLayer('LINE')).toHaveLength(content.points.length * 2);
     }
+  });
+
+  it('draws each shape at full size: a square, a triangle or a diamond in place of the circle', () => {
+    const shapes = ['two', 'half', 'quarter'] as const;
+    const input = build('c').content;
+    const points = input.points.map((p, i) => ({ ...p, marker: { shape: shapes[i % 3] as (typeof shapes)[number], text: '' }, greyed: false }));
+    const f = read(plotDxf({ ...input, points, footer: () => '' } as never, estimateWidth) as string);
+    const pickupLines = f.entities.filter((e) => e.type === 'LINE' && e.layer === 'PICKUPS');
+    expect(f.entities.filter((e) => e.type === 'CIRCLE' && e.layer === 'PICKUPS')).toHaveLength(0);
+    // Square: 4 sides and a cross (6 lines); triangle: 3 sides and a vertical line (4); diamond: 4 sides and a cross (6).
+    const expected = points.reduce((sum, p) => sum + (p.marker.shape === 'half' ? 4 : 6), 0);
+    expect(pickupLines).toHaveLength(expected);
+    // The first pickup is a square 250 mm across, centred on it.
+    const first = points[0]!;
+    const near = (e: Entity) => [10, 11].every((c) => Math.abs(n(e, c) - first.at.x * 1000) <= 125.01) && [20, 21].every((c) => Math.abs(n(e, c) - first.at.y * 1000) <= 125.01);
+    const xs = pickupLines.filter(near).flatMap((e) => [n(e, 10), n(e, 11)]);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(250, 1);
   });
 
   it('labels each pickup and array with the same words as the plot page', () => {

@@ -2,6 +2,7 @@
 // the print view, the on-screen preview and the PDF draw the same thing. The page is printed turned a quarter turn
 // anticlockwise onto the portrait sheet; the renderers do that turn, nothing here knows about it.
 
+import { markerPrims, markerValue, RATING_LABEL, SHAPES, isCustom, type Shape } from '../engine/markers';
 import { type PlotArray, type PlotPoint, type Pt2 } from '../engine/plot';
 import { NOT_STATED } from '../ui/format';
 import { clipMiddle, clipToWidth, wrap, type Measure } from './array-image';
@@ -12,7 +13,7 @@ import { PLOT_SMALL_PRINT } from './small-print';
 export const PLOT_W_MM = 284;
 export const PLOT_H_MM = 198;
 
-export type PlotColor = 'ink' | 'grey' | 'grid' | 'dot' | 'axisX' | 'axisY';
+export type PlotColor = 'ink' | 'grey' | 'faint' | 'grid' | 'dot' | 'axisX' | 'axisY';
 
 export type PlotOp =
   | { op: 'line'; x1: number; y1: number; x2: number; y2: number; width: number; color: PlotColor; dash?: number[] }
@@ -22,9 +23,9 @@ export type PlotOp =
 export type PlotPalette = Record<PlotColor, string>;
 
 /** On screen the axes are red and green and the array Position is red. */
-export const SCREEN_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', grid: '#d6d6d6', dot: '#d00000', axisX: '#d00000', axisY: '#0a8a0a' };
+export const SCREEN_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', faint: '#9a9a9a', grid: '#d6d6d6', dot: '#d00000', axisX: '#d00000', axisY: '#0a8a0a' };
 /** On paper the axes are black and grey and the dot is black. */
-export const PRINT_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', grid: '#d0d0d0', dot: '#000000', axisX: '#000000', axisY: '#555555' };
+export const PRINT_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', faint: '#a0a0a0', grid: '#d0d0d0', dot: '#000000', axisX: '#000000', axisY: '#555555' };
 
 /** The standard ratios, 1:n, the plot may use. The largest drawing that fits is chosen. */
 export const STANDARD_RATIOS = [50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 2500];
@@ -43,7 +44,7 @@ export const DOWNLOAD_NOTE = 'For the right scale, print the file from Download 
 // The page, in millimetres.
 const FRAME = { x0: 0, y0: 15, x1: 210, y1: 176 };
 const COLUMN = { x0: 214, w: 70 };
-const COLUMN_WIDTHS = [6.5, 15.6, 7.6, 8.7, 7.6, 7.6, 7.6, 8.8];
+const COLUMN_WIDTHS = [6.5, 14, 7.6, 8.7, 9.2, 7.6, 7.6, 8.8];
 const COLUMN_HEADS: readonly (readonly string[])[] = [['Point'], ['Array'], ['Pickup'], ['Load kg'], ['Symbol'], ['X (m)'], ['Y (m)'], ['Spacing', '(m)']];
 const ROW_MM = 4;
 const HEAD_MM = 6;
@@ -315,11 +316,12 @@ const text = (x: number, y: number, t: string, size: number, o: { bold?: boolean
 const line = (x1: number, y1: number, x2: number, y2: number, width: number, color: PlotColor = 'ink', dash?: number[]): PlotOp =>
   dash ? { op: 'line', x1, y1, x2, y2, width, color, dash } : { op: 'line', x1, y1, x2, y2, width, color };
 
-/** A pickup marker: a circle with a cross, centred on the pickup. Phase one draws the 1 ton symbol everywhere. */
-function marker(ops: PlotOp[], x: number, y: number, d: number, width = 0.22) {
-  const r = d / 2;
-  ops.push({ op: 'circle', cx: x, cy: y, r, width, color: 'ink', fill: false });
-  ops.push(line(x - r, y, x + r, y, width), line(x, y - r, x, y + r, width));
+/** A pickup symbol of overall width `d`, centred on the pickup. Grey when its rating is below the array's total weight. */
+function marker(ops: PlotOp[], shape: Shape, x: number, y: number, d: number, color: PlotColor = 'ink', width = 0.22) {
+  for (const m of markerPrims(shape, d)) {
+    if (m.kind === 'circle') ops.push({ op: 'circle', cx: x + m.cx, cy: y - m.cy, r: m.r, width, color, fill: false });
+    else ops.push(line(x + m.x1, y - m.y1, x + m.x2, y - m.y2, width, color));
+  }
 }
 
 function arrow(ops: PlotOp[], x1: number, y1: number, x2: number, y2: number, color: PlotColor) {
@@ -343,7 +345,7 @@ function footerOps(input: PlotInput, page: number, measure: Measure): PlotOp[] {
 
 /** The table rows as strings. */
 export function tableRow(p: PlotPoint): string[] {
-  return [p.label, p.source, p.single ? 'Single' : p.which === 'front' ? 'Front' : 'Rear', p.load === null ? NOT_STATED : String(p.load), '1 t', p.at.x.toFixed(2), p.at.y.toFixed(2), p.spacing === null ? '' : p.spacing.toFixed(2)];
+  return [p.label, p.source, p.single ? 'Single' : p.which === 'front' ? 'Front' : 'Rear', p.load === null ? NOT_STATED : String(p.load), markerValue(p.marker), p.at.x.toFixed(2), p.at.y.toFixed(2), p.spacing === null ? '' : p.spacing.toFixed(2)];
 }
 
 /** The array name on at most two lines, cut in the middle of the second if it is still too long. */
@@ -564,13 +566,17 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
       segments.push({ x1: X(f.at.x), y1: Y(f.at.y), x2: X(r.at.x), y2: Y(r.at.y) });
     }
   }
-  for (const p of points) marker(ops, X(p.at.x), Y(p.at.y), d);
+  for (const p of points) marker(ops, p.marker.shape, X(p.at.x), Y(p.at.y), d, p.greyed ? 'faint' : 'ink');
 
   // Labels: pickups first, then the arrays.
   const requests: LabelRequest[] = points.map((p, i) => ({
     anchor: markerRects[i] as Rect,
     ignore: [boxRects.get(p.arrayIndex)].filter((r): r is Rect => !!r),
-    lines: [{ text: `${p.label}  ${p.load === null ? 'load not stated' : `${p.load} kg`}`, bold: true }],
+    // Text typed in place of the rating goes on its own line under the load.
+    lines: [
+      { text: `${p.label}  ${p.load === null ? 'load not stated' : `${p.load} kg`}`, bold: true },
+      ...(isCustom(p.marker) ? [{ text: markerValue(p.marker), bold: false }] : []),
+    ],
   }));
   const pointLabels = placeLabels(requests, occupied, softRects, segments, bounds, measure);
   const spacings = new Map<number, number>();
@@ -680,7 +686,6 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
           [() => stackPosition(ops, COLUMN.x0 + sw / 2, y + 1.2, dotR), 'Stacked array Position'],
         ] as [() => void, string][])
       : []),
-    [() => marker(ops, COLUMN.x0 + sw / 2, y + 1.2, 2.4), 'Pickup, 1 t symbol (a nominal guide only)'],
     [() => ops.push(line(COLUMN.x0, y + 1.2, COLUMN.x0 + sw, y + 1.2, 0.2, 'grey')), 'Front to rear pickup'],
   ];
   ops.push(text(COLUMN.x0, y, 'Key', 5.5, { bold: true }));
@@ -690,6 +695,19 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
     ops.push(text(COLUMN.x0 + sw + 2, y + 0.2, clipToWidth(label, 5, false, (COLUMN.w - sw - 2) * PT_PER_MM, measure), 5));
     y += 4;
   }
+  // The pickup symbols, each with the rating it stands for, then what grey and typed text mean.
+  ops.push(text(COLUMN.x0, y + 0.2, 'Pickup symbols, nominal rating, a guide only', 5));
+  y += 4;
+  const cellW = COLUMN.w / SHAPES.length;
+  SHAPES.forEach((shape, k) => {
+    marker(ops, shape, COLUMN.x0 + k * cellW + 1.4, y + 1.2, 2.4);
+    ops.push(text(COLUMN.x0 + k * cellW + 3.4, y + 0.2, RATING_LABEL[shape], 5));
+  });
+  y += 4;
+  marker(ops, 'one', COLUMN.x0 + 1.4, y + 1.2, 2.4, 'faint');
+  const symbolNotes = wrap('Grey: the rating is below the stated total weight of the array. Typed text replaces the rating and is never grey.', 5, false, (COLUMN.w - 4) * PT_PER_MM, measure);
+  symbolNotes.forEach((t, k) => ops.push(text(COLUMN.x0 + 3.4, y + 0.2 + k * ((5 / PT_PER_MM) * 1.2), t, 5)));
+  y += 1 + symbolNotes.length * ((5 / PT_PER_MM) * 1.2);
   const small = wrap(PLOT_SMALL_PRINT, 5, false, COLUMN.w * PT_PER_MM, measure);
   const smallLine = (5 / PT_PER_MM) * 1.2;
   const smallTop = PLOT_H_MM - 6 - small.length * smallLine - 1;

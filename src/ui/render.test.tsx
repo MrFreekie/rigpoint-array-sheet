@@ -23,7 +23,7 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} markers={{ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }} onMarker={() => {}} {...extra} />,
   );
 
 describe('ArrayCard', () => {
@@ -259,7 +259,51 @@ describe('ArrayCard title and notes', () => {
   it('disables both fields on a read-only file', () => {
     const open = card('KARA II L Main', a);
     const locked = card('KARA II L Main', a, { locked: true });
-    expect(open).not.toContain('disabled');
+    // The symbol picker may disable a shape; the text fields and the title and note boxes are free on an open file.
+    expect(open.match(/<(input|textarea)[^>]*disabled/g)).toBeNull();
     expect(locked.match(/disabled=""/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('ArrayCard plot symbol picker', () => {
+  const c = parseFixture('c').report.sources;
+  const heavy = c.find((s) => s.pickups.length === 2 && (s.weights.total ?? 0) > 1000)!;
+  const plainPair = { front: { shape: 'one' as const, text: '' }, rear: { shape: 'one' as const, text: '' } };
+  const pick = (extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) => card(heavy.name, c, extra);
+  const options = (html: string) => [...html.matchAll(/<option value="(\w+)"( disabled="")?( selected="")?[^>]*>([^<]*)</g)].map((m) => ({ value: m[1]!, disabled: !!m[2], text: m[4]! }));
+
+  it('has one picker for a single pickup and one for each of a pair', () => {
+    const html = pick();
+    expect(html).toContain('Plot symbol, front pickup');
+    expect(html).toContain('Plot symbol, rear pickup');
+    const single = c.find((s) => s.pickups.length === 1)!;
+    const one = card(single.name, c);
+    expect(one).toContain('Plot symbol');
+    expect(one).not.toContain('Plot symbol, ');
+    const stack = card('KS28 4', parseFixture('e').report.sources);
+    expect(stack).not.toContain('Plot symbol');
+  });
+
+  it('offers the four shapes with their ratings, and disables the ones below the stated total weight, but not the one already chosen', () => {
+    const first = options(pick()).slice(0, 4);
+    expect(first.map((o) => o.value)).toEqual(['two', 'one', 'half', 'quarter']);
+    expect(first.map((o) => o.disabled)).toEqual([false, false, true, true]);
+    expect(first[0]!.text).toContain('2 t, square with a cross');
+    expect(first[1]!.text).toContain('1 t, circle with a cross, below the total weight');
+    const twoChosen = options(pick({ markers: { front: { shape: 'quarter', text: '' }, rear: plainPair.rear } })).slice(0, 4);
+    expect(twoChosen.map((o) => o.disabled)).toEqual([false, true, true, false]);
+  });
+
+  it('says why a symbol is grey, and offers every shape once text is typed, since typed text is never grey', () => {
+    expect(pick()).toContain('Greyed on the plot: the rating is below the stated total weight of');
+    const typed = pick({ markers: { front: { shape: 'one', text: '1.5 t' }, rear: plainPair.rear } });
+    expect(options(typed).slice(0, 4).map((o) => o.disabled)).toEqual([false, false, false, false]);
+    expect(typed).toContain('value="1.5 t"');
+    expect(typed).toContain('maxLength="12"');
+  });
+
+  it('can still be changed on a read-only file, for this session', () => {
+    const locked = pick({ locked: true });
+    expect(locked.match(/<(select|input type="text" value="" maxLength="12")[^>]*disabled/g)).toBeNull();
   });
 });

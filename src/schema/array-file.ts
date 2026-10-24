@@ -1,7 +1,8 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/7").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/8").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
+import { MARKER_TEXT_MAX, SHAPES } from '../engine/markers';
 import { STATUSES } from '../files/doc';
 import {
   MAX_CABINETS_PER_SOURCE,
@@ -17,7 +18,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 7;
+export const FORMAT_VERSION = 8;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -27,6 +28,11 @@ export const TITLE_MAX = 60;
 export const NOTES_MAX = 300;
 /** The longest note for the whole show. */
 export const SHOW_NOTES_MAX = 500;
+
+const MarkerSchema = z.object({
+  shape: z.enum(SHAPES, { error: 'A pickup symbol must be 2 t, 1 t, 0.5 t or 0.25 t' }),
+  text: z.string({ error: 'The symbol value must be text' }).max(MARKER_TEXT_MAX, { error: 'The symbol value is too long' }),
+});
 
 const text = (what: string, max = 500) => z.string({ error: `${what} must be text` }).max(max, { error: `${what} is too long` });
 
@@ -57,6 +63,7 @@ export const ArrayFileSchema = z
     titles: z.array(text('Title', TITLE_MAX), { error: 'Titles must be a list' }),
     notes: z.array(text('Notes', NOTES_MAX), { error: 'Notes must be a list' }),
     deleted: z.array(z.boolean({ error: 'Deleted must be true or false' }), { error: 'Deleted choices must be a list' }),
+    markers: z.array(z.object({ front: MarkerSchema, rear: MarkerSchema }), { error: 'Pickup symbols must be a list' }),
     report: ReportSchema,
     problems: z.array(ProblemSchema, { error: 'Problems must be a list' }).max(MAX_PROBLEMS, { error: 'There are too many problems listed' }),
   })
@@ -81,6 +88,15 @@ export const ArrayFileSchema = z
     if (file.deleted.length !== sources.length) {
       ctx.addIssue({ code: 'custom', path: ['deleted'], message: 'There must be one deleted choice for each array' });
     }
+    if (file.markers.length !== sources.length) {
+      ctx.addIssue({ code: 'custom', path: ['markers'], message: 'There must be one pair of pickup symbols for each array' });
+    }
+    file.markers.forEach((pair, i) => {
+      for (const side of ['front', 'rear'] as const) {
+        // eslint-disable-next-line no-control-regex
+        if (/[\u0000-\u001f\u007f]/.test(pair[side].text)) ctx.addIssue({ code: 'custom', path: ['markers', i, side, 'text'], message: 'A symbol value cannot hold line breaks or control characters' });
+      }
+    });
     if (file.job.show_date !== '' && !isShowDate(file.job.show_date)) {
       ctx.addIssue({ code: 'custom', path: ['job', 'show_date'], message: 'The show date must be a real date or blank' });
     }

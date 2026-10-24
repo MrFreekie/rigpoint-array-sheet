@@ -22,6 +22,8 @@ const FIELD_NAMES: Record<string, string> = {
   show_date: 'Show date',
   titles: 'Card titles',
   deleted: 'Deleted arrays',
+  markers: 'Pickup symbols',
+  shape: 'Symbol',
   offsets: 'Ground offsets',
   print: 'Print choices',
   report: 'Report',
