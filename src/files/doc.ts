@@ -3,6 +3,7 @@
 
 import { matchByName } from '../engine/compare';
 import { defaultPair, isDefaultPair, trackMarkers, type Marker, type MarkerPair, type PickupSide } from '../engine/markers';
+import { fitPatch, patchUsed, trackPatches, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
 import type { ParseResult, Problem } from '../engine/types';
 import type { Underlay } from '../engine/underlay';
 
@@ -72,6 +73,11 @@ export interface Doc {
   markers: Record<number, MarkerPair>;
   /** The same choices while the file is read-only. Never saved. Null when there is nothing to override. */
   markerOverride: Record<number, MarkerPair> | null;
+  /**
+   * The cable patch of an array, by position in the report: one feeder and way for each enclosure row. Arrays not listed have
+   * nothing set. Notes only. Saved in the file.
+   */
+  patches: Record<number, PatchRow[]>;
   /** The venue drawn grey under the rigging plot, as plan lines, or null when none was imported. Saved in the file. */
   underlay: Underlay | null;
 }
@@ -96,6 +102,7 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     printOverride: null,
     markers: {},
     markerOverride: null,
+    patches: {},
     underlay: null,
   };
 }
@@ -145,7 +152,7 @@ export function editKey(doc: Doc): string {
     Object.entries(r)
       .filter(([, text]) => text.trim() !== '')
       .sort(([a], [b]) => Number(a) - Number(b));
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), doc.underlay]);
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), savedPatches(doc), doc.underlay]);
 }
 
 /** The plot symbols that are not the default, by position, in order. Only what is saved counts, not a read-only file's override. */
@@ -154,6 +161,28 @@ function savedMarkers(doc: Doc): [number, MarkerPair][] {
     .filter(([, pair]) => !isDefaultPair(pair))
     .map(([i, pair]): [number, MarkerPair] => [Number(i), pair])
     .sort((a, b) => a[0] - b[0]);
+}
+
+/** The cable patches that have something set, by position, in order. Only what is saved counts, not a read-only file's override. */
+function savedPatches(doc: Doc): [number, PatchRow[]][] {
+  return Object.entries(doc.patches)
+    .filter(([, rows]) => patchUsed(rows))
+    .map(([i, rows]): [number, PatchRow[]] => [Number(i), rows])
+    .sort((a, b) => a[0] - b[0]);
+}
+
+/** The cable patch of an array, one row for each enclosure. */
+export function patchOf(doc: Doc, index: number): PatchRow[] {
+  return fitPatch(doc.patches[index], doc.result.report.sources[index]?.cabinets.length ?? 0);
+}
+
+/** Set the feeder or the way of one enclosure row. A read-only file cannot change, so it comes back as it was. */
+export function withPatch(doc: Doc, index: number, row: number, field: PatchField, value: PatchValue): Doc {
+  const rows = doc.result.report.sources[index]?.cabinets.length ?? 0;
+  if (doc.locked || row < 0 || row >= rows) return doc;
+  const next = fitPatch(doc.patches[index], rows);
+  next[row] = { ...(next[row] as PatchRow), [field]: value };
+  return { ...doc, patches: { ...doc.patches, [index]: next } };
 }
 
 /** The plot symbol of one pickup side of an array. A read-only file shows its session choice, if it has one. */
@@ -240,6 +269,7 @@ export function updatedDoc(doc: Doc, fresh: ParseResult, sourceName: string): Do
     printOverride: null,
     markers: trackMarkers(doc.result.report, fresh.report, doc.markerOverride ?? doc.markers).kept,
     markerOverride: null,
+    patches: trackPatches(doc.result.report, fresh.report, doc.patches).kept,
   };
 }
 
