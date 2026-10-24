@@ -456,7 +456,7 @@ describe('plotContent', () => {
 });
 
 describe('the Pickup column of the table', () => {
-  const point = { label: 'PA1', number: 1, arrayIndex: 0, source: 'A', which: 'front' as const, single: false, pickupPosition: 6, at: { x: 1, y: 2, z: 3 }, load: 100, spacing: null, marker: { shape: 'one' as const, text: '' }, greyed: false };
+  const point = { label: 'PA1', number: 1, arrayIndex: 0, source: 'A', which: 'front' as const, single: false, pickupPosition: 6, at: { x: 1, y: 2, z: 3 }, load: 100, spacing: null, marker: { shape: 'one' as const, text: '' }, custom: false };
   it('says Single for an array with one pickup, whichever side it is, and Front or Rear for a pair', () => {
     expect(tableRow({ ...point, single: true })[2]).toBe('Single');
     expect(tableRow({ ...point, single: true, which: 'rear' })[2]).toBe('Single');
@@ -502,34 +502,36 @@ describe('pickup symbols on the plot', () => {
     const px = (x: number) => plan.ox + x * plan.mmPerM;
     const py = (y: number) => plan.oy - y * plan.mmPerM;
     const near = (o: PlotOp, q: NonNullable<typeof front>) => o.op === 'line' && [o.x1, o.x2].every((x) => Math.abs(x - px(q.at.x)) <= d / 2 + 0.01) && [o.y1, o.y2].every((y) => Math.abs(y - py(q.at.y)) <= d / 2 + 0.01);
-    // A square with a cross is six strokes in the box of the marker, a triangle with a vertical line is four.
+    // A square with a cross is six strokes in the box of the marker, a triangle with a cross is five.
     expect(ops.filter((o) => near(o, front!) && o.op === 'line' && o.width === 0.22)).toHaveLength(6);
-    expect(ops.filter((o) => near(o, rear!) && o.op === 'line' && o.width === 0.22)).toHaveLength(4);
+    expect(ops.filter((o) => near(o, rear!) && o.op === 'line' && o.width === 0.22)).toHaveLength(5);
     expect(ops.filter((o) => o.op === 'circle' && !o.fill && Math.abs(o.cx - px(front!.at.x)) < 0.01 && Math.abs(o.cy - py(front!.at.y)) < 0.01)).toHaveLength(0);
   });
 
-  it('are drawn in the faint grey when the rating is below the stated total weight, and in black when not', () => {
-    const { content, pages: p } = pages('c');
+  it('are drawn in black whatever the weight of the array, and in the faint grey only when they carry typed text', () => {
+    const { content, pages: p } = pages('c', (d) => {
+      d.markers = Object.fromEntries(d.result.report.sources.map((_, i) => [i, { front: choose('one', '1.5 t'), rear: choose('one') }]));
+    });
     const plan = p[0]!.plan!;
     const px = (x: number) => plan.ox + x * plan.mmPerM;
     const py = (y: number) => plan.oy - y * plan.mmPerM;
     const circleOf = (q: (typeof content.points)[number]) => p[0]!.ops.find((o) => o.op === 'circle' && !o.fill && Math.abs(o.cx - px(q.at.x)) < 0.01 && Math.abs(o.cy - py(q.at.y)) < 0.01);
-    const greyed = content.points.filter((q) => q.greyed);
-    const plain = content.points.filter((q) => !q.greyed);
-    expect(greyed.length).toBeGreaterThan(0);
+    const custom = content.points.filter((q) => q.custom);
+    const plain = content.points.filter((q) => !q.custom);
+    expect(custom.length).toBeGreaterThan(0);
     expect(plain.length).toBeGreaterThan(0);
-    for (const q of greyed) expect(circleOf(q)).toMatchObject({ color: 'faint' });
+    expect(custom.every((q) => q.marker.text === '1.5 t')).toBe(true);
+    for (const q of custom) expect(circleOf(q)).toMatchObject({ color: 'faint' });
     for (const q of plain) expect(circleOf(q)).toMatchObject({ color: 'ink' });
     expect(PRINT_PALETTE.faint).not.toBe(PRINT_PALETTE.ink);
     expect(SCREEN_PALETTE.faint).not.toBe(SCREEN_PALETTE.grey);
   });
 
-  it('turn black again when a bigger symbol is chosen, and typed text is never grey', () => {
+  it('are never greyed for being below the weight of the array: a quarter ton symbol on every array stays black', () => {
     const { content, pages: p } = pages('c', (d) => {
-      d.markers = Object.fromEntries(d.result.report.sources.map((_, i) => [i, { front: choose('quarter', '1.5 t'), rear: choose('two') }]));
+      d.markers = Object.fromEntries(d.result.report.sources.map((_, i) => [i, { front: choose('quarter'), rear: choose('quarter') }]));
     });
-    expect(content.points.every((q) => !q.greyed || q.marker.text === '')).toBe(true);
-    expect(content.points.filter((q) => q.marker.text === '1.5 t').every((q) => !q.greyed)).toBe(true);
+    expect(content.points.every((q) => !q.custom)).toBe(true);
     // Only the grey example in the key is left, which is outside the plan.
     expect(p[0]!.ops.filter((o) => o.op === 'line' && o.color === 'faint' && o.x1 < 212)).toHaveLength(0);
   });
@@ -558,12 +560,12 @@ describe('pickup symbols on the plot', () => {
     expect(texts(plain.pages[0]!.ops).filter((t) => /^\d(\.\d+)? t$/.test(t))).toHaveLength(plain.content.points.length + 4);
   });
 
-  it('are explained in the key: the four shapes with their ratings, what grey means and what typed text does', () => {
+  it('are explained in the key: the four shapes with their ratings and a note that a custom value is on the plot', () => {
     const t = texts(pages('c').pages[0]!.ops).join(' ');
     for (const label of ['2 t', '1 t', '0.5 t', '0.25 t']) expect(t).toContain(label);
     expect(t).toContain('Pickup symbols, nominal rating, a guide only');
-    expect(t).toContain('Grey: the rating is below the stated total weight of the array');
-    expect(t).toContain('Typed text replaces the rating and is never grey');
+    expect(t).toContain('Custom value noted on plot');
+    expect(t).not.toContain('never grey');
     expect(t).not.toContain('Pickup, 1 t symbol');
   });
 

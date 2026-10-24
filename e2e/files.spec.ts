@@ -497,16 +497,15 @@ test('update from PDF brings a deleted array back, and says so', async ({ page }
   await expect(page.getByRole('button', { name: 'Undo delete', exact: true })).toBeDisabled();
 });
 
-test('a symbol below the stated total weight is greyed in the picker, and typed text is never greyed', async ({ page }) => {
+test('every symbol can be picked whatever the weight of the array, and typed text is explained as grey on the plot', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('c'));
   const front = page.getByRole('group', { name: 'Plot symbol, front pickup' }).first();
-  const quarter = front.locator('option[value="quarter"]');
-  await expect(quarter).toBeDisabled();
-  await expect(front).toContainText('Greyed on the plot');
-  await front.getByLabel('Typed value, instead of the rating (optional)').fill('1.5 t');
-  await expect(quarter).toBeEnabled();
+  await expect(front.locator('option[value="quarter"]')).toBeEnabled();
+  await expect(front).toContainText('A symbol with typed text is grey on the plot');
   await expect(front).not.toContainText('Greyed on the plot');
+  await front.getByLabel('Typed value, instead of the rating (optional)').fill('1.5 t');
+  await expect(front.locator('option[value="quarter"]')).toBeEnabled();
 });
 
 test('update from PDF keeps a symbol for the same pickup and resets one the new PDF cannot follow, and says so', async ({ page }) => {

@@ -284,18 +284,18 @@ describe('ArrayCard plot symbol picker', () => {
     expect(stack).not.toContain('Plot symbol');
   });
 
-  it('offers the four shapes with their ratings, and disables the ones below the stated total weight, but not the one already chosen', () => {
+  it('offers the four shapes with their ratings, all of them always, whatever the weight of the array', () => {
     const first = options(pick()).slice(0, 4);
     expect(first.map((o) => o.value)).toEqual(['two', 'one', 'half', 'quarter']);
-    expect(first.map((o) => o.disabled)).toEqual([false, false, true, true]);
+    expect(first.map((o) => o.disabled)).toEqual([false, false, false, false]);
     expect(first[0]!.text).toContain('2 t, square with a cross');
-    expect(first[1]!.text).toContain('1 t, circle with a cross, below the total weight');
-    const twoChosen = options(pick({ markers: { front: { shape: 'quarter', text: '' }, rear: plainPair.rear } })).slice(0, 4);
-    expect(twoChosen.map((o) => o.disabled)).toEqual([false, true, true, false]);
+    expect(first[1]!.text).toContain('1 t, circle with a cross');
+    expect(first[1]!.text).not.toContain('below the total weight');
   });
 
-  it('says why a symbol is grey, and offers every shape once text is typed, since typed text is never grey', () => {
-    expect(pick()).toContain('Greyed on the plot: the rating is below the stated total weight of');
+  it('says that a symbol with typed text is grey on the plot, and keeps the typed value', () => {
+    expect(pick()).toContain('A symbol with typed text is grey on the plot');
+    expect(pick()).not.toContain('stated total weight');
     const typed = pick({ markers: { front: { shape: 'one', text: '1.5 t' }, rear: plainPair.rear } });
     expect(options(typed).slice(0, 4).map((o) => o.disabled)).toEqual([false, false, false, false]);
     expect(typed).toContain('value="1.5 t"');

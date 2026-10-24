@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import type { FlySheetColumn } from '../engine/sheet';
-import { cleanMarkerText, isCustom, MARKER_TEXT_MAX, RATING_KG, RATING_LABEL, SHAPE_NAME, SHAPES, shapeBelow, type Marker, type MarkerPair, type PickupSide, type Shape } from '../engine/markers';
+import { cleanMarkerText, MARKER_TEXT_MAX, RATING_LABEL, SHAPE_NAME, SHAPES, type Marker, type MarkerPair, type PickupSide, type Shape } from '../engine/markers';
 import { enclosureLabel } from '../engine/types';
 import { FIXATION_COLUMNS, fixationName, pickupFact, warningText } from '../print/card-content';
 import { NOTES_MAX, TITLE_MAX } from '../schema/array-file';
@@ -188,7 +188,6 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
           key={p.which}
           label={c.pickups.length > 1 ? `Plot symbol, ${p.which} pickup` : 'Plot symbol'}
           marker={markers[p.which]}
-          total={c.totalMass}
           onChange={(m) => onMarker(p.which, m)}
         />
       ))}
@@ -263,9 +262,8 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
 }
 
 /** The symbol of one pickup on the rigging plot: a shape, and optionally text such as 1.5 t shown in place of its rating. */
-function SymbolField({ label, marker, total, onChange }: { label: string; marker: Marker; total: number | null; onChange: (m: Marker) => void }) {
+function SymbolField({ label, marker, onChange }: { label: string; marker: Marker; onChange: (m: Marker) => void }) {
   const id = useId();
-  const custom = isCustom(marker);
   return (
     <fieldset className="field symbol-field">
       <legend>{label}</legend>
@@ -273,23 +271,18 @@ function SymbolField({ label, marker, total, onChange }: { label: string; marker
         {label}: shape
       </label>
       <select id={`${id}-shape`} value={marker.shape} onChange={(e) => onChange({ ...marker, shape: e.target.value as Shape })} aria-describedby={`${id}-help`}>
-        {SHAPES.map((shape) => {
-          const below = !custom && shapeBelow(shape, total);
-          return (
-            <option key={shape} value={shape} disabled={below && shape !== marker.shape}>
-              {`${RATING_LABEL[shape]}, ${SHAPE_NAME[shape]}${below ? ', below the total weight' : ''}`}
-            </option>
-          );
-        })}
+        {SHAPES.map((shape) => (
+          <option key={shape} value={shape}>
+            {`${RATING_LABEL[shape]}, ${SHAPE_NAME[shape]}`}
+          </option>
+        ))}
       </select>
       <label className="field">
         <span>Typed value, instead of the rating (optional)</span>
         <input type="text" value={marker.text} maxLength={MARKER_TEXT_MAX} placeholder="for example 1.5 t" autoComplete="off" onChange={(e) => onChange({ ...marker, text: cleanMarkerText(e.target.value) })} />
       </label>
       <span id={`${id}-help`} className="muted">
-        {total !== null && !custom && RATING_KG[marker.shape] < total
-          ? `Greyed on the plot: the rating is below the stated total weight of ${total} kg. A guide only.`
-          : 'A guide only. A symbol is grey on the plot when its rating is below the stated total weight.'}
+        A guide only. A symbol with typed text is grey on the plot.
       </span>
     </fieldset>
   );

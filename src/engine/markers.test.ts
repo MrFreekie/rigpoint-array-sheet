@@ -6,14 +6,12 @@ import {
   isCustom,
   isDefaultMarker,
   isDefaultPair,
-  isGreyed,
   markerPrims,
   markerValue,
   MARKER_TEXT_MAX,
   RATING_KG,
   RATING_LABEL,
   SHAPES,
-  shapeBelow,
   trackMarkers,
   type MarkerPair,
 } from './markers';
@@ -29,14 +27,14 @@ describe('the four pickup symbols', () => {
     expect(isDefaultPair(defaultPair())).toBe(true);
   });
 
-  it('are drawn as a square with a cross, a circle with a cross, a triangle with a vertical line and a diamond with a cross', () => {
+  it('are drawn as a square with a cross, a circle with a cross, a triangle with a cross and a diamond with a cross', () => {
     const count = (shape: (typeof SHAPES)[number]) => {
       const prims = markerPrims(shape, 2);
       return { lines: prims.filter((p) => p.kind === 'line').length, circles: prims.filter((p) => p.kind === 'circle').length };
     };
     expect(count('two')).toEqual({ lines: 6, circles: 0 });
     expect(count('one')).toEqual({ lines: 2, circles: 1 });
-    expect(count('half')).toEqual({ lines: 4, circles: 0 });
+    expect(count('half')).toEqual({ lines: 5, circles: 0 });
     expect(count('quarter')).toEqual({ lines: 6, circles: 0 });
   });
 
@@ -48,31 +46,17 @@ describe('the four pickup symbols', () => {
     }
   });
 
-  it('point the triangle upwards, with its vertical line from the apex to the middle of the base', () => {
+  it('point the triangle upwards, with its vertical line from the apex to the middle of the base and a horizontal line through the centre', () => {
     const prims = markerPrims('half', 10).filter((p) => p.kind === 'line');
     const vertical = prims.filter((p) => p.kind === 'line' && p.x1 === 0 && p.x2 === 0);
     expect(vertical).toHaveLength(1);
     expect(Math.max(...prims.flatMap((p) => (p.kind === 'line' ? [p.y1, p.y2] : [])))).toBe(5);
-  });
-});
-
-describe('greying a symbol', () => {
-  it('greys a symbol whose rating is below the stated total weight, so 1 ton is grey on a 1333 kg array', () => {
-    expect(isGreyed({ shape: 'one', text: '' }, 1333)).toBe(true);
-    expect(isGreyed({ shape: 'half', text: '' }, 1333)).toBe(true);
-    expect(isGreyed({ shape: 'quarter', text: '' }, 1333)).toBe(true);
-    expect(isGreyed({ shape: 'two', text: '' }, 1333)).toBe(false);
-  });
-
-  it('does not grey a symbol that is equal to the total weight or above it, or when no total is stated', () => {
-    expect(isGreyed({ shape: 'one', text: '' }, 1000)).toBe(false);
-    expect(isGreyed({ shape: 'one', text: '' }, 414.2)).toBe(false);
-    expect(isGreyed({ shape: 'quarter', text: '' }, null)).toBe(false);
-    expect(shapeBelow('one', null)).toBe(false);
-  });
-
-  it('never greys a symbol with typed text', () => {
-    expect(isGreyed({ shape: 'quarter', text: '1.5 t' }, 5000)).toBe(false);
+    // The horizontal line sits on the pickup (y = 0) and stays inside the sides of the triangle: 10 / 2 / 1.8 either side.
+    const horizontal = prims.filter((p) => p.kind === 'line' && p.y1 === 0 && p.y2 === 0);
+    expect(horizontal).toHaveLength(1);
+    const h = horizontal[0] as { x1: number; x2: number };
+    expect(h.x1).toBeCloseTo(-5 / 1.8, 9);
+    expect(h.x2).toBeCloseTo(5 / 1.8, 9);
   });
 });
 
@@ -92,13 +76,13 @@ describe('what a symbol is worth', () => {
 });
 
 describe('numbering gives each pickup its symbol', () => {
-  it('uses the symbol asked for, and greys it by the array total', () => {
+  it('uses the symbol asked for, and marks it custom only when it carries typed text', () => {
     const { drawn } = plotArrays(parseFixture('c').report.sources);
     const heavy = drawn.find((a) => a.pickups.length > 0 && (a.totalWeight ?? 0) > 1000)!;
     const points = numberPickups(drawn, undefined, (i, side) => (i === heavy.index && side === 'front' ? { shape: 'two', text: '' } : { shape: 'one', text: '' }));
     const mine = points.filter((p) => p.arrayIndex === heavy.index);
-    expect(mine.find((p) => p.which === 'front')).toMatchObject({ marker: { shape: 'two' }, greyed: false });
-    for (const p of mine.filter((q) => q.which === 'rear')) expect(p).toMatchObject({ marker: { shape: 'one' }, greyed: true });
+    expect(mine.find((p) => p.which === 'front')).toMatchObject({ marker: { shape: 'two' }, custom: false });
+    for (const p of mine.filter((q) => q.which === 'rear')) expect(p).toMatchObject({ marker: { shape: 'one' }, custom: false });
   });
 
   it('gives the default 1 ton symbol everywhere when no choice is made', () => {

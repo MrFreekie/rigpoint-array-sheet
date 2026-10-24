@@ -16,7 +16,7 @@ export const RATING_LABEL: Record<Shape, string> = { two: '2 t', one: '1 t', hal
 export const SHAPE_NAME: Record<Shape, string> = {
   two: 'square with a cross',
   one: 'circle with a cross',
-  half: 'triangle with a vertical line',
+  half: 'triangle with a cross',
   quarter: 'diamond with a cross',
 };
 
@@ -57,12 +57,6 @@ export const isCustom = (m: Marker): boolean => m.text.trim() !== '';
 /** What a symbol is worth as written: the typed text, else the rating of its shape. */
 export const markerValue = (m: Marker): string => (isCustom(m) ? m.text.trim() : RATING_LABEL[m.shape]);
 
-/** True when a shape's rating is below the stated total weight of the array. A guide only. */
-export const shapeBelow = (shape: Shape, total: number | null): boolean => total !== null && RATING_KG[shape] < total;
-
-/** A symbol is drawn grey when its rating is below the array's stated total weight. Typed text is never greyed. */
-export const isGreyed = (m: Marker, total: number | null): boolean => !isCustom(m) && shapeBelow(m.shape, total);
-
 export interface MarkerLine {
   kind: 'line';
   x1: number;
@@ -96,7 +90,8 @@ export function markerPrims(shape: Shape, size: number): MarkerPrim[] {
     case 'one':
       return [{ kind: 'circle', cx: 0, cy: 0, r }, line(-r, 0, r, 0), line(0, -r, 0, r)];
     case 'half':
-      return [...polygon([[0, r], [r, -0.8 * r], [-r, -0.8 * r]]), line(0, r, 0, -0.8 * r)];
+      // The side edges run from the apex (0, r) to the base corners (+-r, -0.8r), so at y = 0 the triangle is r / 1.8 either side.
+      return [...polygon([[0, r], [r, -0.8 * r], [-r, -0.8 * r]]), line(0, r, 0, -0.8 * r), line(-r / 1.8, 0, r / 1.8, 0)];
     default:
       return [...polygon([[0, r], [r, 0], [0, -r], [-r, 0]]), line(-r, 0, r, 0), line(0, -r, 0, r)];
   }

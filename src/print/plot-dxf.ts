@@ -27,7 +27,7 @@ const LAYERS: Layer[] = [
   { name: 'STACK_DIAGONALS', colour: 8, linetype: 'CONTINUOUS' },
   { name: 'POSITIONS', colour: 7, linetype: 'CONTINUOUS' },
   { name: 'PICKUPS', colour: 7, linetype: 'CONTINUOUS' },
-  { name: 'PICKUPS_GREYED', colour: 8, linetype: 'CONTINUOUS' },
+  { name: 'PICKUPS_CUSTOM', colour: 8, linetype: 'CONTINUOUS' },
   { name: 'PICKUP_LINKS', colour: 8, linetype: 'CONTINUOUS' },
   { name: 'LABELS', colour: 7, linetype: 'CONTINUOUS' },
   { name: 'LEADERS', colour: 8, linetype: 'CONTINUOUS' },
@@ -274,8 +274,8 @@ export function plotDxf(input: PlotInput, measure: Measure, options: { venue?: b
   for (const p of input.points) {
     const x = mm(p.at.x);
     const y = mm(p.at.y);
-    // The symbol the person chose, at full size: 250 mm across. One whose rating is below the array's total weight is on its own layer.
-    const layer = p.greyed ? 'PICKUPS_GREYED' : 'PICKUPS';
+    // The symbol the person chose, at full size: 250 mm across. One with typed text is on its own layer.
+    const layer = p.custom ? 'PICKUPS_CUSTOM' : 'PICKUPS';
     for (const m of markerPrims(p.marker.shape, half * 2)) {
       if (m.kind === 'circle') w.circle(layer, x + m.cx, y + m.cy, m.r);
       else w.line(layer, x + m.x1, y + m.y1, x + m.x2, y + m.y2);

@@ -321,7 +321,7 @@ const text = (x: number, y: number, t: string, size: number, o: { bold?: boolean
 const line = (x1: number, y1: number, x2: number, y2: number, width: number, color: PlotColor = 'ink', dash?: number[]): PlotOp =>
   dash ? { op: 'line', x1, y1, x2, y2, width, color, dash } : { op: 'line', x1, y1, x2, y2, width, color };
 
-/** A pickup symbol of overall width `d`, centred on the pickup. Grey when its rating is below the array's total weight. */
+/** A pickup symbol of overall width `d`, centred on the pickup. Grey when it carries typed text. */
 function marker(ops: PlotOp[], shape: Shape, x: number, y: number, d: number, color: PlotColor = 'ink', width = 0.22) {
   for (const m of markerPrims(shape, d)) {
     if (m.kind === 'circle') ops.push({ op: 'circle', cx: x + m.cx, cy: y - m.cy, r: m.r, width, color, fill: false });
@@ -622,7 +622,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
       segments.push({ x1: X(f.at.x), y1: Y(f.at.y), x2: X(r.at.x), y2: Y(r.at.y) });
     }
   }
-  for (const p of points) marker(ops, p.marker.shape, X(p.at.x), Y(p.at.y), d, p.greyed ? 'faint' : 'ink');
+  for (const p of points) marker(ops, p.marker.shape, X(p.at.x), Y(p.at.y), d, p.custom ? 'faint' : 'ink');
 
   // Labels: pickups first, then the arrays.
   const requests: LabelRequest[] = points.map((p, i) => ({
@@ -751,7 +751,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
     ops.push(text(COLUMN.x0 + sw + 2, y + 0.2, clipToWidth(label, 5, false, (COLUMN.w - sw - 2) * PT_PER_MM, measure), 5));
     y += 4;
   }
-  // The pickup symbols, each with the rating it stands for, then what grey and typed text mean.
+  // The pickup symbols, each with the rating it stands for, then what a grey symbol means.
   ops.push(text(COLUMN.x0, y + 0.2, 'Pickup symbols, nominal rating, a guide only', 5));
   y += 4;
   const cellW = COLUMN.w / SHAPES.length;
@@ -761,7 +761,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   });
   y += 4;
   marker(ops, 'one', COLUMN.x0 + 1.4, y + 1.2, 2.4, 'faint');
-  const symbolNotes = wrap('Grey: the rating is below the stated total weight of the array. Typed text replaces the rating and is never grey.', 5, false, (COLUMN.w - 4) * PT_PER_MM, measure);
+  const symbolNotes = wrap('Custom value noted on plot', 5, false, (COLUMN.w - 4) * PT_PER_MM, measure);
   symbolNotes.forEach((t, k) => ops.push(text(COLUMN.x0 + 3.4, y + 0.2 + k * ((5 / PT_PER_MM) * 1.2), t, 5)));
   y += 1 + symbolNotes.length * ((5 / PT_PER_MM) * 1.2);
   const small = wrap(PLOT_SMALL_PRINT, 5, false, COLUMN.w * PT_PER_MM, measure);
