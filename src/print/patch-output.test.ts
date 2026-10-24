@@ -39,10 +39,11 @@ const text = (ops: DrawOp[]) => ops.filter((o): o is Extract<DrawOp, { op: 'text
 describe('the columns of the card table', () => {
   const columns = (doc: Doc, name: string) => cardContent(entryOf(doc, name), ctx).columns;
 
-  it('put the feeder and the way straight after Panflex, or after Type when the array has no Panflex', () => {
-    expect(columns(docOf('a'), 'KARA II L Main')).toEqual(['#', 'Type', 'Panflex', 'Feeder', 'Way', 'Angle', 'Site']);
-    expect(columns(docOf('a'), 'SB28 L Front')).toEqual(['#', 'Type', 'Feeder', 'Way', 'Site']);
-    expect(columns(docOf('d'), 'SB28 L')).toEqual(['Col #', 'Type', 'Feeder', 'Way', 'Site']);
+  it('put the feeder and the way last, after Angle, and leave the per enclosure site off the card', () => {
+    expect(columns(docOf('a'), 'KARA II L Main')).toEqual(['#', 'Type', 'Panflex', 'Angle', 'Feeder', 'Way']);
+    expect(columns(docOf('a'), 'SB28 L Front')).toEqual(['#', 'Type', 'Feeder', 'Way']);
+    expect(columns(docOf('d'), 'SB28 L')).toEqual(['Col #', 'Type', 'Feeder', 'Way']);
+    for (const name of ['KARA II L Main', 'SB28 L Front']) expect(columns(docOf('a'), name)).not.toContain('Site');
   });
 
   it('are always there, blank when nothing was chosen, and hold the digit when one was', () => {
@@ -55,9 +56,9 @@ describe('the columns of the card table', () => {
     expect(rows[0]?.slice(at, at + 2)).toEqual(['', '']);
   });
 
-  it('leave room: the fixed columns of the widest table leave Type at least 25 mm of the 93 mm card', () => {
-    const widest = ['Col #', 'Panflex', 'Feeder', 'Way', 'Angle', 'Site'].reduce((n, c) => n + (CARD_TABLE_WIDTHS_MM[c] ?? 0), 0);
-    expect(CARD_W_MM - widest).toBeGreaterThanOrEqual(25);
+  it('leave room: the fixed columns of the widest table leave Type at least 35 mm of the 93 mm card', () => {
+    const widest = ['Col #', 'Panflex', 'Angle', 'Feeder', 'Way'].reduce((n, c) => n + (CARD_TABLE_WIDTHS_MM[c] ?? 0), 0);
+    expect(CARD_W_MM - widest).toBeGreaterThanOrEqual(35);
   });
 });
 
@@ -74,7 +75,7 @@ describe('the pocket card in the PDF', () => {
     }
     const widths = Object.values(CARD_TABLE_WIDTHS_MM);
     expect(widths.length).toBeGreaterThan(0);
-    const typeRoom = mm(CARD_W_MM - ['Col #', 'Panflex', 'Feeder', 'Way', 'Angle', 'Site'].reduce((n, c) => n + (CARD_TABLE_WIDTHS_MM[c] ?? 0), 0)) - 4;
+    const typeRoom = mm(CARD_W_MM - ['Col #', 'Panflex', 'Angle', 'Feeder', 'Way'].reduce((n, c) => n + (CARD_TABLE_WIDTHS_MM[c] ?? 0), 0)) - 4;
     const types = new Set(FIXTURES.flatMap((f) => parseFixture(f).report.sources.flatMap((s) => s.cabinets.map((c) => c.type))));
     types.add('A15 FOCUS');
     for (const t of types) expect(regular.widthOfTextAtSize(t, 7), t).toBeLessThanOrEqual(typeRoom);
@@ -87,7 +88,7 @@ describe('the pocket card in the PDF', () => {
     const typeCells = texts.filter((o) => o.text === 'KARA II' && o.size === 7);
     expect(typeCells).toHaveLength(15);
     for (const o of typeCells) expect(o.align).toBe('left');
-    for (const title of ['#', 'Panflex', 'Feeder', 'Way', 'Angle', 'Site']) {
+    for (const title of ['#', 'Panflex', 'Angle', 'Feeder', 'Way']) {
       const header = texts.find((o) => o.text === title && o.bold);
       expect(header?.align, title).toBe('center');
     }
@@ -120,9 +121,17 @@ describe('the pocket card in the PDF', () => {
     }
   });
 
-  it('draws no chip when nothing was chosen', () => {
+  it('draws an empty pencil box in every blank feeder and way cell: white, with a thin black outline, and no digit', () => {
     const laid = card(docOf('a'), 'KARA II L Main');
-    expect(laid.ops.filter((o) => o.op === 'rect' && o.fill !== null && o.fill !== '#e4e4e4')).toEqual([]);
+    const boxes = laid.ops.filter((o): o is Extract<DrawOp, { op: 'rect' }> => o.op === 'rect' && o.fill !== null && o.fill !== '#e4e4e4' && o.w < mm(5));
+    expect(boxes).toHaveLength(30);
+    for (const o of boxes) {
+      expect(o.fill).toBe('#ffffff');
+      expect(o.stroke).toBe('#000000');
+      expect(o.lineWidth).toBeCloseTo(mm(PATCH_CHIP.outlineMm), 6);
+      expect(o.w).toBeCloseTo(mm(PATCH_CHIP.widthMm), 6);
+      expect(o.h).toBeCloseTo(PATCH_CHIP.heightPt, 6);
+    }
   });
 
   it('is exactly as tall with a patch as without, for 12, 16, 17, 18 and 24 rows, so the page plan cannot change', () => {
@@ -162,7 +171,7 @@ describe('the card as an image', () => {
     const laid = layoutCardImage(cardContent(entryOf(doc, 'KARA II L Main'), ctx), options, estimateWidth);
     const texts = text(laid.ops);
     for (const o of texts.filter((t) => t.text === 'KARA II' && t.size === 14)) expect(o.align).toBe('left');
-    for (const title of ['#', 'Panflex', 'Feeder', 'Way', 'Angle', 'Site']) expect(texts.find((o) => o.text === title && o.bold && o.size === 14)?.align, title).toBe('center');
+    for (const title of ['#', 'Panflex', 'Angle', 'Feeder', 'Way']) expect(texts.find((o) => o.text === title && o.bold && o.size === 14)?.align, title).toBe('center');
     const chips = laid.ops.filter((o): o is Extract<DrawOp, { op: 'rect' }> => o.op === 'rect' && o.fill !== null && o.fill !== '#e4e4e4' && o.w < 40);
     expect(chips).toHaveLength(30);
     expect(chips.find((o) => o.fill === '#ffffff')?.stroke).toBe('#000000');
@@ -192,10 +201,10 @@ describe('the PDF text', () => {
     expect(page1).toContain('Feeder');
     expect(page1).toContain('Way');
     expect(page1.filter((t) => t === 'Feeder')).toHaveLength(4);
-    // The first card's first two rows: the digits sit between the Panflex value and the Angle, in row order.
+    // The first card's first two rows: the Panflex value and the Angle, then the digits last, in row order.
     const flat = page1.join('|');
-    expect(flat).toMatch(/KARA II\|70\|1\|2\|5\|3\.8/);
-    expect(flat).toMatch(/KARA II\|70\|0\|2\|/);
+    expect(flat).toMatch(/KARA II\|70\|5\|1\|2\|/);
+    expect(flat).toMatch(/\|2\|KARA II\|70\|2\|0\|3\|KARA II/);
   });
 });
 

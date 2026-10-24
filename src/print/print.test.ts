@@ -168,10 +168,10 @@ describe('cardContent', () => {
       ['Bottom height', '5.75 m'], ['Top site', '3.8°'], ['Bottom site', '-41.2°'], ['Azimuth', '0°'],
       ['Frame', 'M-BUMP+MBAR hole A'], ['Frame/Bar Hole', '6'], ['Position X, Y, Z', '10, 13.01, 9.4 m'],
     ]);
-    expect(c.columns).toEqual(['#', 'Type', 'Panflex', 'Feeder', 'Way', 'Angle', 'Site']);
+    expect(c.columns).toEqual(['#', 'Type', 'Panflex', 'Angle', 'Feeder', 'Way']);
     expect(c.rows).toHaveLength(15);
-    expect(c.rows[0]).toEqual(['1', 'KARA II', '70', '', '', '5', '3.8']);
-    expect(c.rows[14]).toEqual(['15', 'KARA II', '90 On', '', '', '10', '-41.2']);
+    expect(c.rows[0]).toEqual(['1', 'KARA II', '70', '5', '', '']);
+    expect(c.rows[14]).toEqual(['15', 'KARA II', '90 On', '10', '', '']);
   });
 
   it('says it covers a mirror, and which array a shown mirror belongs to', () => {
@@ -188,8 +188,8 @@ describe('cardContent', () => {
 
   it('leaves out the Angle and Panflex columns when the report has none, and carries warnings', () => {
     const c = card(docA, 'SB28 L Front');
-    expect(c.columns).toEqual(['#', 'Type', 'Feeder', 'Way', 'Site']);
-    expect(c.rows).toEqual([['1', 'SB28', '', '', '0']]);
+    expect(c.columns).toEqual(['#', 'Type', 'Feeder', 'Way']);
+    expect(c.rows).toEqual([['1', 'SB28', '', '']]);
     expect(c.warnings.map((w) => w.severity)).toEqual(['WARNING', 'CAUTION']);
     expect(c.facts.some(([l]) => l === 'Front motor load')).toBe(false);
   });
@@ -197,7 +197,7 @@ describe('cardContent', () => {
   it('shows a blank angle as a dash and keeps a stack in report order', () => {
     const c = card(docB, 'GS KARA II L');
     expect(c.rows.map((r) => r[0])).toEqual(['6', '5', '4', '3', '2', '1']);
-    expect(c.rows[4]).toEqual(['2', 'SB18', '–', '', '', '–', '0']);
+    expect(c.rows[4]).toEqual(['2', 'SB18', '–', '–', '', '']);
   });
 
   it('puts the show date, UK style, after the venue in the context, and nothing when there is none', () => {

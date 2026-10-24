@@ -237,9 +237,8 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
               <tr>
                 <th scope="col">{hasColumns ? 'Col #' : '#'}</th>
                 <th scope="col" className="left">Type</th>
-                {hasAngles ? <th scope="col">Angle</th> : null}
-                <th scope="col">Site</th>
                 {hasPanflex ? <th scope="col">Panflex</th> : null}
+                {hasAngles ? <th scope="col">Angle</th> : null}
                 <th scope="col">Feeder</th>
                 <th scope="col">Way</th>
               </tr>
@@ -249,14 +248,13 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
                 <tr key={enclosureLabel(r)}>
                   <th scope="row">{enclosureLabel(r)}</th>
                   <td className="left">{r.type}</td>
-                  {hasAngles ? <td className="n">{num(r.angle)}</td> : null}
-                  <td className="n">{num(r.site)}</td>
                   {hasPanflex ? (
                     <td className="n" title={r.panflexPrinted ? `Report: ${r.panflexPrinted}` : undefined}>
                       {r.panflex ? r.panflex.text : r.panflexPrinted ?? NOT_STATED}
                       {r.panflex?.sideUnknown ? ' (side not known)' : ''}
                     </td>
                   ) : null}
+                  {hasAngles ? <td className="n">{num(r.angle)}</td> : null}
                   {(['feeder', 'way'] as const).map((field) => (
                     <td key={field} className="patch-cell">
                       <PatchSelect

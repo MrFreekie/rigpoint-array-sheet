@@ -77,9 +77,9 @@ Arrays that are exact mirror images of each other show once, whether the mirror 
 
 ## Cable patch
 
-Every card has two dropdowns on each enclosure row, Feeder and Way, after the Panflex column. Each offers 1 to 9, then 0, or a blank. They are notes for the crew. The app does not count feeders or ways, does not check them and does not work out a length or a load. There is no copy down and no range fill: pick the value for each row.
+Every card has two dropdowns on each enclosure row, Feeder and Way, as the last two columns of the table. Each offers 1 to 9, then 0, or a blank. They are notes for the crew. The app does not count feeders or ways, does not check them and does not work out a length or a load. There is no copy down and no range fill: pick the value for each row.
 
-The digit shows on a colour chip that follows the resistor code: 1 brown, 2 red, 3 orange, 4 yellow, 5 green, 6 blue, 7 violet, 8 grey, 9 white (with a thin dark outline) and 0 black. The printed pocket card, the PDF and the image show the same chips, in colour, with the digit on each so it still reads on a black and white print. The Feeder and Way columns always print. When nothing is chosen they print blank, so you can fill them in by pen.
+The digit shows on a colour chip that follows the resistor code: 1 brown, 2 red, 3 orange, 4 yellow, 5 green, 6 blue, 7 violet, 8 grey, 9 white (with a thin dark outline) and 0 black. The printed pocket card, the PDF and the image show the same chips, in colour, with the digit on each so it still reads on a black and white print. The Feeder and Way columns always print. When nothing is chosen they print as empty boxes with a thin black outline, so you can fill them in with a pencil. The card table no longer has a Site column; the array's own top and bottom site are still in the facts above it.
 
 For a 12 box array you might give boxes 1 to 3 feeder 1 way 1, boxes 4 to 6 feeder 1 way 2, boxes 7 to 9 feeder 2 way 1 and boxes 10 to 12 feeder 2 way 2. Or give all twelve feeder 1 with ways 1 to 4 in threes. Both are only what you type.
 

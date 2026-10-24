@@ -144,7 +144,7 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
           const cx = (x0 + x1) / 2;
           const top = y + (tableRowH - PATCH_CHIP.heightPt) / 2;
           ops.push({ op: 'rect', x: cx - cw / 2, y: top, w: cw, h: PATCH_CHIP.heightPt, fill: chip.fill, stroke: chip.outline, lineWidth: chip.outline ? mm(PATCH_CHIP.outlineMm) : 0 });
-          ops.push(textOp(cx, y + 1.3, text, FONT_SIZES.body, { bold: true, align: 'center', color: chip.text }));
+          if (text !== '') ops.push(textOp(cx, y + 1.3, text, FONT_SIZES.body, { bold: true, align: 'center', color: chip.text }));
           return;
         }
         // Type is cut with an ellipsis so it stays on one line in its column and the row keeps its height.

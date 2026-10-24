@@ -108,7 +108,7 @@ function CardView({ content }: { content: CardContent }) {
                 return (
                   <td key={j} className={j === 0 ? 'pc-no' : isLeftColumn(column) ? 'pc-left' : undefined}>
                     {chip ? (
-                      <span className={`pc-chip${chip.outline ? ' pc-chip-outlined' : ''}`} style={{ backgroundColor: chip.fill, color: chip.text }}>
+                      <span className={`pc-chip${chip.outline ? ' pc-chip-outlined' : ''}${cell === '' ? ' pc-chip-empty' : ''}`} style={{ backgroundColor: chip.fill, color: chip.text }}>
                         {cell}
                       </span>
                     ) : (

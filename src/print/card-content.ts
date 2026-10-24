@@ -49,16 +49,20 @@ const FIXATION_NAME_MAX = 12;
  * these leave. The print view, the PDF and the PNG all use this one map (the PNG scales it), so they agree on where each column
  * sits and on how much room Type has.
  */
-export const CARD_TABLE_WIDTHS_MM: Readonly<Record<string, number>> = { '#': 6, 'Col #': 12, Panflex: 13, Feeder: 11, Way: 8, Angle: 11, Site: 12 };
+export const CARD_TABLE_WIDTHS_MM: Readonly<Record<string, number>> = { '#': 6, 'Col #': 12, Panflex: 13, Angle: 11, Feeder: 12, Way: 9 };
 /** Width of each of the X, Y and Z columns of the fixation block, in mm. */
 export const FIXATION_NUMBER_MM = 14;
 
 /** The chip behind a feeder or way digit: 3.4 mm wide and 8.4 pt high, with a 0.2 mm outline when its colour has one. */
 export const PATCH_CHIP = { widthMm: 3.4, heightPt: 8.4, outlineMm: 0.2 };
 
-/** The chip colour of a cell of a patch column, or null for a blank cell and for every other column. */
+/** The look of a blank cell of a patch column: an empty box with a thin black outline, so a person can write in it in pencil. */
+export const EMPTY_PATCH_BOX: PatchColour = { name: 'empty', fill: '#ffffff', text: '#000000', outline: '#000000' };
+
+/** The chip of a cell of a patch column: its colour when it holds a digit, the empty pencil box when it is blank, and null for every other column. */
 export function patchChip(column: string, cell: string): PatchColour | null {
-  return isPatchColumn(column) && cell !== '' ? (PATCH_COLOURS[cell as PatchDigit] ?? null) : null;
+  if (!isPatchColumn(column)) return null;
+  return cell === '' ? EMPTY_PATCH_BOX : (PATCH_COLOURS[cell as PatchDigit] ?? null);
 }
 
 /** True when a column of the enclosure table is set left. Every other value is centred. */
@@ -107,17 +111,16 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
   const hasColumns = c.rows.some((r) => r.column !== null);
-  // The feeder and the way follow Panflex, or Type when there is no Panflex column. A blank patch is a blank cell, never a dash,
-  // because a dash means the report does not state the value.
-  const columns = [hasColumns ? 'Col #' : '#', 'Type', ...(hasPanflex ? ['Panflex'] : []), ...PATCH_COLUMNS, ...(hasAngles ? ['Angle'] : []), 'Site'];
+  // The feeder and the way come last. A blank patch is a blank cell, drawn as an empty box, never a dash, because a dash means the
+  // report does not state the value. The per enclosure site angle is not on the card.
+  const columns = [hasColumns ? 'Col #' : '#', 'Type', ...(hasPanflex ? ['Panflex'] : []), ...(hasAngles ? ['Angle'] : []), ...PATCH_COLUMNS];
   const rows = c.rows.map((r, i) => [
     enclosureLabel(r),
     r.type,
     ...(hasPanflex ? [r.panflex ? `${r.panflex.text}${r.panflex.sideUnknown ? '?' : ''}` : (r.panflexPrinted ?? NOT_STATED)] : []),
+    ...(hasAngles ? [num(r.angle)] : []),
     entry.patch[i]?.feeder ?? '',
     entry.patch[i]?.way ?? '',
-    ...(hasAngles ? [num(r.angle)] : []),
-    num(r.site),
   ]);
 
   const status = `${STATUS_LABELS[ctx.status]}${ctx.revision ? ` Rev ${ctx.revision}` : ''}`;

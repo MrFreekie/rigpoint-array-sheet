@@ -703,8 +703,8 @@ test('picking a pickup symbol and typing a value shows on the plot preview, in t
   expect(markers.some((m) => m.rear.text === '1.5 t')).toBe(true);
 });
 
-// The cable patch on the pocket cards: the two columns follow Panflex, show a colour chip with the digit, are centred like every
-// other column except Type, and cost the card no height.
+// The cable patch on the pocket cards: the two columns come last, show a colour chip with the digit (or an empty pencil box when
+// blank), are centred like every other column except Type, and cost the card no height.
 test('the feeder and way columns print with colour chips, centred, and the card is as tall as planned', async ({ page }) => {
   await start(page);
   const twelve = changedPdf((sources) => sources.map((s) => (s.name === 'KARA II L Main' || s.name === 'KARA II R Main' ? { ...s, cabinets: s.cabinets.slice(0, 12) } : s)));
@@ -740,16 +740,24 @@ test('the feeder and way columns print with colour chips, centred, and the card 
       clippedType: cells(rows[0]!)[1]!.scrollWidth <= cells(rows[0]!)[1]!.clientWidth,
     };
   });
-  expect(measured.heads).toEqual(['#', 'Type', 'Panflex', 'Feeder', 'Way', 'Angle', 'Site']);
+  expect(measured.heads).toEqual(['#', 'Type', 'Panflex', 'Angle', 'Feeder', 'Way']);
   expect(measured.rowHeights).toHaveLength(12);
   for (const h of measured.rowHeights) expect(h).toBeCloseTo(14.0625, 2);
   expect(measured.first).toMatchObject({ text: '1', bg: 'rgb(63, 29, 8)', color: 'rgb(255, 255, 255)', w: expect.closeTo(3.4 * (96 / 25.4), 0) });
   expect(measured.first.offCentre).toBeLessThan(0.6);
   expect(measured.way.map((c) => c.text)).toEqual(['1', '2', '3', '4']);
   expect(measured.way.map((c) => c.bg)).toEqual(['rgb(63, 29, 8)', 'rgb(236, 68, 68)', 'rgb(255, 166, 64)', 'rgb(255, 240, 64)']);
-  expect(measured.align).toMatchObject({ '#': 'center', Type: 'left', Panflex: 'center', Feeder: 'center', Way: 'center', Angle: 'center', Site: 'center' });
+  expect(measured.align).toMatchObject({ '#': 'center', Type: 'left', Panflex: 'center', Angle: 'center', Feeder: 'center', Way: 'center' });
   expect(measured.clippedType).toBe(true);
   expect(Math.abs(measured.rendered - measured.planned)).toBeLessThan(0.5 * (96 / 25.4));
+  // A blank feeder or way is an empty box with a thin black outline, to write in with a pencil.
+  const empty = await page.evaluate(() => {
+    const box = document.querySelector<HTMLElement>('.pc-table .pc-chip-empty')!;
+    const s = getComputedStyle(box);
+    return { bg: s.backgroundColor, border: s.borderTopColor, width: s.borderTopWidth, text: box.textContent, w: box.getBoundingClientRect().width };
+  });
+  expect(empty).toMatchObject({ bg: 'rgb(255, 255, 255)', border: 'rgb(0, 0, 0)', text: '', w: expect.closeTo(3.4 * (96 / 25.4), 0) });
+  expect(parseFloat(empty.width)).toBeGreaterThan(0.5);
 
   // The same card as a PDF page: the digits are in the file's text.
   await page.emulateMedia({ media: 'print' });

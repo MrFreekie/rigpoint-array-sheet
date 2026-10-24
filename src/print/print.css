@@ -320,6 +320,11 @@
   border-color: #000;
 }
 
+/* A blank feeder or way: an empty box to write in with a pencil. */
+.pc-chip-empty {
+  background-color: #fff;
+}
+
 .pc-table td.pc-no {
   font-weight: 700;
 }

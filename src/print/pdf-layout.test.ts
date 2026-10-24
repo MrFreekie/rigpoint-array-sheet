@@ -299,10 +299,10 @@ describe('layoutRiggingPage', () => {
 describe('a ground stack laid out in columns', () => {
   it('labels each row with its column, so the repeated #1 can be told apart', () => {
     const card = content(docD, 'SB28 L');
-    expect(card.columns).toEqual(['Col #', 'Type', 'Feeder', 'Way', 'Site']);
+    expect(card.columns).toEqual(['Col #', 'Type', 'Feeder', 'Way']);
     expect(card.rows).toEqual([
-      ['C1 #1', 'SB28', '', '', '0'],
-      ['C2 #1', 'SB28', '', '', '0'],
+      ['C1 #1', 'SB28', '', ''],
+      ['C2 #1', 'SB28', '', ''],
     ]);
   });
 

@@ -232,7 +232,7 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
         const w = Math.round(PATCH_CHIP.widthMm * pxPerMm);
         const h = Math.round((PATCH_CHIP.heightPt / 10.546875) * rowH);
         ops.push({ op: 'rect', x: (x0 + x1) / 2 - w / 2, y: y + (rowH - h) / 2, w, h, fill: chip.fill, stroke: chip.outline, lineWidth: chip.outline ? 1.5 : 0 });
-        text(cell, 14, { bold: true, color: chip.text, x: (x0 + x1) / 2, align: 'center', yy: y + 4.5 });
+        if (cell !== '') text(cell, 14, { bold: true, color: chip.text, x: (x0 + x1) / 2, align: 'center', yy: y + 4.5 });
         return;
       }
       const bold = header || i === 0;
