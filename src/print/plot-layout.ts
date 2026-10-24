@@ -419,15 +419,6 @@ function stackBox(ops: PlotOp[], pts: Pt2[]) {
   ops.push(line(a.x, a.y, c.x, c.y, 0.15, 'grey'), line(b.x, b.y, d.x, d.y, 0.15, 'grey'));
 }
 
-/** The Position of a stack: a small hollow square, where any other array has a filled dot. */
-function stackPosition(ops: PlotOp[], x: number, y: number, r: number) {
-  const k = [{ x: x - r, y: y - r }, { x: x + r, y: y - r }, { x: x + r, y: y + r }, { x: x - r, y: y + r }];
-  k.forEach((p, i) => {
-    const q = k[(i + 1) % 4] as Pt2;
-    ops.push(line(p.x, p.y, q.x, q.y, 0.1, 'dot'));
-  });
-}
-
 /** The part of a segment inside a rectangle (Liang-Barsky), or null when none of it is. */
 function clipSegment(x1: number, y1: number, x2: number, y2: number, r: Rect): [number, number, number, number] | null {
   if ((x1 < r.x0 && x2 < r.x0) || (x1 > r.x1 && x2 > r.x1) || (y1 < r.y0 && y2 < r.y0) || (y1 > r.y1 && y2 > r.y1)) return null;
@@ -592,8 +583,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
       y1: Math.max(...pts.map((p) => p.y)),
     };
     boxRects.set(a.index, rect);
-    if (a.kind === 'stacked') stackPosition(ops, X(a.position.x), Y(a.position.y), dotR);
-    else ops.push({ op: 'circle', cx: X(a.position.x), cy: Y(a.position.y), r: dotR, width: 0.1, color: 'dot', fill: true });
+    ops.push({ op: 'circle', cx: X(a.position.x), cy: Y(a.position.y), r: dotR, width: 0.1, color: 'dot', fill: true });
     occupied.push(rectAround(X(a.position.x), Y(a.position.y), dotR + 0.35));
   }
   const markerRects: Rect[] = [];
@@ -735,13 +725,8 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const legend: [() => void, string][] = [
     [() => dashedBox(ops, swatch(), false), 'Array with pickups: width and depth from the report'],
     [() => dashedBox(ops, swatch(), true), 'Array with no pickup: support not stated in the report'],
-    [() => ops.push({ op: 'circle', cx: COLUMN.x0 + sw / 2, cy: y + 1.2, r: dotR, width: 0.1, color: 'dot', fill: true }), 'Array Position'],
-    ...(hasStacks
-      ? ([
-          [() => stackBox(ops, swatch()), 'Stacked array on the ground'],
-          [() => stackPosition(ops, COLUMN.x0 + sw / 2, y + 1.2, dotR), 'Stacked array Position'],
-        ] as [() => void, string][])
-      : []),
+    [() => ops.push({ op: 'circle', cx: COLUMN.x0 + sw / 2, cy: y + 1.2, r: dotR, width: 0.1, color: 'dot', fill: true }), 'Position'],
+    ...(hasStacks ? ([[() => stackBox(ops, swatch()), 'Stacked array on the ground']] as [() => void, string][]) : []),
     [() => ops.push(line(COLUMN.x0, y + 1.2, COLUMN.x0 + sw, y + 1.2, 0.2, 'grey')), 'Front to rear pickup'],
   ];
   ops.push(text(COLUMN.x0, y, 'Key', 5.5, { bold: true }));

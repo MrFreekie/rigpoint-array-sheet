@@ -156,27 +156,29 @@ describe('the plot page', () => {
     const ops = p[0]!.ops;
     const flown = content.arrays.filter((a) => a.kind === 'flown');
     const stacks = content.arrays.filter((a) => a.kind === 'stacked');
-    // The key repeats a Position dot, and draws the 1 ton circle twice: among the four symbols and as the grey example.
-    expect(ops.filter((o) => o.op === 'circle' && o.fill)).toHaveLength(flown.length + 1);
+    // Every array has one Position dot, a stack the same as any other, and the key repeats a dot. The key draws the 1 ton circle twice: among the four symbols and as the grey example.
+    expect(ops.filter((o) => o.op === 'circle' && o.fill)).toHaveLength(flown.length + stacks.length + 1);
     expect(ops.filter((o) => o.op === 'circle' && !o.fill)).toHaveLength(content.points.length + 2);
     expect(ops.filter((o) => o.op === 'line' && o.dash?.length === 2)).toHaveLength(flown.filter((a) => a.pickups.length > 0).length * 4 + 4);
     expect(ops.filter((o) => o.op === 'line' && !o.dash && o.width === 0.25)).toHaveLength((flown.filter((a) => a.pickups.length === 0).length + stacks.length) * 4 + 8);
   });
 
-  it('draws a ground stack as a solid box with crossed corners and a hollow square Position, with no number and no pickup marker', () => {
+  it('draws a ground stack as a solid box with crossed corners and the same Position dot as any array, with no number and no pickup marker', () => {
     const { content, pages: p } = pages('a');
     const ops = p[0]!.ops;
     const stacks = content.arrays.filter((a) => a.kind === 'stacked');
     expect(stacks).toHaveLength(4);
     // Two grey diagonals per stack in the plan.
     expect(ops.filter((o) => o.op === 'line' && o.color === 'grey' && o.width === 0.15 && o.x1 < 212)).toHaveLength(stacks.length * 2);
-    // Four sides of a hollow square per stack, in the Position colour, and one in the key.
-    expect(ops.filter((o) => o.op === 'line' && o.color === 'dot')).toHaveLength((stacks.length + 1) * 4);
+    // A stack has no hollow square: no line is drawn in the Position colour, and the key has one Position entry.
+    expect(ops.filter((o) => o.op === 'line' && o.color === 'dot')).toHaveLength(0);
     const t = texts(ops);
     for (const s of stacks) expect(t).toContain(s.name);
     expect(content.points.some((pt) => stacks.some((s) => s.name === pt.source))).toBe(false);
     expect(t).toContain('Stacked array on the ground');
-    expect(t).toContain('Stacked array Position');
+    expect(t.filter((x) => x === 'Position')).toHaveLength(1);
+    expect(t).not.toContain('Stacked array Position');
+    expect(t).not.toContain('Array Position');
   });
 
   it('labels an array with its name alone, with no Top site and no Position Z', () => {

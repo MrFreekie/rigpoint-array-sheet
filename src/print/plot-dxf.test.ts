@@ -199,15 +199,16 @@ describe('plot DXF', () => {
     expect(noteLines.join(' ')).toContain('Soundvision origin, DSE');
   });
 
-  it('draws stacks with their own layers and a hollow square for the Position', () => {
+  it('draws stacks with their own layers and the same Position circle as any array', () => {
     const { content, text } = build('a');
     const f = read(text);
     const stacks = content.arrays.filter((a) => a.kind === 'stacked');
     expect(stacks.length).toBeGreaterThan(0);
     expect(f.entities.filter((e) => e.layer === 'STACK_DIAGONALS')).toHaveLength(stacks.length * 2);
-    // Four edges and four sides of the Position square for each stack.
+    // Four edges for each stack, and a Position circle on the same layer as every other array, with no square.
     expect(f.entities.filter((e) => e.layer === 'STACKS')).toHaveLength(stacks.length * 4);
-    expect(f.entities.filter((e) => e.type === 'LINE' && e.layer === 'POSITIONS')).toHaveLength(stacks.length * 4);
+    expect(f.entities.filter((e) => e.type === 'LINE' && e.layer === 'POSITIONS')).toHaveLength(0);
+    expect(f.entities.filter((e) => e.type === 'CIRCLE' && e.layer === 'POSITIONS')).toHaveLength(content.arrays.length);
   });
 
   it('writes plain ASCII with other characters escaped', () => {

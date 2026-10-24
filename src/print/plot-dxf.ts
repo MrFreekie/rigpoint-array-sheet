@@ -259,16 +259,8 @@ export function plotDxf(input: PlotInput, measure: Measure, options: { venue?: b
     if (a.kind === 'stacked') {
       w.line('STACK_DIAGONALS', mm(p0.x), mm(p0.y), mm(p2.x), mm(p2.y));
       w.line('STACK_DIAGONALS', mm(p1.x), mm(p1.y), mm(p3.x), mm(p3.y));
-      const cx = mm(a.position.x);
-      const cy = mm(a.position.y);
-      const sq = [[-dotR, -dotR], [dotR, -dotR], [dotR, dotR], [-dotR, dotR]] as const;
-      sq.forEach(([x, y], i) => {
-        const [nx, ny] = sq[(i + 1) % 4] as readonly [number, number];
-        w.line('POSITIONS', cx + x, cy + y, cx + nx, cy + ny);
-      });
-    } else {
-      w.circle('POSITIONS', mm(a.position.x), mm(a.position.y), dotR);
     }
+    w.circle('POSITIONS', mm(a.position.x), mm(a.position.y), dotR);
   }
   const half = (MARKER_REAL_M * 1000) / 2;
   for (const p of input.points) {
