@@ -702,3 +702,61 @@ test('picking a pickup symbol and typing a value shows on the plot preview, in t
   expect(markers.some((m) => m.front.shape === 'two')).toBe(true);
   expect(markers.some((m) => m.rear.text === '1.5 t')).toBe(true);
 });
+
+// The cable patch on the pocket cards: the two columns follow Panflex, show a colour chip with the digit, are centred like every
+// other column except Type, and cost the card no height.
+test('the feeder and way columns print with colour chips, centred, and the card is as tall as planned', async ({ page }) => {
+  await start(page);
+  const twelve = changedPdf((sources) => sources.map((s) => (s.name === 'KARA II L Main' || s.name === 'KARA II R Main' ? { ...s, cabinets: s.cabinets.slice(0, 12) } : s)));
+  await openPdf(page, twelve);
+  const card = page.locator('.card', { has: page.getByRole('heading', { name: 'KARA II L Main', exact: true }) });
+  await expect(card).toHaveCount(1);
+  // The owner's example: one feeder, the ways 1 to 4 in threes.
+  for (let n = 1; n <= 12; n++) {
+    await card.getByLabel(new RegExp(`^Feeder, enclosure ${n} of `)).selectOption('1');
+    await card.getByLabel(new RegExp(`^Way, enclosure ${n} of `)).selectOption(String(Math.ceil(n / 3)));
+  }
+  await expect.poll(() => page.locator('.as-fit[data-planned-height]').count()).toBeGreaterThan(0);
+  const measured = await page.evaluate(() => {
+    const fit = [...document.querySelectorAll<HTMLElement>('.as-fit[data-planned-height]')].find((f) => f.querySelector('.pc-title')?.textContent === 'KARA II L Main')!;
+    const heads = [...fit.querySelectorAll<HTMLElement>('.pc-table thead th')].map((th) => th.textContent);
+    const rows = [...fit.querySelectorAll<HTMLElement>('.pc-table tbody tr')];
+    const cells = (tr: HTMLElement) => [...tr.querySelectorAll<HTMLElement>('td')];
+    const chipAt = (tr: HTMLElement, i: number) => {
+      const chip = cells(tr)[i]!.querySelector<HTMLElement>('.pc-chip')!;
+      const r = chip.getBoundingClientRect();
+      const cell = cells(tr)[i]!.getBoundingClientRect();
+      return { text: chip.textContent, bg: getComputedStyle(chip).backgroundColor, color: getComputedStyle(chip).color, offCentre: Math.abs(r.left + r.width / 2 - (cell.left + cell.width / 2)), w: r.width };
+    };
+    const feederAt = heads.indexOf('Feeder');
+    return {
+      heads,
+      rowHeights: rows.map((tr) => tr.getBoundingClientRect().height),
+      first: chipAt(rows[0]!, feederAt),
+      way: [0, 3, 6, 9].map((r) => chipAt(rows[r]!, feederAt + 1)),
+      align: Object.fromEntries(heads.map((h, i) => [h, getComputedStyle(cells(rows[0]!)[i]!).textAlign])),
+      rendered: (fit.querySelector('.pc') as HTMLElement).offsetHeight,
+      planned: Number(fit.dataset['plannedHeight']),
+      clippedType: cells(rows[0]!)[1]!.scrollWidth <= cells(rows[0]!)[1]!.clientWidth,
+    };
+  });
+  expect(measured.heads).toEqual(['#', 'Type', 'Panflex', 'Feeder', 'Way', 'Angle', 'Site']);
+  expect(measured.rowHeights).toHaveLength(12);
+  for (const h of measured.rowHeights) expect(h).toBeCloseTo(14.0625, 2);
+  expect(measured.first).toMatchObject({ text: '1', bg: 'rgb(63, 29, 8)', color: 'rgb(255, 255, 255)', w: expect.closeTo(3.4 * (96 / 25.4), 0) });
+  expect(measured.first.offCentre).toBeLessThan(0.6);
+  expect(measured.way.map((c) => c.text)).toEqual(['1', '2', '3', '4']);
+  expect(measured.way.map((c) => c.bg)).toEqual(['rgb(63, 29, 8)', 'rgb(236, 68, 68)', 'rgb(255, 166, 64)', 'rgb(255, 240, 64)']);
+  expect(measured.align).toMatchObject({ '#': 'center', Type: 'left', Panflex: 'center', Feeder: 'center', Way: 'center', Angle: 'center', Site: 'center' });
+  expect(measured.clippedType).toBe(true);
+  expect(Math.abs(measured.rendered - measured.planned)).toBeLessThan(0.5 * (96 / 25.4));
+
+  // The same card as a PDF page: the digits are in the file's text.
+  await page.emulateMedia({ media: 'print' });
+  const pdf = await printToPdf(page, 'patch-card.pdf');
+  const items = await readPdfItems(new Uint8Array(pdf).slice());
+  const words = items.map((i) => i.text);
+  expect(words).toContain('Feeder');
+  expect(words).toContain('Way');
+  await expectNothingClipped(page);
+});

@@ -2,8 +2,9 @@
 // tested without a browser) and then drawn on a canvas. Drawing text on a canvas needs no markup, so
 // it works under the strict Content Security Policy.
 
-import { FIXATION_COLUMNS, warningText, type CardContent } from './card-content';
+import { CARD_TABLE_WIDTHS_MM, FIXATION_COLUMNS, isLeftColumn, PATCH_CHIP, patchChip, warningText, type CardContent } from './card-content';
 import { CREDIT_TEXT } from './footer';
+import { CARD_W_MM } from './layout';
 
 export const IMAGE_W = 640;
 const PAD = 28;
@@ -204,7 +205,7 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
     const fixationRow = (cells: string[], header: boolean) => {
       if (header) ops.push({ op: 'rect', x: PAD, y, w: inner, h: rowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
       cells.forEach((cell, i) => {
-        text(cell, 14, { bold: header || i === 0, x: i === 0 ? PAD + 8 : (fx[i + 1] ?? IMAGE_W - PAD) - 8, align: i === 0 ? 'left' : 'right', yy: y + 3 });
+        text(cell, 14, { bold: header || i === 0, x: i === 0 ? PAD + 8 : ((fx[i] ?? PAD) + (fx[i + 1] ?? IMAGE_W - PAD)) / 2, align: i === 0 ? 'left' : 'center', yy: y + 3 });
       });
       ops.push({ op: 'line', x1: PAD, y1: y + rowH, x2: IMAGE_W - PAD, y2: y + rowH, width: header ? 2 : 1, color: header ? '#000' : '#777' });
       y += rowH;
@@ -214,22 +215,28 @@ export function layoutCardImage(content: CardContent, options: ImageOptions, mea
     y += 14;
   }
 
-  // Enclosure table. Type takes whatever the fixed columns leave.
-  const fixed: Record<string, number> = { '#': 46, 'Col #': 92, Panflex: 110, Angle: 86, Site: 96 };
-  const widths = content.columns.map((c) => fixed[c] ?? 0);
-  const typeIndex = content.columns.indexOf('Type');
+  // Enclosure table. Type takes whatever the other columns leave, which are the widths of the pocket card's table scaled to this image.
+  const pxPerMm = inner / CARD_W_MM;
+  const widths = content.columns.map((c) => Math.round((CARD_TABLE_WIDTHS_MM[c] ?? 0) * pxPerMm));
+  const typeIndex = content.columns.findIndex(isLeftColumn);
   widths[typeIndex] = inner - widths.reduce((a, b) => a + b, 0);
   const xs = widths.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? PAD) + w], [PAD]);
   const tableRow = (cells: string[], header: boolean) => {
     if (header) ops.push({ op: 'rect', x: PAD, y, w: inner, h: rowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
     cells.forEach((cell, i) => {
-      const left = i === typeIndex || false;
-      text(cell, 14, {
-        bold: header || i === 0,
-        x: left ? (xs[i] ?? PAD) + 8 : (xs[i + 1] ?? IMAGE_W - PAD) - 8,
-        align: left ? 'left' : 'right',
-        yy: y + 3,
-      });
+      const left = i === typeIndex;
+      const x0 = xs[i] ?? PAD;
+      const x1 = xs[i + 1] ?? IMAGE_W - PAD;
+      const chip = header ? null : patchChip(content.columns[i] ?? '', cell);
+      if (chip) {
+        const w = Math.round(PATCH_CHIP.widthMm * pxPerMm);
+        const h = Math.round((PATCH_CHIP.heightPt / 10.546875) * rowH);
+        ops.push({ op: 'rect', x: (x0 + x1) / 2 - w / 2, y: y + (rowH - h) / 2, w, h, fill: chip.fill, stroke: chip.outline, lineWidth: chip.outline ? 1.5 : 0 });
+        text(cell, 14, { bold: true, color: chip.text, x: (x0 + x1) / 2, align: 'center', yy: y + 4.5 });
+        return;
+      }
+      const bold = header || i === 0;
+      text(left ? clipToWidth(cell, 14, bold, x1 - x0 - 16, measure) : cell, 14, { bold, x: left ? x0 + 8 : (x0 + x1) / 2, align: left ? 'left' : 'center', yy: y + 3 });
     });
     ops.push({ op: 'line', x1: PAD, y1: y + rowH, x2: IMAGE_W - PAD, y2: y + rowH, width: header ? 2 : 1, color: header ? '#000' : '#777' });
     y += rowH;

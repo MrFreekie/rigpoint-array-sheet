@@ -1,6 +1,7 @@
 // What one array's card says, as plain data. The printed pocket card and the PNG export both draw from
 // this, so they show the same thing as each other and as the screen.
 
+import { isPatchColumn, PATCH_COLOURS, PATCH_COLUMNS, type PatchColour, type PatchDigit } from '../engine/patch';
 import { enclosureLabel } from '../engine/types';
 import { STATUS_LABELS, type Status } from '../files/doc';
 import { showDateText } from '../files/show-date';
@@ -42,6 +43,26 @@ export const FIXATION_COLUMNS = ['Fixations', 'X (m)', 'Y (m)', 'Z (m)'];
 
 /** Longest fixation name drawn in full. The report's are two letters; a longer one is cut so it stays in its column and the row keeps its height. */
 const FIXATION_NAME_MAX = 12;
+
+/**
+ * Widths of the columns of the enclosure table of a pocket card, in mm, on the card's 93 mm. The Type column takes whatever
+ * these leave. The print view, the PDF and the PNG all use this one map (the PNG scales it), so they agree on where each column
+ * sits and on how much room Type has.
+ */
+export const CARD_TABLE_WIDTHS_MM: Readonly<Record<string, number>> = { '#': 6, 'Col #': 12, Panflex: 13, Feeder: 11, Way: 8, Angle: 11, Site: 12 };
+/** Width of each of the X, Y and Z columns of the fixation block, in mm. */
+export const FIXATION_NUMBER_MM = 14;
+
+/** The chip behind a feeder or way digit: 3.4 mm wide and 8.4 pt high, with a 0.2 mm outline when its colour has one. */
+export const PATCH_CHIP = { widthMm: 3.4, heightPt: 8.4, outlineMm: 0.2 };
+
+/** The chip colour of a cell of a patch column, or null for a blank cell and for every other column. */
+export function patchChip(column: string, cell: string): PatchColour | null {
+  return isPatchColumn(column) && cell !== '' ? (PATCH_COLOURS[cell as PatchDigit] ?? null) : null;
+}
+
+/** True when a column of the enclosure table is set left. Every other value is centred. */
+export const isLeftColumn = (column: string): boolean => column === 'Type';
 
 export function fixationName(name: string): string {
   return name.length > FIXATION_NAME_MAX ? `${name.slice(0, FIXATION_NAME_MAX - 1)}…` : name;
@@ -86,11 +107,15 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
   const hasAngles = c.rows.some((r) => r.angle !== null);
   const hasPanflex = c.rows.some((r) => r.panflexPrinted !== null);
   const hasColumns = c.rows.some((r) => r.column !== null);
-  const columns = [hasColumns ? 'Col #' : '#', 'Type', ...(hasPanflex ? ['Panflex'] : []), ...(hasAngles ? ['Angle'] : []), 'Site'];
-  const rows = c.rows.map((r) => [
+  // The feeder and the way follow Panflex, or Type when there is no Panflex column. A blank patch is a blank cell, never a dash,
+  // because a dash means the report does not state the value.
+  const columns = [hasColumns ? 'Col #' : '#', 'Type', ...(hasPanflex ? ['Panflex'] : []), ...PATCH_COLUMNS, ...(hasAngles ? ['Angle'] : []), 'Site'];
+  const rows = c.rows.map((r, i) => [
     enclosureLabel(r),
     r.type,
     ...(hasPanflex ? [r.panflex ? `${r.panflex.text}${r.panflex.sideUnknown ? '?' : ''}` : (r.panflexPrinted ?? NOT_STATED)] : []),
+    entry.patch[i]?.feeder ?? '',
+    entry.patch[i]?.way ?? '',
     ...(hasAngles ? [num(r.angle)] : []),
     num(r.site),
   ]);

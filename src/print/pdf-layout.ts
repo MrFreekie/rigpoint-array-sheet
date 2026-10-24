@@ -5,8 +5,8 @@
 import { edgeText, riggingEdgeNote, riggingNote, type FixationRow, type RiggingRow } from '../engine/sheet';
 import { showDateText } from '../files/show-date';
 import { NOT_STATED } from '../ui/format';
-import { clipMiddle, noteLines, wrap, wrapAfterLead, type DrawOp, type Measure } from './array-image';
-import { FIXATION_COLUMNS, warningText, type CardContent } from './card-content';
+import { clipMiddle, clipToWidth, noteLines, wrap, wrapAfterLead, type DrawOp, type Measure } from './array-image';
+import { CARD_TABLE_WIDTHS_MM, FIXATION_COLUMNS, FIXATION_NUMBER_MM, isLeftColumn, PATCH_CHIP, patchChip, warningText, type CardContent } from './card-content';
 import { CARD_W_MM, PX_PER_MM } from './layout';
 import { SMALL_PRINT } from './small-print';
 
@@ -119,25 +119,37 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
   }
   y += mm(1);
 
-  // Tables. The first column or Type takes whatever the fixed columns leave. The print stylesheet's table rows come out
+  // Tables. Fixed columns, and one column that takes whatever they leave. The print stylesheet's table rows come out
   // 14.0625 CSS pixels (10.546875 pt) high in Chromium, which an e2e test measures, so the same height is used
   // here and the two agree on where a card stops fitting.
   const tableRowH = ROW_PT;
-  const fixed: Record<string, number> = { '#': mm(6), 'Col #': mm(13), Panflex: mm(17), Angle: mm(13), Site: mm(15), 'X (m)': mm(14), 'Y (m)': mm(14), 'Z (m)': mm(14) };
-  const table = (columns: string[], rows: string[][], leftAt: number) => {
-    const widths = columns.map((c) => fixed[c] ?? 0);
-    widths[leftAt] = W - widths.reduce((a, b) => a + b, 0);
+  /**
+   * `left` is the index of the column that is set left and takes whatever the others leave; every other cell is centred.
+   * A cell of a patch column that holds a digit is a colour chip with the digit on it.
+   */
+  const table = (columns: string[], rows: string[][], left: number, widthsMm: Readonly<Record<string, number>>) => {
+    const widths = columns.map((c) => mm(widthsMm[c] ?? 0));
+    widths[left] = W - widths.reduce((a, b) => a + b, 0);
     const xs = widths.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? 0) + w], [0]);
     const cell = (cells: string[], header: boolean) => {
       if (header) ops.push({ op: 'rect', x: 0, y, w: W, h: tableRowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
       cells.forEach((text, i) => {
-        const left = i === leftAt;
-        ops.push(
-          textOp(left ? (xs[i] ?? 0) + 2 : (xs[i + 1] ?? W) - 2, y + 0.5, text, FONT_SIZES.body, {
-            bold: header || i === 0,
-            align: left ? 'left' : 'right',
-          }),
-        );
+        const isLeft = i === left;
+        const bold = header || i === 0;
+        const x0 = xs[i] ?? 0;
+        const x1 = xs[i + 1] ?? W;
+        const chip = header ? null : patchChip(columns[i] ?? '', text);
+        if (chip) {
+          const cw = mm(PATCH_CHIP.widthMm);
+          const cx = (x0 + x1) / 2;
+          const top = y + (tableRowH - PATCH_CHIP.heightPt) / 2;
+          ops.push({ op: 'rect', x: cx - cw / 2, y: top, w: cw, h: PATCH_CHIP.heightPt, fill: chip.fill, stroke: chip.outline, lineWidth: chip.outline ? mm(PATCH_CHIP.outlineMm) : 0 });
+          ops.push(textOp(cx, y + 1.3, text, FONT_SIZES.body, { bold: true, align: 'center', color: chip.text }));
+          return;
+        }
+        // Type is cut with an ellipsis so it stays on one line in its column and the row keeps its height.
+        const shown = isLeft ? clipToWidth(text, FONT_SIZES.body, bold, x1 - x0 - 4, measure) : text;
+        ops.push(textOp(isLeft ? x0 + 2 : (x0 + x1) / 2, y + 0.5, shown, FONT_SIZES.body, { bold, align: isLeft ? 'left' : 'center' }));
       });
       ops.push({ op: 'line', x1: 0, y1: y + tableRowH, x2: W, y2: y + tableRowH, width: 0.4, color: '#777777' });
       xs.forEach((x) => ops.push({ op: 'line', x1: x, y1: y, x2: x, y2: y + tableRowH, width: 0.4, color: '#777777' }));
@@ -150,10 +162,10 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
   };
   // Fixations sit under the facts, with the same 1 mm gap below as the facts have (.pc-fix in print.css).
   if (content.fixations.length > 0) {
-    table(FIXATION_COLUMNS, content.fixations, 0);
+    table(FIXATION_COLUMNS, content.fixations, 0, { 'X (m)': FIXATION_NUMBER_MM, 'Y (m)': FIXATION_NUMBER_MM, 'Z (m)': FIXATION_NUMBER_MM });
     y += mm(1);
   }
-  table(content.columns, content.rows, content.columns.indexOf('Type'));
+  table(content.columns, content.rows, content.columns.findIndex(isLeftColumn), CARD_TABLE_WIDTHS_MM);
 
   return { width: W, height: y, ops };
 }
