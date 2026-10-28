@@ -635,9 +635,10 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   for (const p of points) if (p.which === 'front' && p.spacing !== null) spacings.set(p.arrayIndex, p.spacing);
   // Arrays that are not marked as stacked are labelled first and the stacks, which often stand under them, find room around those.
   const arrayRequest = (a: PlotArray): LabelRequest => {
-    // The name, then the stated total weight and the spacing between the pickups when there is one.
+    // The name, then the stated total weight and the spacing between the pickups when there is one. An array with no pickups,
+    // a stack or one whose support is not stated, is labelled with its name alone.
     const lines = [{ text: a.name, bold: true }];
-    if (a.totalWeight !== null) lines.push({ text: `Total ${a.totalWeight} kg`, bold: false });
+    if (a.totalWeight !== null && a.pickups.length > 0) lines.push({ text: `Total ${a.totalWeight} kg`, bold: false });
     const spacing = spacings.get(a.index);
     if (spacing !== undefined) lines.push({ text: `Spacing ${spacing.toFixed(2)} m`, bold: false });
     const own = boxRects.get(a.index) as Rect;

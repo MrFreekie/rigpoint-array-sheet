@@ -271,6 +271,23 @@ describe('the plot page', () => {
     expect(t.some((x) => /^\d+(\.\d+)? kg, /.test(x))).toBe(false);
   });
 
+  it('labels a stack or an array with no pickups with its name alone, with no total weight', () => {
+    for (const id of ['a', 'c'] as const) {
+      const { content, pages: p } = pages(id);
+      const ops = p[0]!.ops;
+      const bare = content.arrays.filter((a) => a.pickups.length === 0);
+      expect(bare.length).toBeGreaterThan(0);
+      for (const a of bare) {
+        const i = ops.findIndex((o) => o.op === 'text' && o.text === a.name);
+        expect(i).toBeGreaterThan(-1);
+        const next = ops[i + 1];
+        expect(next && next.op === 'text' && /^(Total|Spacing) /.test(next.text)).toBeFalsy();
+      }
+      const withPickups = content.arrays.filter((a) => a.pickups.length > 0 && a.totalWeight !== null);
+      expect(texts(ops).filter((x) => x.startsWith('Total ')).length).toBe(withPickups.length);
+    }
+  });
+
   it('leaves out the total line when the report states none, and the spacing line when there is one pickup or none', () => {
     const { content } = pages('c');
     const out = layoutPlotPages(
@@ -362,7 +379,9 @@ describe('the plot page', () => {
     // label or two there may sit across an origin line. Nothing else may clash, and reports A and E have none at all.
     const rest = problems.filter((m) => !(m.startsWith('c:') && m.includes('an origin line')));
     expect(rest).toEqual([]);
-    expect(problems.filter((m) => m.startsWith('c:')).length).toBeLessThanOrEqual(1);
+    // The two stacks KARA II 3 and KARA II 4 stand either side of the vertical origin line, and each label is now one line (the name alone),
+    // so each of the two counts once..
+    expect(problems.filter((m) => m.startsWith('c:')).length).toBeLessThanOrEqual(2);
   });
 
   it('keeps every leader line off the labels, the origin lines and other leaders on reports A, C and E', () => {
