@@ -31,3 +31,12 @@ export const SMALL_PRINT: { label: string | null; text: string }[] = [
  */
 export const PLOT_SMALL_PRINT =
   'This plot is drawn only from the Soundvision report. It shows array positions, pickups and loads as the report states them. It does not include shackles, slings, bridles, spreaders, trusses, motors or any other rigging component. Marker symbols show a nominal rating and are a guide only. Use this plot as a visual guide when developing the final rigging plot, check the scale bar against a ruler, and check every figure against the Soundvision report. It is a design aid, not a definitive CAD drawing.';
+
+/**
+ * The one sentence added to the plot small print when any additional weight is typed in the app, so the page does not say
+ * its loads are only the report's. It follows the approved words and is printed only when a weight is in use.
+ */
+export const PLOT_EXTRA_WEIGHT_SENTENCE = 'Loads include any additional weight typed in the app.';
+
+/** The small print of the plot page: the approved words, then the added sentence when an additional weight is in use. */
+export const plotSmallPrint = (additionalWeightUsed: boolean): string => (additionalWeightUsed ? `${PLOT_SMALL_PRINT} ${PLOT_EXTRA_WEIGHT_SENTENCE}` : PLOT_SMALL_PRINT);

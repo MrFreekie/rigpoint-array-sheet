@@ -24,10 +24,25 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} onPlot onOnPlot={() => {}} markers={{ front: { shape: 'one' }, rear: { shape: 'one' } }} onMarker={() => {}} symbolValues={{ two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' }} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} onPlot onOnPlot={() => {}} markers={{ front: { shape: 'one' }, rear: { shape: 'one' } }} onMarker={() => {}} extras={{ front: '', rear: '' }} onExtra={() => {}} symbolValues={{ two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' }} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} {...extra} />,
   );
 
 describe('ArrayCard', () => {
+  it('has a box for the additional weight of each pickup, disabled on a read-only file', () => {
+    const one = card('KARA II L Main');
+    expect(one).toContain('Additional weight (kg)');
+    expect(one).not.toContain('Additional weight, front pickup');
+    const pair = card('FL KARA II L', b);
+    expect(pair).toContain('Additional weight, front pickup (kg)');
+    expect(pair).toContain('Additional weight, rear pickup (kg)');
+    expect(pair).toContain('Optional. Added to this pickup&#x27;s load');
+    const field = (html: string) => /<input[^>]*id="[^"]*"[^>]*value="7"[^>]*>/.exec(html)?.[0] ?? '';
+    const typed = card('KARA II L Main', a, { extras: { front: '7', rear: '7' } });
+    expect(field(typed)).toContain('value="7"');
+    expect(field(typed)).not.toContain('disabled');
+    expect(field(card('KARA II L Main', a, { extras: { front: '7', rear: '7' }, locked: true }))).toContain('disabled');
+  });
+
   it('labels the rows of a stack laid out in columns', () => {
     const html = card('SB28 L', parseFixture('d').report.sources);
     expect(html).toContain('Col #');

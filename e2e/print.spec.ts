@@ -517,7 +517,7 @@ test('report E: the rigging page lists the fixations, and the print view and Dow
   for (const h of rigging.fixationRows) expect(h).toBeCloseTo(14.0625, 0);
   expect(rigging.pickupRow).toBeGreaterThan(rigging.fixationRows[1] ?? 0);
   expect(Math.abs(rigging.pickupRow - (13 * 96) / 72)).toBeLessThanOrEqual(1); // the PDF draws the pickup rows 13 pt high
-  expect(rigging.scale).toBeGreaterThan(0.88); // the QR code now stands under the small print and the edge distance note adds a line, so a little under the 0.93 it had
+  expect(rigging.scale).toBeGreaterThan(0.78); // the QR code stands under the small print, the edge distance note adds a line and the array weights table lists the total weight of every array as its own item, so about 0.80 for this report
   expect(rigging.scale).toBeLessThan(1);
 
   const printPages = pdfPages(await printToPdf(page, 'fixations.pdf'));
@@ -705,7 +705,7 @@ test('picking a pickup symbol and writing a value for the 1 t symbol in Settings
   // The choices are saved with the file, in the new format: the shapes on the pickups, the values for the job.
   const { json } = await save(page);
   const markers = json['markers'] as { front: { shape: string }; rear: { shape: string } }[];
-  expect(json['format']).toBe('arraysheet/15');
+  expect(json['format']).toBe('arraysheet/16');
   expect(markers.some((m) => m.front.shape === 'two')).toBe(true);
   expect(markers.every((m) => !('text' in m.front) && !('text' in m.rear))).toBe(true);
   expect(json['symbol_values']).toEqual({ two: '2 t', one: '1.5 t', half: '0.5 t', quarter: '0.25 t' });

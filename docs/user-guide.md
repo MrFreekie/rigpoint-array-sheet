@@ -139,6 +139,14 @@ Draft, Issued, Approved and Superseded are the four statuses. Approved and super
 
 To change an approved file, press Create new revision. It starts a draft with the next letter (blank, then A, B, C) and never writes over the old file. Setting the old one to Superseded is up to you.
 
+## Additional weight
+
+Each pickup has an Additional weight (kg) box on its array's card, for something the report leaves out, such as a bridle, a hoist or a lighting bar. An array with two pickups has one box for the front and one for the rear. Leave it blank for none. You can type digits and a point, with at most two decimals and up to 100000 kg. An approved or superseded file cannot be changed, so the boxes are switched off there.
+
+The weight is added to that pickup's load on the rigging plot, in the label and in the table, and to the array's Total line. The plot then ends its small print with one more sentence, Loads include any additional weight typed in the app. Without a weight the plot and its small print are as they were. A mirror image that a card stands for takes the weight typed on that card. Tick Show the mirrored arrays too to give each array its own.
+
+The rigging summary never changes what the report states. Its pickup table keeps the report's load. Under it, when any weight is typed, a table headed Additional weight, typed in the app lists every pickup of those arrays with the report's load, the weight and the two added together. Below that, an Array weights table gives the Total array weight as its own item for every array with a pickup, and when a weight is typed it adds the Additional weight and the Pickups with additional, which is the pickup loads plus that weight. A line under the tables says which figures are the report's and which you typed. This is the one place the app adds figures: it adds only the weight you typed to the report's, and a pickup whose load the report does not state shows a dash.
+
 ## Card title and notes for the crew
 
 Each card has a Card title box, one line of up to 60 characters. Type a name there and it replaces the array name on the card, the printed sheet, the PDF, the images, the rigging plot, the DXF and the rigging summary. Clear the box to go back to the name in the report. The card then carries a small line, Soundvision name, with the name from the report, so the two can always be matched. The title is kept with the file, and Update from PDF still finds the array by its report name, so the title survives an update.
@@ -155,7 +163,7 @@ A deleted array stays in the file, marked as deleted. The file holds the report 
 
 ## A newer PDF arrives
 
-With your file open, press Update from PDF and choose the newer report. The app lists exactly what differs. Choose Update from new PDF or Keep as saved. Your show details, offsets, print choices, titles, notes, plot symbols, cable patches and venue stay with the arrays of the same name. A cable patch stays while the array has the same number of enclosures, and is cleared and listed when it does not. A symbol stays when the array still has the same pickup and goes back to 1 t when it does not, and the list says so. An array you deleted comes back if the new PDF has it, and the list marks it as restored.
+With your file open, press Update from PDF and choose the newer report. The app lists exactly what differs. Choose Update from new PDF or Keep as saved. Your show details, offsets, print choices, titles, notes, plot symbols, additional weights, cable patches and venue stay with the arrays of the same name. An additional weight stays with the same pickup, and one the new PDF cannot follow is dropped and listed. A cable patch stays while the array has the same number of enclosures, and is cleared and listed when it does not. A symbol stays when the array still has the same pickup and goes back to 1 t when it does not, and the list says so. An array you deleted comes back if the new PDF has it, and the list marks it as restored.
 
 ## Install it and use it offline
 
@@ -165,6 +173,6 @@ When there is a new version the app shows Update available. Press Reload when it
 
 ## Things worth knowing
 
-- Everything shown comes from the PDF. The app does not calculate loads or check that a rig is safe.
+- Everything shown comes from the PDF. The app does not work out loads or check that a rig is safe. The only sums are the ones set out under Additional weight, and the distances described on the rigging summary.
 - Read the [disclaimer](../DISCLAIMER.md). It is printed on the last page of every printout.
 - Soundvision report version 2026.3.1 has been tested. If a newer version changes the layout, lines the app does not understand appear as CHECK items.

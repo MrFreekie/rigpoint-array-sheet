@@ -3,6 +3,7 @@
 
 import { autoBreaks, cartRows, defaultCartSizes, forcedBreaks, groupsOf, normaliseBreaks, sizeFor, toggleBreak, trackCarts, type CartSize } from '../engine/carts';
 import { matchByName } from '../engine/compare';
+import { EMPTY_EXTRA, trackExtras, type ExtraText } from '../engine/extra-weight';
 import { cleanSymbolValue, defaultPair, defaultSymbolValues, isDefaultPair, SHAPES, sameSymbolValues, symbolValue, trackMarkers, type Marker, type MarkerPair, type PickupSide, type Shape, type SymbolValues } from '../engine/markers';
 import { fitPatch, patchUsed, trackPatches, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
 import type { ParseResult, Problem } from '../engine/types';
@@ -86,6 +87,11 @@ export interface Doc {
   markers: Record<number, MarkerPair>;
   /** The same choices while the file is read-only. Never saved. Null when there is nothing to override. */
   markerOverride: Record<number, MarkerPair> | null;
+  /**
+   * The additional weight typed for the front and rear pickup of an array, by position in the report, as text (blank means
+   * none). Arrays not listed have none. Content, so a read-only file cannot change it. Saved in the file.
+   */
+  extras: Record<number, ExtraText>;
   /** The value written for each of the four plot symbols, such as "1 t". One for the whole job. Saved in the file. */
   symbolValues: SymbolValues;
   /**
@@ -135,6 +141,7 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     plotShowOverride: null,
     markers: {},
     markerOverride: null,
+    extras: {},
     symbolValues: defaultSymbolValues(),
     patches: {},
     underlay: null,
@@ -192,7 +199,7 @@ export function editKey(doc: Doc): string {
     Object.entries(r)
       .filter(([, text]) => text.trim() !== '')
       .sort(([a], [b]) => Number(a) - Number(b));
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), SHAPES.map((shape) => symbolValue(doc.symbolValues, shape)), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc), offPlot, doc.plotPrintOff, doc.plotShow.position, doc.plotShow.outlines]);
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), SHAPES.map((shape) => symbolValue(doc.symbolValues, shape)), savedExtras(doc), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc), offPlot, doc.plotPrintOff, doc.plotShow.position, doc.plotShow.outlines]);
 }
 
 /** The plot symbols that are not the default, by position, in order. Only what is saved counts, not a read-only file's override. */
@@ -200,6 +207,14 @@ function savedMarkers(doc: Doc): [number, MarkerPair][] {
   return Object.entries(doc.markers)
     .filter(([, pair]) => !isDefaultPair(pair))
     .map(([i, pair]): [number, MarkerPair] => [Number(i), pair])
+    .sort((a, b) => a[0] - b[0]);
+}
+
+/** The additional weights that are set, by position, in order. */
+function savedExtras(doc: Doc): [number, ExtraText][] {
+  return Object.entries(doc.extras)
+    .filter(([, e]) => e.front.trim() !== '' || e.rear.trim() !== '')
+    .map(([i, e]): [number, ExtraText] => [Number(i), e])
     .sort((a, b) => a[0] - b[0]);
 }
 
@@ -285,6 +300,20 @@ export function withPatch(doc: Doc, index: number, row: number, field: PatchFiel
   const next = fitPatch(doc.patches[index], rows);
   next[row] = { ...(next[row] as PatchRow), [field]: value };
   return { ...doc, patches: { ...doc.patches, [index]: next } };
+}
+
+/** The additional weight typed for one pickup side of an array, as text. Blank when none. */
+export function extraOf(doc: Doc, index: number, side: PickupSide): string {
+  return doc.extras[index]?.[side] ?? '';
+}
+
+/** Type the additional weight of one pickup side. A read-only file cannot change it, as with a note. */
+export function withExtra(doc: Doc, index: number, side: PickupSide, text: string): Doc {
+  if (doc.locked) return doc;
+  const now = { ...(doc.extras[index] ?? EMPTY_EXTRA), [side]: text };
+  const rest = Object.fromEntries(Object.entries(doc.extras).filter(([i]) => Number(i) !== index));
+  const empty = now.front.trim() === '' && now.rear.trim() === '';
+  return { ...doc, extras: empty ? rest : { ...rest, [index]: now } };
 }
 
 /** The plot symbol of one pickup side of an array. A read-only file shows its session choice, if it has one. */
@@ -374,6 +403,7 @@ export function updatedDoc(doc: Doc, fresh: ParseResult, sourceName: string): Do
     printOverride: null,
     markers: trackMarkers(doc.result.report, fresh.report, doc.markerOverride ?? doc.markers).kept,
     markerOverride: null,
+    extras: trackExtras(doc.result.report, fresh.report, doc.extras).kept,
     patches: trackPatches(doc.result.report, fresh.report, doc.patches).kept,
     carts: trackCarts(doc.result.report, fresh.report, doc.carts).kept,
   };

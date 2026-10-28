@@ -1,6 +1,7 @@
 import { Fragment, useId } from 'react';
 import { cartShade, groupsText } from '../engine/carts';
 import type { FlySheetColumn } from '../engine/sheet';
+import { isTypingExtra, type ExtraText } from '../engine/extra-weight';
 import { SHAPE_NAME, SHAPES, symbolValue, type Marker, type MarkerPair, type PickupSide, type Shape, type SymbolValues } from '../engine/markers';
 import { PATCH_COLOURS, PATCH_DIGITS, type PatchDigit, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
 import { enclosureLabel } from '../engine/types';
@@ -43,6 +44,9 @@ interface Props {
   /** The plot symbol of each pickup, and how to change one. A read-only file keeps a change for this session only. */
   markers: MarkerPair;
   onMarker: (side: PickupSide, marker: Marker) => void;
+  /** The additional weight typed for each pickup, in kilograms as text, and how to change one. A read-only file cannot change them. */
+  extras: ExtraText;
+  onExtra: (side: PickupSide, text: string) => void;
   /** The value written for each symbol, set in Settings, for the names in the list of symbols. */
   symbolValues: Readonly<SymbolValues>;
   /** The feeder and way of each enclosure row, and how to change one. Read-only files cannot change. */
@@ -58,7 +62,7 @@ interface Props {
   usingDefault: boolean;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onPlot, onOnPlot, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, symbolValues, patch, onPatch, carts, onCartBreak, onCartReset }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onPlot, onOnPlot, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, extras, onExtra, symbolValues, patch, onPatch, carts, onCartBreak, onCartReset }: Props) {
   const id = useId();
   const hasColumns = c.rows.some((r) => r.column !== null);
   const hasStackRows = c.rows.some((r) => r.row !== null);
@@ -212,6 +216,16 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         />
       ))}
 
+      {c.pickups.map((p) => (
+        <ExtraWeightField
+          key={p.which}
+          label={c.pickups.length > 1 ? `Additional weight, ${p.which} pickup (kg)` : 'Additional weight (kg)'}
+          value={extras[p.which]}
+          disabled={locked === true}
+          onChange={(t) => onExtra(p.which, t)}
+        />
+      ))}
+
       <label className="field offset-field">
         <span>Ground offset (m)</span>
         <input
@@ -322,6 +336,31 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         </>
       )}
     </article>
+  );
+}
+
+/** The additional weight of one pickup, typed in kilograms. It is added to the pickup's load and the array's total, and shown as its own item. */
+function ExtraWeightField({ label, value, disabled, onChange }: { label: string; value: string; disabled: boolean; onChange: (text: string) => void }) {
+  const id = useId();
+  return (
+    <label className="field extra-field" htmlFor={id}>
+      <span>{label}</span>
+      <input
+        id={id}
+        type="text"
+        inputMode="decimal"
+        value={value}
+        disabled={disabled}
+        // Only a weight can be typed: digits, then a point and at most two decimals.
+        onChange={(e) => {
+          if (isTypingExtra(e.target.value)) onChange(e.target.value);
+        }}
+        aria-describedby={`${id}-help`}
+      />
+      <span id={`${id}-help`} className="muted">
+        Optional. Added to this pickup's load and the array's total on the plot, and listed on its own on the rigging summary.
+      </span>
+    </label>
   );
 }
 

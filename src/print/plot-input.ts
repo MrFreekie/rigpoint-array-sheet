@@ -3,7 +3,8 @@
 import { SHAPES, symbolValue, type PickupSide, type SymbolValues } from '../engine/markers';
 import { numberPickups, plotArrays } from '../engine/plot';
 import { markerOf, plotShown, type Doc } from '../files/doc';
-import type { SheetModel } from '../ui/sheet-model';
+import { extraKgFor, type SheetModel } from '../ui/sheet-model';
+import { addKg, sumKg } from '../engine/extra-weight';
 import { panelHeader } from './panel-header';
 import { riggingSubtitle } from './pdf-layout';
 import { visibleLayers } from '../engine/underlay';
@@ -24,9 +25,21 @@ export function plotContent(doc: Doc, model: SheetModel): PlotContent | null {
   const standsFor = new Map<number, number>();
   for (const e of model.entries) if (e.mirrorIndex !== undefined) standsFor.set(e.mirrorIndex, e.index);
   const symbolOf = (arrayIndex: number, side: PickupSide) => markerOf(doc, standsFor.get(arrayIndex) ?? arrayIndex, side);
+  // An additional weight typed for a pickup is added to its motor load and to its array's stated total, in whole hundredths.
+  const extraOf = extraKgFor(doc, model);
+  const points = numberPickups(drawn, undefined, symbolOf).map((p) => {
+    const extra = extraOf(p.arrayIndex, p.which);
+    return extra === null ? p : { ...p, load: addKg(p.load, extra) };
+  });
+  const arrays = drawn.map((a) => {
+    const extras = a.pickups.map((p) => extraOf(a.index, p.which)).filter((v): v is number => v !== null);
+    return extras.length === 0 || a.totalWeight === null ? a : { ...a, totalWeight: sumKg(a.totalWeight, ...extras) };
+  });
+  const additionalWeight = drawn.some((a) => a.pickups.some((p) => extraOf(a.index, p.which) !== null));
   return {
-    arrays: drawn,
-    points: numberPickups(drawn, undefined, symbolOf),
+    arrays,
+    points,
+    additionalWeight,
     notDrawn,
     origin: doc.job.origin,
     sideLabels: doc.job.sideLabels,

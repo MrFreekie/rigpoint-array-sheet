@@ -366,6 +366,17 @@
   font-size: 7pt;
 }
 
+.as-rigging-heading {
+  margin: 3mm 0 0;
+  font-size: 7pt;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.as-rigging-heading + .as-table-second {
+  margin-top: 0.5mm;
+}
+
 .as-rigging-notes {
   margin: 0 0 3mm;
   font-size: 8pt;

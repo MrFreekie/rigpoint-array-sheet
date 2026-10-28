@@ -4,10 +4,10 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { APP_URL } from '../app-info';
-import { edgeText, riggingEdgeNote, riggingFixations, riggingNote, riggingRows } from '../engine/sheet';
+import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, edgeText, extraTableRows, extrasUsed, riggingEdgeNote, riggingFixations, riggingNote, riggingRows, riggingWeights, riggingWeightsNote, weightTableColumns, weightTableRows, weightTableWidthsMm } from '../engine/sheet';
 import type { Doc } from '../files/doc';
 import { NOT_STATED, num } from '../ui/format';
-import type { SheetModel } from '../ui/sheet-model';
+import { extraKgFor, type SheetModel } from '../ui/sheet-model';
 import { isPatchColumn } from '../engine/patch';
 import { CARD_TABLE_WIDTHS_MM, cardContent, FIXATION_COLUMNS, FIXATION_NUMBER_MM, isLeftColumn, patchChip, warningText, type CardContent } from './card-content';
 import { CREDIT_TEXT, pageFooterText } from './footer';
@@ -159,7 +159,10 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
     [doc.job.show, doc.job.venue, doc.status, doc.revision, doc.job.zAxisZero, doc.job.showDate],
   );
   const contents = useMemo(() => model.entries.filter((e) => e.print).map((e) => ({ index: e.index, content: cardContent(e, ctx) })), [model, ctx]);
-  const rigging = useMemo(() => riggingRows(model.sources, model.printedSources), [model.sources, model.printedSources]);
+  const extraOf = useMemo(() => extraKgFor(doc, model), [doc, model]);
+  const rigging = useMemo(() => riggingRows(model.sources, model.printedSources, extraOf), [model.sources, model.printedSources, extraOf]);
+  const weights = useMemo(() => riggingWeights(model.sources, model.printedSources, extraOf), [model.sources, model.printedSources, extraOf]);
+  const extrasOn = extrasUsed(rigging);
   const fixations = useMemo(() => riggingFixations(model.sources, model.printedSources), [model.sources, model.printedSources]);
   const note = riggingNote(rigging.length > 0, fixations.length > 0);
   const showNotes = riggingNotes(doc.job);
@@ -295,6 +298,69 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
           </table>
         </>
       )}
+      {extrasOn ? (
+        <>
+          <p className="as-rigging-heading">Additional weight, typed in the app</p>
+          <table className="as-table as-table-second" data-testid="print-extra-weights">
+            <colgroup>
+              {EXTRA_TABLE_WIDTHS_MM.map((w, i) => (
+                <col key={i} style={{ width: `${(w / 192) * 100}%` }} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr>
+                {EXTRA_TABLE_COLUMNS.map((h) => (
+                  <th key={h}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {extraTableRows(rigging, NOT_STATED).map((r, i) => (
+                <tr key={i}>
+                  <td>{cell(r[0] ?? '', 0, EXTRA_TABLE_WIDTHS_MM, 7)}</td>
+                  <td>{r[1]}</td>
+                  {r.slice(2).map((v, k) => (
+                    <td key={k} className="n">
+                      {v}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      ) : null}
+      {weights.length > 0 ? (
+        <>
+          <p className="as-rigging-heading">Array weights</p>
+          <table className="as-table as-table-second" data-testid="print-array-weights">
+            <colgroup>
+              {weightTableWidthsMm(extrasOn).map((w, i) => (
+                <col key={i} style={{ width: `${(w / 192) * 100}%` }} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr>
+                {weightTableColumns(extrasOn).map((h) => (
+                  <th key={h}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {weightTableRows(weights, extrasOn, NOT_STATED).map((r, i) => (
+                <tr key={i}>
+                  <td>{cell(r[0] ?? '', 0, weightTableWidthsMm(extrasOn), 7)}</td>
+                  {r.slice(1).map((v, k) => (
+                    <td key={k} className="n">
+                      {v}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      ) : null}
       {fixations.length > 0 ? (
         <table className="as-table as-table-second" data-testid="print-fixations">
           <colgroup>
@@ -323,6 +389,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
         </table>
       ) : null}
       {note ? <p className="as-rigging-note">{note}</p> : null}
+      {weights.length > 0 ? <p className="as-rigging-note">{riggingWeightsNote(extrasOn)}</p> : null}
       {edgeNote ? <p className="as-rigging-note">{edgeNote}</p> : null}
       <div className="as-small-print" data-testid="print-small-print">
         {SMALL_PRINT.map((p, i) => (

@@ -9,7 +9,7 @@ import { NOT_STATED } from '../ui/format';
 import { clipMiddle, clipToWidth, wrap, type Measure } from './array-image';
 import { CREDIT_TEXT } from './footer';
 import { PT_PER_MM } from './pdf-layout';
-import { PLOT_SMALL_PRINT } from './small-print';
+import { plotSmallPrint } from './small-print';
 
 export const PLOT_W_MM = 284;
 export const PLOT_H_MM = 198;
@@ -76,6 +76,8 @@ export interface PlotInput {
   showPosition?: boolean;
   /** Draw the outline of every array. On when left out. Hiding it moves nothing else. */
   showOutlines?: boolean;
+  /** True when any pickup or array on the plot carries an additional weight typed in the app. Adds one sentence to the small print. */
+  additionalWeight?: boolean;
   /** The value written for each of the four symbols, such as "1 t". */
   symbolValues: Readonly<SymbolValues>;
   /** The line under the heading: show, venue and Z-axis zero. */
@@ -756,7 +758,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
     ops.push(text(COLUMN.x0 + k * cellW + 3.4, y + 0.2, clipToWidth(symbolValue(input.symbolValues, shape), 5, false, (cellW - 4) * PT_PER_MM, measure), 5));
   });
   y += 4;
-  const small = wrap(PLOT_SMALL_PRINT, 5, false, COLUMN.w * PT_PER_MM, measure);
+  const small = wrap(plotSmallPrint(input.additionalWeight === true), 5, false, COLUMN.w * PT_PER_MM, measure);
   const smallLine = (5 / PT_PER_MM) * 1.2;
   const smallTop = PLOT_H_MM - 6 - small.length * smallLine - 1;
   small.forEach((t, i) => ops.push(text(COLUMN.x0, smallTop + i * smallLine, t, 5)));

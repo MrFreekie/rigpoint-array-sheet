@@ -1,12 +1,14 @@
 // Which arrays the fly sheet shows and with what offset. The screen cards, the print sheet and the
 // image export all use this one model, so they can never disagree.
 
+import { parseExtra } from '../engine/extra-weight';
+import type { PickupSide } from '../engine/markers';
 import type { PatchRow } from '../engine/patch';
 import { flySheetColumn, type FlySheetColumn } from '../engine/sheet';
 import { findMirrors } from '../engine/symmetry';
 import type { ArraySource } from '../engine/types';
 import { cartShade } from '../engine/carts';
-import { cartsOf, patchOf, deletedList, displayName, effectiveOffset, isDeleted, isOnPlot, isPrinted, plotPrintChosen, type Doc, type EffectiveOffset } from './document';
+import { cartsOf, extraOf, patchOf, deletedList, displayName, effectiveOffset, isDeleted, isOnPlot, isPrinted, plotPrintChosen, type Doc, type EffectiveOffset } from './document';
 
 export interface SheetEntry {
   /** Position of the array in the report. */
@@ -128,4 +130,14 @@ export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
     live,
     deletedList: [...gone].map((index) => ({ index, name: report[index]?.name ?? '' })),
   };
+}
+
+/**
+ * The additional weight in kilograms typed for a pickup, or null for none. A mirror image that a card stands for has none
+ * of its own: it takes the weight of that card, as it takes the card's plot symbol.
+ */
+export function extraKgFor(doc: Doc, model: SheetModel): (arrayIndex: number, side: PickupSide) => number | null {
+  const standsFor = new Map<number, number>();
+  for (const e of model.entries) if (e.mirrorIndex !== undefined) standsFor.set(e.mirrorIndex, e.index);
+  return (arrayIndex, side) => parseExtra(extraOf(doc, standsFor.get(arrayIndex) ?? arrayIndex, side));
 }

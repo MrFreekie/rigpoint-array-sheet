@@ -66,7 +66,7 @@ test('hand cut carts and the sizes are saved, and come back on reopening', async
   await inSettings(page, (d) => d.getByLabel('KARA II', { exact: true }).fill('5'));
   const saved = await save(page);
   const json = saved.json as { format: string; cart_sizes: { type: string; size: number }[]; carts: { manual: boolean; breaks: number[] }[] };
-  expect(json.format).toBe('arraysheet/15');
+  expect(json.format).toBe('arraysheet/16');
   expect(json.cart_sizes).toContainEqual({ type: 'KARA II', size: 5 });
   expect(json.carts[0]).toEqual({ manual: true, breaks: [6, 9, 12] });
   expect(json.carts.filter((x) => x.manual)).toHaveLength(1);

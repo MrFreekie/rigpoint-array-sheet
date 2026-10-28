@@ -81,6 +81,8 @@ export function compareReports(
   patchReset: readonly { array: string; rows: number; nowRows: number }[] = [],
   /** Carts the person cut by hand that Update from PDF cannot follow, because the rows or their types differ in the new PDF. They go back to automatic. */
   cartReset: readonly { array: string; groups: string }[] = [],
+  /** Additional weights Update from PDF cannot follow, because the array or its pickup is not in the new PDF. They are dropped. */
+  extraReset: readonly { array: string; side: 'front' | 'rear'; weight: string }[] = [],
 ): Change[] {
   const out: Change[] = [];
 
@@ -135,6 +137,9 @@ export function compareReports(
       saved: `set for ${r.rows} ${r.rows === 1 ? 'enclosure' : 'enclosures'}`,
       now: `cleared, because the new PDF has ${r.nowRows} ${r.nowRows === 1 ? 'enclosure' : 'enclosures'} in this array`,
     });
+  }
+  for (const r of extraReset) {
+    out.push({ kind: 'changed', array: r.array, what: `Additional weight, ${r.side} pickup`, saved: `${r.weight} kg`, now: 'dropped, because the new PDF has no such pickup for this array' });
   }
   for (const r of cartReset) {
     out.push({

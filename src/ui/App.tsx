@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { compareReports, type Change } from '../engine/compare';
+import { trackExtras } from '../engine/extra-weight';
 import { trackCarts } from '../engine/carts';
 import { trackPatches, type PatchField, type PatchValue } from '../engine/patch';
 import { symbolValue, trackMarkers, type Marker, type PickupSide } from '../engine/markers';
-import { riggingFixations, riggingRows } from '../engine/sheet';
+import { riggingFixations, riggingRows, riggingWeights } from '../engine/sheet';
 import type { ParseResult, Problem } from '../engine/types';
 import { openFileText, serialiseDoc } from '../files/array-file-io';
 import { browserStore, readAutosave, writeAutosave, type Restorable } from '../files/autosave';
@@ -29,7 +30,7 @@ import { CompareDialog } from './CompareDialog';
 import type { CartSize } from '../engine/carts';
 import type { Shape } from '../engine/markers';
 import type { Underlay } from '../engine/underlay';
-import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withCartBreak, withCartReset, withCartSizes, withDeleted, withPatch, withLayerHidden, withMarker, withNote, plotShown, withOnPlot, withPlotPrinted, withPlotShow, withPrinted, withSymbolValue, withSymbolValuesReset, withTitle, withUnderlay, type Doc, type Job, type PlotShow, type Status } from './document';
+import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, extraOf, markerOf, withCartBreak, withCartReset, withCartSizes, withDeleted, withExtra, withPatch, withLayerHidden, withMarker, withNote, plotShown, withOnPlot, withPlotPrinted, withPlotShow, withPrinted, withSymbolValue, withSymbolValuesReset, withTitle, withUnderlay, type Doc, type Job, type PlotShow, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -37,7 +38,7 @@ import { RecentFilesDialog } from './RecentFilesDialog';
 import { RiggingPlotPreview } from './RiggingPlotPreview';
 import { RiggingSummary } from './RiggingSummary';
 import { SettingsDialog } from './SettingsDialog';
-import { sheetModel, type SheetEntry, type SheetModel } from './sheet-model';
+import { extraKgFor, sheetModel, type SheetEntry, type SheetModel } from './sheet-model';
 import { ThemeButton } from './ThemeButton';
 import { UpdatePrompt } from './UpdatePrompt';
 
@@ -349,7 +350,7 @@ export function App() {
         setError(`The new PDF cannot be relied on, so nothing was changed. ${first?.message ?? ''}`.trim());
         return;
       }
-      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles, trackMarkers(doc.result.report, fresh.report, doc.markers).reset.map((r) => ({ array: r.array, side: r.side, value: symbolValue(doc.symbolValues, r.shape), fallback: symbolValue(doc.symbolValues, 'one') })), trackPatches(doc.result.report, fresh.report, doc.patches).reset, trackCarts(doc.result.report, fresh.report, doc.carts).reset);
+      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles, trackMarkers(doc.result.report, fresh.report, doc.markers).reset.map((r) => ({ array: r.array, side: r.side, value: symbolValue(doc.symbolValues, r.shape), fallback: symbolValue(doc.symbolValues, 'one') })), trackPatches(doc.result.report, fresh.report, doc.patches).reset, trackCarts(doc.result.report, fresh.report, doc.carts).reset, trackExtras(doc.result.report, fresh.report, doc.extras).reset);
       if (changes.length === 0) setNotice(`${file.name} matches this file. There is nothing to update.`);
       else setCompare({ fresh, sourceName: file.name, changes });
     } catch (e) {
@@ -394,6 +395,7 @@ export function App() {
   const setNote = (index: number, text: string) => setDoc((d) => (d ? withNote(d, index, text) : d));
   const setUnderlay = (underlay: Underlay | null) => setDoc((d) => (d ? withUnderlay(d, underlay) : d));
   const setLayerHidden = (name: string, hidden: boolean) => setDoc((d) => (d ? withLayerHidden(d, name, hidden) : d));
+  const setExtra = (index: number, side: PickupSide, text: string) => setDoc((d) => (d ? withExtra(d, index, side, text) : d));
   const setMarker = (index: number, side: PickupSide, marker: Marker) => setDoc((d) => (d ? withMarker(d, index, side, marker) : d));
   const setCartBreak = (index: number, row: number) => setDoc((d) => (d ? withCartBreak(d, index, row) : d));
   const resetCarts = (index: number) => setDoc((d) => (d ? withCartReset(d, index) : d));
@@ -654,6 +656,7 @@ export function App() {
             onTitle={setTitle}
             onNote={setNote}
             onMarker={setMarker}
+            onExtra={setExtra}
             onPatch={setPatch}
             onCartBreak={setCartBreak}
             onCartReset={resetCarts}
@@ -737,6 +740,7 @@ interface ReportProps {
   onTitle: (i: number, t: string) => void;
   onNote: (i: number, t: string) => void;
   onMarker: (i: number, side: PickupSide, marker: Marker) => void;
+  onExtra: (i: number, side: PickupSide, text: string) => void;
   onPatch: (i: number, row: number, field: PatchField, value: PatchValue) => void;
   onCartBreak: (i: number, row: number) => void;
   onCartReset: (i: number) => void;
@@ -750,7 +754,7 @@ interface ReportProps {
   onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, onPlotShow, onUnderlay, onLayer, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onExtra, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, onPlotShow, onUnderlay, onLayer, onImage, onAllImages }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -832,6 +836,8 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                   onNote={(t) => onNote(entry.index, t)}
                   markers={{ front: markerOf(doc, entry.index, 'front'), rear: markerOf(doc, entry.index, 'rear') }}
                   onMarker={(side, m) => onMarker(entry.index, side, m)}
+                  extras={{ front: extraOf(doc, entry.index, 'front'), rear: extraOf(doc, entry.index, 'rear') }}
+                  onExtra={(side, t) => onExtra(entry.index, side, t)}
                   symbolValues={doc.symbolValues}
                   patch={entry.patch}
                   onPatch={(row, field, value) => onPatch(entry.index, row, field, value)}
@@ -849,7 +855,7 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
             </div>
           </section>
           <RiggingPlotPreview doc={doc} model={model} locked={locked} onJob={onJob} onPlotPrinted={onPlotPrinted} onPlotShow={onPlotShow} onUnderlay={onUnderlay} onLayer={onLayer} />
-          <RiggingSummary rows={riggingRows(model.sources, model.live)} fixations={riggingFixations(model.sources, model.live)} notes={riggingNotes(doc.job)} />
+          <RiggingSummary rows={riggingRows(model.sources, model.live, extraKgFor(doc, model))} weights={riggingWeights(model.sources, model.live, extraKgFor(doc, model))} fixations={riggingFixations(model.sources, model.live)} notes={riggingNotes(doc.job)} />
         </>
       ) : null}
     </>

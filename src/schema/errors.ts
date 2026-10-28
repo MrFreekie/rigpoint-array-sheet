@@ -23,6 +23,7 @@ const FIELD_NAMES: Record<string, string> = {
   titles: 'Card titles',
   deleted: 'Deleted arrays',
   markers: 'Pickup symbols',
+  extra_weight: 'Additional weights',
   cart_sizes: 'Cart sizes',
   carts: 'Carts',
   breaks: 'Cart breaks',

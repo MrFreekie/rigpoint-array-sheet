@@ -116,6 +116,12 @@ export const MIGRATIONS: Record<number, Migration> = {
   // Version 15 added the choices to show the Position dots and the array outlines on the rigging plot. Earlier files showed both.
   // An older copy of the app would drop the choices when it saved, so it refuses version 15 files.
   14: (file) => ({ ...file, show_position: true, show_outlines: true }),
+  // Version 16 added an additional weight, typed in kilograms, for each pickup. Earlier files had none. An older copy of the
+  // app would drop the weights when it saved, so it refuses version 16 files.
+  15: (file) => {
+    const sources = (file['report'] as { sources?: unknown } | undefined)?.sources;
+    return { ...file, extra_weight: Array.isArray(sources) ? sources.map(() => ({ front: '', rear: '' })) : [] };
+  },
 };
 
 export function migrate(

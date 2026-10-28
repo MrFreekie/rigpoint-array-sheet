@@ -8,7 +8,7 @@ import { markerPrims, symbolValue, type Shape } from '../engine/markers';
 import { dotRadiusMm, layoutPlotPages, MARKER_REAL_M, type PlotInput, type PlotPlan } from './plot-layout';
 import type { Measure } from './array-image';
 import { PT_PER_MM } from './pdf-layout';
-import { PLOT_SMALL_PRINT } from './small-print';
+import { plotSmallPrint } from './small-print';
 
 export const DXF_UNITS_NOTE = 'DXF units are millimetres at full size (1:1).';
 export const DXF_MIME = 'application/dxf';
@@ -320,7 +320,7 @@ export function plotDxf(input: PlotInput, measure: Measure, options: { venue?: b
     `${DXF_UNITS_NOTE} The origin 0,0 is the Soundvision origin${origin ? `, ${origin}` : ''}. +X is towards house left and +Y towards the audience.`,
     `Pickup symbols, a guide only: ${SYMBOL_WORDS.map(([shape, word]) => `${word} ${symbolValue(input.symbolValues, shape)}`).join(', ')}.`,
     ...(input.notDrawn.length > 0 ? [`Not drawn, no position, size or azimuth in the report: ${input.notDrawn.join(', ')}`] : []),
-    ...wrapChars(PLOT_SMALL_PRINT, 110),
+    ...wrapChars(plotSmallPrint(input.additionalWeight === true), 110),
   ];
   for (const n of notes.flatMap((t) => wrapChars(t, 110))) {
     w.text('NOTES', left, y, noteH, n, n.length * noteH * 0.8);

@@ -5,9 +5,9 @@
 
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import { APP_URL } from '../app-info';
-import { riggingFixations, riggingRows } from '../engine/sheet';
+import { riggingFixations, riggingRows, riggingWeights } from '../engine/sheet';
 import type { Doc } from '../files/doc';
-import type { SheetModel } from '../ui/sheet-model';
+import { extraKgFor, type SheetModel } from '../ui/sheet-model';
 import type { DrawOp, Measure } from './array-image';
 import { cardContent } from './card-content';
 import { CREDIT_TEXT, pageFooterText } from './footer';
@@ -240,7 +240,8 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
   // The rigging summary page, last.
   const rigging = layoutRiggingPage(
     {
-      rows: riggingRows(model.sources, model.printedSources),
+      rows: riggingRows(model.sources, model.printedSources, extraKgFor(doc, model)),
+      weights: riggingWeights(model.sources, model.printedSources, extraKgFor(doc, model)),
       fixations: riggingFixations(model.sources, model.printedSources),
       subtitle: riggingSubtitle(doc.job),
       notes: riggingNotes(doc.job),

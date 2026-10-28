@@ -2,7 +2,7 @@
 // browser): one pocket card, and the rigging summary page. pdf-export.ts draws them with pdf-lib.
 // Sizes match the print stylesheet, so the downloaded PDF and the printed sheet look alike.
 
-import { edgeText, riggingEdgeNote, riggingNote, type FixationRow, type RiggingRow } from '../engine/sheet';
+import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, edgeText, extraTableRows, extrasUsed, riggingEdgeNote, riggingNote, riggingWeightsNote, weightTableColumns, weightTableRows, weightTableWidthsMm, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
 import { showDateText } from '../files/show-date';
 import { NOT_STATED } from '../ui/format';
 import { clipMiddle, clipToWidth, noteLines, wrap, wrapAfterLead, type DrawOp, type Measure } from './array-image';
@@ -201,6 +201,8 @@ export function riggingNotes(job: { notes: string }): string {
 
 export interface RiggingInput {
   rows: readonly RiggingRow[];
+  /** The weights of each array with a pickup: the report's total and, when typed, the additional weight. */
+  weights?: readonly RiggingWeight[];
   fixations: readonly FixationRow[];
   /** Show and venue line under the heading. */
   subtitle: string;
@@ -237,7 +239,7 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
   }
 
   /** A table whose first two columns are text and the rest numbers. Text that does not fit its column is cut with an ellipsis. */
-  const table = (heads: string[], widthsMm: number[], body: string[][], compact = false) => {
+  const table = (heads: string[], widthsMm: number[], body: string[][], compact = false, leftCols = 2) => {
     const xs = widthsMm.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? 0) + mm((w * widthMm) / 192)], [0]);
     // The fixation table uses a pocket card's rows (7 pt text, 10.5 pt high) so the long list costs the page little scale.
     const size = compact ? FONT_SIZES.body : 8;
@@ -245,7 +247,7 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     const row = (cells: string[], header: boolean) => {
       if (header) ops.push({ op: 'rect', x: 0, y, w: W, h: rowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
       cells.forEach((text, i) => {
-        const left = i < 2;
+        const left = i < leftCols;
         const shown = clipRiggingCell(text, ((xs[i + 1] ?? W) - (xs[i] ?? 0)) / PT_PER_MM, header, measure, size);
         ops.push(textOp(left ? (xs[i] ?? 0) + 3 : (xs[i + 1] ?? W) - 3, y + (compact ? 0.5 : 2), shown, size, { bold: header, align: left ? 'left' : 'right' }));
       });
@@ -269,6 +271,21 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
       input.rows.map((r) => [r.source, r.location, String(r.pickupPosition), String(r.x), String(r.y), String(r.z), r.load === null ? NOT_STATED : String(r.load), edgeText(r, 'toFront', NOT_STATED), edgeText(r, 'toRear', NOT_STATED)]),
     );
   }
+  const heading = (text: string) => {
+    y += mm(3);
+    ops.push(textOp(0, y, text, 7, { bold: true }));
+    y += 7 * 1.4;
+  };
+  const used = extrasUsed(input.rows);
+  if (used) {
+    heading('Additional weight, typed in the app');
+    table(EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, extraTableRows(input.rows, NOT_STATED), true);
+  }
+  const weights = input.weights ?? [];
+  if (weights.length > 0) {
+    heading('Array weights');
+    table(weightTableColumns(used), weightTableWidthsMm(used), weightTableRows(weights, used, NOT_STATED), true, 1);
+  }
   if (input.fixations.length > 0) {
     y += mm(3);
     table(
@@ -283,6 +300,13 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     y += 4;
     ops.push(textOp(0, y, note, 7));
     y += 7 * 1.3;
+  }
+  if (weights.length > 0) {
+    y += 2;
+    for (const line of wrap(riggingWeightsNote(used), 7, false, W, measure)) {
+      ops.push(textOp(0, y, line, 7));
+      y += 7 * 1.3;
+    }
   }
   const edgeNote = riggingEdgeNote(input.rows.length > 0);
   if (edgeNote) {

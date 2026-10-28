@@ -46,7 +46,7 @@ See the [user guide](docs/user-guide.md) for a short walk through. A plan for pr
 
 Save writes a file named like `Main stage - Rev B.arraysheet.json`. In every browser it arrives as a download. In Chrome and Edge on a computer, Open and Save use the browser's own file picker, so Save writes back to the same file each time, Save As picks a new one, and Recent lists the files you used last. A new revision never writes over the file it came from. The file holds what the PDF said, what you typed, the status and the revision, so it reopens exactly as saved, without the PDF. Open takes either a PDF or one of these files. In the installed app on a computer, double-clicking one of these files opens it. On Android you can share one of these files, or a Soundvision PDF, straight into the app.
 
-The file format is `arraysheet/15`. Older files are upgraded when opened, and a file from a newer version of the app is refused rather than opened and trimmed. Each step added something: formats 6 to 15 added the origin note and side labels, card titles, notes, deleted arrays and the show notes and date, the plot symbols, the venue, the cable patch, the carts, the rows of a ground stack, the choice of what is on the rigging plot, the value written for each plot symbol, and the choices to show the Position dots and the array outlines on the rigging plot.
+The file format is `arraysheet/16`. Older files are upgraded when opened, and a file from a newer version of the app is refused rather than opened and trimmed. Each step added something: formats 6 to 15 added the origin note and side labels, card titles, notes, deleted arrays and the show notes and date, the plot symbols, the venue, the cable patch, the carts, the rows of a ground stack, the choice of what is on the rigging plot, the value written for each plot symbol, the choices to show the Position dots and the array outlines on the rigging plot, and the additional weight of a pickup.
 
 Each file has a status: Draft, Issued, Approved or Superseded. Approved and superseded files open read-only. To change one, press Create new revision. That starts a draft with the next revision letter (blank, then A, B, C), which you save under its new name.
 
@@ -72,7 +72,7 @@ Figures are shown as the PDF prints them, in kilograms and metres. The acoustic 
 
 ## What it does not do
 
-It does not calculate anything. Totals, loads and angles come from the PDF and nothing else. If the PDF and your own sums disagree, the PDF is what the app shows.
+It calculates almost nothing. Totals, loads and angles come from the PDF. The only sums are the ground offset taken off a height, the distances of a pickup from its array's edges, the plan distance between two pickups, and an additional weight you type for a pickup, which is added to that pickup's load and to its array's total and always shown as its own item. If the PDF and your own sums disagree, the PDF is what the app shows.
 
 The cable patch is only what you type: a feeder and a way digit for each enclosure. It does not count them, check them or work out a length or a load.
 

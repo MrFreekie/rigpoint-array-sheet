@@ -61,10 +61,10 @@ describe('flySheetColumn, report B', () => {
 describe('riggingRows', () => {
   it('matches the sample rigging sheet for report B', () => {
     expect(riggingRows(b).filter((r) => r.source.startsWith('FL'))).toEqual([
-      { source: 'FL KARA II L', location: 'Front', pickupPosition: 16, x: 7.5, y: 3.91, z: 8.71, load: 182.7, edge: { toFront: -0.17, toRear: null } },
-      { source: 'FL KARA II L', location: 'Rear', pickupPosition: 0, x: 7.5, y: 3.08, z: 8.37, load: 52.7, edge: { toFront: null, toRear: 0.34 } },
-      { source: 'FL KARA II R', location: 'Front', pickupPosition: 16, x: -7.5, y: 3.91, z: 8.71, load: 182.7, edge: { toFront: -0.17, toRear: null } },
-      { source: 'FL KARA II R', location: 'Rear', pickupPosition: 0, x: -7.5, y: 3.08, z: 8.37, load: 52.7, edge: { toFront: null, toRear: 0.34 } },
+      { source: 'FL KARA II L', location: 'Front', pickupPosition: 16, x: 7.5, y: 3.91, z: 8.71, load: 182.7, extra: null, arrayHasExtra: false, edge: { toFront: -0.17, toRear: null } },
+      { source: 'FL KARA II L', location: 'Rear', pickupPosition: 0, x: 7.5, y: 3.08, z: 8.37, load: 52.7, extra: null, arrayHasExtra: false, edge: { toFront: null, toRear: 0.34 } },
+      { source: 'FL KARA II R', location: 'Front', pickupPosition: 16, x: -7.5, y: 3.91, z: 8.71, load: 182.7, extra: null, arrayHasExtra: false, edge: { toFront: -0.17, toRear: null } },
+      { source: 'FL KARA II R', location: 'Rear', pickupPosition: 0, x: -7.5, y: 3.08, z: 8.37, load: 52.7, extra: null, arrayHasExtra: false, edge: { toFront: null, toRear: 0.34 } },
     ]);
   });
 

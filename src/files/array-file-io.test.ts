@@ -329,7 +329,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/15');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/16');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -375,7 +375,7 @@ describe('opening a bad file', () => {
   });
 
   it('refuses a file from a newer version', () => {
-    expect(() => open(edited((f) => (f.format = 'arraysheet/16')))).toThrow(/newer version/);
+    expect(() => open(edited((f) => (f.format = 'arraysheet/17')))).toThrow(/newer version/);
   });
 
   it('refuses a file over the size limit', () => {

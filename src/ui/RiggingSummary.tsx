@@ -1,7 +1,8 @@
-import { edgeText, riggingEdgeNote, riggingNote, type FixationRow, type RiggingRow } from '../engine/sheet';
+import { EXTRA_TABLE_COLUMNS, edgeText, extraTableRows, extrasUsed, riggingEdgeNote, riggingNote, riggingWeightsNote, weightTableColumns, weightTableRows, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
 import { NOT_STATED, num } from './format';
 
-export function RiggingSummary({ rows, fixations = [], notes = '' }: { rows: readonly RiggingRow[]; fixations?: readonly FixationRow[]; notes?: string }) {
+export function RiggingSummary({ rows, weights = [], fixations = [], notes = '' }: { rows: readonly RiggingRow[]; weights?: readonly RiggingWeight[]; fixations?: readonly FixationRow[]; notes?: string }) {
+  const used = extrasUsed(rows);
   const note = riggingNote(rows.length > 0, fixations.length > 0);
   const edgeNote = riggingEdgeNote(rows.length > 0);
   return (
@@ -18,7 +19,7 @@ export function RiggingSummary({ rows, fixations = [], notes = '' }: { rows: rea
       {rows.length === 0 ? (
         <p className="muted">No flown array in this report has a pickup position.</p>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" data-testid="rigging-pickups">
           <table>
             <caption className="visually-hidden">Pickup positions and motor loads, as listed in the report</caption>
             <thead>
@@ -52,6 +53,64 @@ export function RiggingSummary({ rows, fixations = [], notes = '' }: { rows: rea
           </table>
         </div>
       )}
+      {used ? (
+        <div className="table-wrap" data-testid="rigging-extra-weights">
+          <table>
+            <caption>Additional weight, typed in the app</caption>
+            <thead>
+              <tr>
+                {EXTRA_TABLE_COLUMNS.map((h) => (
+                  <th key={h} scope="col">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {extraTableRows(rows, NOT_STATED).map((r, i) => (
+                <tr key={i}>
+                  <th scope="row">{r[0]}</th>
+                  <td>{r[1]}</td>
+                  {r.slice(2).map((v, k) => (
+                    <td key={k} className="n">
+                      {v}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      {weights.length > 0 ? (
+        <div className="table-wrap" data-testid="rigging-array-weights">
+          <table>
+            <caption>Array weights</caption>
+            <thead>
+              <tr>
+                {weightTableColumns(used).map((h) => (
+                  <th key={h} scope="col">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {weightTableRows(weights, used, NOT_STATED).map((r, i) => (
+                <tr key={i}>
+                  <th scope="row">{r[0]}</th>
+                  {r.slice(1).map((v, k) => (
+                    <td key={k} className="n">
+                      {v}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="muted">{riggingWeightsNote(used)}</p>
+        </div>
+      ) : null}
       {fixations.length > 0 ? (
         <div className="table-wrap" data-testid="rigging-fixations">
           <table>

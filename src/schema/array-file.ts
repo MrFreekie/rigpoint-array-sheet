@@ -3,6 +3,7 @@
 
 import { z } from 'zod';
 import { CART_SIZE_MAX, CART_SIZES_MAX, CART_TYPE_MAX } from '../engine/carts';
+import { EXTRA_WEIGHT_MAX_KG, isValidExtra } from '../engine/extra-weight';
 import { SHAPES, SYMBOL_VALUE_MAX } from '../engine/markers';
 import { PATCH_DIGITS } from '../engine/patch';
 import { UNDERLAY_MAX_EDGES, UNDERLAY_MAX_LAYERS, UNDERLAY_NAME_MAX, UNDERLAY_STEPS, unpackEdges } from '../engine/underlay';
@@ -21,7 +22,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 15;
+export const FORMAT_VERSION = 16;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -52,6 +53,10 @@ const CartSizeSchema = z.object({
     .min(1, { error: `A cart size must be between 1 and ${CART_SIZE_MAX}` })
     .max(CART_SIZE_MAX, { error: `A cart size must be between 1 and ${CART_SIZE_MAX}` }),
 });
+
+const ExtraWeightSchema = z
+  .string({ error: 'An additional weight must be text' })
+  .refine(isValidExtra, { error: `An additional weight must be blank or a number of kilograms from 0 to ${EXTRA_WEIGHT_MAX_KG} with at most 2 decimals` });
 
 const CartSchema = z.object({
   manual: z.boolean({ error: 'Carts must be set by hand or automatic' }),
@@ -120,6 +125,7 @@ export const ArrayFileSchema = z
     show_outlines: z.boolean({ error: 'Show outlines must be true or false' }),
     markers: z.array(z.object({ front: MarkerSchema, rear: MarkerSchema }), { error: 'Pickup symbols must be a list' }),
     symbol_values: z.object({ two: SymbolValueSchema, one: SymbolValueSchema, half: SymbolValueSchema, quarter: SymbolValueSchema }),
+    extra_weight: z.array(z.object({ front: ExtraWeightSchema, rear: ExtraWeightSchema }), { error: 'Additional weights must be a list' }),
     patch: z.array(z.array(PatchRowSchema, { error: 'The cable patch of an array must be a list' }), { error: 'Cable patches must be a list' }),
     cart_sizes: z.array(CartSizeSchema, { error: 'Cart sizes must be a list' }).max(CART_SIZES_MAX, { error: `There are more than ${CART_SIZES_MAX} cart sizes` }),
     carts: z.array(CartSchema, { error: 'Carts must be a list' }),
@@ -153,6 +159,9 @@ export const ArrayFileSchema = z
     }
     if (file.markers.length !== sources.length) {
       ctx.addIssue({ code: 'custom', path: ['markers'], message: 'There must be one pair of pickup symbols for each array' });
+    }
+    if (file.extra_weight.length !== sources.length) {
+      ctx.addIssue({ code: 'custom', path: ['extra_weight'], message: 'There must be one pair of additional weights for each array' });
     }
     if (file.patch.length !== sources.length) {
       ctx.addIssue({ code: 'custom', path: ['patch'], message: 'There must be one cable patch for each array' });
