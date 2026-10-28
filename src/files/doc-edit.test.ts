@@ -1,19 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import type { Problem } from '../engine/types';
 import { parseFixture } from '../testing/fixtures';
+import { sheetModel } from '../ui/sheet-model';
 import {
   deletedList,
   displayName,
   editKey,
   isDeleted,
+  isOnPlot,
   liveIndexes,
   markerOf,
   newDoc,
+  plotPrintChosen,
   updatedDoc,
   visibleProblems,
   withDeleted,
   withMarker,
   withNote,
+  withOnPlot,
+  withPlotPrinted,
   withPrinted,
   withTitle,
   type Doc,
@@ -75,6 +80,89 @@ describe('titles and notes', () => {
     const doc = { ...fresh(), locked: true };
     expect(withTitle(doc, 0, 'x')).toBe(doc);
     expect(withNote(doc, 0, 'x')).toBe(doc);
+  });
+});
+
+describe('the rigging plot choices', () => {
+  const model = (d: Doc, mirrors = false) => sheetModel(d, mirrors);
+
+  it('start with every array on the plot and the plot printed', () => {
+    const doc = fresh();
+    expect(isOnPlot(doc, 0)).toBe(true);
+    expect(plotPrintChosen(doc)).toBe(true);
+    expect(model(doc).hasPlot).toBe(true);
+    expect(model(doc).printsPlot).toBe(true);
+  });
+
+  it('take an array off the plot and put it back, and count as an edit', () => {
+    const doc = fresh();
+    const off = withOnPlot(doc, 3, false);
+    expect(isOnPlot(off, 3)).toBe(false);
+    expect(isOnPlot(off, 2)).toBe(true);
+    expect(editKey(off)).not.toBe(editKey(doc));
+    expect(editKey(withOnPlot(off, 3, true))).toBe(editKey(doc));
+  });
+
+  it('do not depend on whether the card is chosen for printing', () => {
+    const doc = withPrinted(fresh(), 1, false);
+    expect(isOnPlot(doc, 1)).toBe(true);
+    const off = withOnPlot(fresh(), 1, false);
+    expect(off.noPrint).toEqual({});
+  });
+
+  it('turn Print rigging plot off by choice, and off by themselves when no array is on the plot', () => {
+    const doc = fresh();
+    const choice = withPlotPrinted(doc, false);
+    expect(plotPrintChosen(choice)).toBe(false);
+    expect(model(choice).printsPlot).toBe(false);
+    expect(model(choice).hasPlot).toBe(true);
+    expect(editKey(choice)).not.toBe(editKey(doc));
+    let none = doc;
+    doc.result.report.sources.forEach((_, i) => (none = withOnPlot(none, i, false)));
+    expect(model(none, true).hasPlot).toBe(false);
+    expect(model(none, true).printsPlot).toBe(false);
+    // The choice itself is still on, so putting an array back prints the plot again.
+    expect(none.plotPrintOff).toBe(false);
+    expect(model(withOnPlot(none, 4, true), true).printsPlot).toBe(true);
+  });
+
+  it('count the card that stands for a collapsed pair, not the hidden partner on its own', () => {
+    const doc = fresh();
+    const left = doc.result.report.sources.findIndex((s) => s.name === 'KARA II L Main');
+    let cardsOff = doc;
+    doc.result.report.sources.forEach((_, i) => (cardsOff = withOnPlot(cardsOff, i, i === left + 1)));
+    // Only the hidden mirror image's own tick is on: with the pair collapsed, its card decides, so nothing is on the plot.
+    expect(model(cardsOff, false).plottedSources.has(left + 1)).toBe(false);
+    expect(model(cardsOff, true).plottedSources.has(left + 1)).toBe(true);
+  });
+
+  it('ignore a deleted array when asking whether any array is on the plot', () => {
+    let doc = fresh();
+    doc.result.report.sources.forEach((_, i) => (doc = i === 0 ? doc : withOnPlot(doc, i, false)));
+    expect(model(doc, true).hasPlot).toBe(true);
+    expect(model(withDeleted(doc, 0, true), true).hasPlot).toBe(false);
+  });
+
+  it('on a read-only file are choices for this session only, and never change what is saved', () => {
+    const locked = { ...fresh(), locked: true };
+    const off = withOnPlot(locked, 2, false);
+    expect(isOnPlot(off, 2)).toBe(false);
+    expect(off.noPlot).toEqual({});
+    expect(editKey(off)).toBe(editKey(locked));
+    const unprinted = withPlotPrinted(locked, false);
+    expect(plotPrintChosen(unprinted)).toBe(false);
+    expect(model(unprinted).printsPlot).toBe(false);
+    expect(unprinted.plotPrintOff).toBe(false);
+    expect(editKey(unprinted)).toBe(editKey(locked));
+  });
+
+  it('stay with the array of the same name when the report is updated', () => {
+    let doc = withOnPlot(fresh(), 2, false);
+    doc = withPlotPrinted(doc, false);
+    const out = updatedDoc(doc, parseFixture('a'), 'new.pdf');
+    expect(out.noPlot).toEqual({ 2: true });
+    expect(out.plotPrintOff).toBe(true);
+    expect(out.plotOverride).toBeNull();
   });
 });
 

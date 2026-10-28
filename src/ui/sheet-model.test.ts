@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
-import { newDoc, patchOf, withDeleted, withNote, withPatch, withPrinted, withTitle } from './document';
+import { newDoc, patchOf, withDeleted, withNote, withOnPlot, withPatch, withPrinted, withTitle } from './document';
 import { sheetModel } from './sheet-model';
 
 const docA = () => newDoc(parseFixture('a'), 'a.pdf');
@@ -177,5 +177,28 @@ describe('sheetModel cable patch', () => {
     const patched = sheetModel(withPatch(docA(), 1, 0, 'way', '3'), false);
     expect(patched.hidden.map((h) => h.name)).toEqual(plain.hidden.map((h) => h.name));
     expect(patched.mirrorPairs).toBe(plain.mirrorPairs);
+  });
+});
+
+describe('sheetModel plot choices', () => {
+  it('puts every live array on the plot until one is left off, whatever is chosen for printing', () => {
+    const doc = withPrinted(docA(), 0, false);
+    const m = sheetModel(doc, true);
+    expect(m.plottedSources.size).toBe(18);
+    expect(m.entries.every((e) => e.plot)).toBe(true);
+    expect(m.printedSources.size).toBe(17);
+  });
+
+  it('takes a mirror image off the plot with the card that stands for it', () => {
+    const left = docA().result.report.sources.findIndex((s) => s.name === 'KARA II L Main');
+    const m = sheetModel(withOnPlot(docA(), left, false), false);
+    expect(m.plottedSources.has(left)).toBe(false);
+    expect(m.plottedSources.size).toBe(16);
+    expect(m.entries.find((e) => e.index === left)?.plot).toBe(false);
+  });
+
+  it('leaves a deleted array off the plot', () => {
+    const m = sheetModel(withDeleted(docA(), 3, true), true);
+    expect(m.plottedSources.has(3)).toBe(false);
   });
 });

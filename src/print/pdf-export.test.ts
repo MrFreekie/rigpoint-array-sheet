@@ -4,7 +4,7 @@ import { PDFArray, PDFDocument, decodePDFRawStream, type PDFRawStream } from 'pd
 import { describe, expect, it } from 'vitest';
 import { readPdfItems } from '../files/pdf-items';
 import { parseFixture } from '../testing/fixtures';
-import { newDoc, withPrinted, type Doc } from '../ui/document';
+import { newDoc, withOnPlot, withPlotPrinted, withPrinted, type Doc } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
 import { CREDIT_TEXT, printFooter } from './footer';
 import { renderPdf } from './pdf-export';
@@ -120,11 +120,28 @@ describe('renderPdf', () => {
     expect(footer.x).toBeGreaterThan(550);
   });
 
-  it('has no plot page when no chosen array can be drawn', async () => {
+  it('has no plot page when no array is on the plot', async () => {
     let doc = sampleDoc();
-    doc.result.report.sources.forEach((_, i) => (doc = withPrinted(doc, i, false)));
-    const { all } = await make(doc);
+    doc.result.report.sources.forEach((_, i) => (doc = withOnPlot(doc, i, false)));
+    const { all, pages } = await make(doc);
     expect(all).not.toContain('Rigging plot');
+    expect(pages).toBe((await make(sampleDoc())).pages - 1);
+  });
+
+  it('has no plot page when Print rigging plot is off, and the page numbers still run on without a gap', async () => {
+    const withPlot = await make(sampleDoc());
+    const { all, pages, text } = await make(withPlotPrinted(sampleDoc(), false));
+    expect(all).not.toContain('Rigging plot');
+    expect(pages).toBe(withPlot.pages - 1);
+    expect(text(pages)).toContain(`Page ${pages} of ${pages}`);
+    expect(text(1)).toContain(`Page 1 of ${pages}`);
+  });
+
+  it('keeps the plot on a read-only file only for the session it was chosen in', async () => {
+    const locked = { ...sampleDoc(), locked: true };
+    const off = withPlotPrinted(locked, false);
+    expect((await make(off)).all).not.toContain('Rigging plot');
+    expect((await make(locked)).all).toContain('Rigging plot');
   });
 
   it('says Also mirrored with and the other array, with nothing else', async () => {
@@ -167,13 +184,16 @@ describe('renderPdf', () => {
     let doc = sampleDoc();
     // Leave out the left main (and the right main it stands for), a sub pair and two fills: four cards remain.
     for (const i of [0, 4, 6, 8, 9]) doc = withPrinted(doc, i, false);
-    const { pages, text, all } = await make(doc);
+    const { pages, text } = await make(doc);
     expect(pages).toBe(3); // the cards, the plot, the rigging page
-    expect(all).not.toContain('KARA II L Main');
+    // The cards and the rigging summary follow what is chosen for printing. The plot has its own choice, so it still shows them.
+    expect(text(1)).not.toContain('KARA II L Main');
     expect(text(1)).toContain('KARA II L Out');
     expect(text(1)).toContain('X12 B L');
+    expect(text(2)).toContain('KARA II L Main');
     expect(text(3)).toContain('KARA II L Out');
     expect(text(3)).not.toContain('KARA II R Main');
+    expect(text(3)).not.toContain('KARA II L Main');
   });
 
   it('has the QR address and the approved small print on the last page', async () => {

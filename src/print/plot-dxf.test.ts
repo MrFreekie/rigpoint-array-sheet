@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { suggestedDxfName } from '../files/file-name';
 import { parseFixture } from '../testing/fixtures';
-import { newDoc } from '../ui/document';
+import { newDoc, withOnPlot } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
 import { estimateWidth } from './array-image';
 import { DXF_UNITS_NOTE, dxfText, plotDxf, wrapChars } from './plot-dxf';
@@ -240,6 +240,17 @@ describe('plot DXF', () => {
       globalThis.fetch = original;
     }
     expect(called).toBe(false);
+  });
+
+  it('leaves out an array that is not on the plot, and its pickup', () => {
+    const doc = newDoc(parseFixture('a'), 'a.pdf');
+    const index = doc.result.report.sources.findIndex((s) => s.name === 'KARA II L Out');
+    const model = (d: typeof doc) => plotContent(d, sheetModel(d, true))!;
+    const whole = plotDxf({ ...model(doc), footer: () => '' }, estimateWidth)!;
+    const less = plotDxf({ ...model(withOnPlot(doc, index, false)), footer: () => '' }, estimateWidth)!;
+    expect(whole).toContain('KARA II L Out');
+    expect(less).not.toContain('KARA II L Out');
+    expect(less.length).toBeLessThan(whole.length);
   });
 
   it('is null when nothing can be drawn', () => {

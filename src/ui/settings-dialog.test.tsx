@@ -1,6 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { ORIGIN_MAX } from '../schema/array-file';
 import { parseFixture } from '../testing/fixtures';
 import { newDoc, withCartSizes, withDeleted, type Doc } from './document';
 import { reportTypes, SettingsDialog } from './SettingsDialog';
@@ -14,32 +13,19 @@ const html = (d: Doc, locked = false, showMirrors = false) =>
   );
 
 describe('Settings', () => {
-  it('has a section for the cards, the rigging plot, the defaults and the display', () => {
+  it('has a section for the cards, the rigging plot and the display, and none for defaults', () => {
     const out = html(docOf('a'));
-    for (const heading of ['Settings', 'Cards', 'Rigging plot', 'Defaults', 'Display']) expect(out).toContain(`>${heading}</h`);
+    for (const heading of ['Settings', 'Cards', 'Rigging plot', 'Display']) expect(out).toContain(`>${heading}</h`);
+    expect(out).not.toContain('>Defaults</h');
   });
 
-  it('holds the Origin (P0) note with its limit, the side labels tick and the venue box that used to sit in other places', () => {
-    const d = docOf('a');
-    d.job.origin = 'Iron Line';
-    const out = html(d);
-    expect(out).toContain('Origin (P0)');
-    expect(out).toContain('value="Iron Line"');
-    expect(out).toContain(`maxLength="${ORIGIN_MAX}"`);
+  it('holds the side labels tick and the venue box, and no longer the Origin (P0) note or the ground offset', () => {
+    const out = html(docOf('a'));
     expect(out).toContain('Show side labels on the rigging plot');
     expect(out).toContain('data-testid="venue-panel"');
     expect(out).toContain('Import venue (SU4SV text file)');
-  });
-
-  it('holds the ground offset for every array, with its hint, and the typed value', () => {
-    const d = docOf('a');
-    d.job.defaultOffset = '0.3';
-    const out = html(d);
-    expect(out).toContain('Ground offset for every array (m)');
-    expect(out).toContain('value="0.3"');
-    expect(out).toContain('Taken off the report heights.');
-    d.job.defaultOffset = 'x';
-    expect(html(d)).toContain('Enter a number of metres, such as 0.3.');
+    expect(out).not.toContain('Origin (P0)');
+    expect(out).not.toContain('Ground offset for every array');
   });
 
   it('offers the mirrored arrays tick when the report has mirror images, and says so when it has none', () => {
@@ -79,12 +65,15 @@ describe('Settings', () => {
   });
 
   it('switches off every field and button that changes the file when the file is read-only', () => {
-    const out = html(docOf('a'), true);
-    // Venue import and replace, origin, side labels, ground offset, every size field and the reset button.
+    const d = docOf('a');
+    const fields = new Set([...reportTypes(sheetModel(d, false)), ...d.cartSizes.map((c) => c.type)].map((t) => t.toLowerCase())).size;
+    const out = html(d, true);
+    // Venue import and replace, side labels, every size field and the reset button.
     const buttons = out.match(/<button[^>]*disabled=""[^>]*>[^<]*</g) ?? [];
     expect(buttons.map((b) => b.replace(/<[^>]*>/g, '').replace('<', ''))).toEqual(expect.arrayContaining(['Reset to the usual sizes', 'Import venue (SU4SV text file)']));
     const inputs = out.match(/<input[^>]*disabled=""/g) ?? [];
-    expect(inputs.length).toBeGreaterThan(8);
+    // Every size field (the report's types and the saved ones) and the side labels tick. The venue file is chosen with a button, which is disabled too, and the mirrors tick stays on: it is a view choice.
+    expect(inputs.length).toBe(fields + 1);
     expect(out).not.toMatch(/<input type="checkbox"(?![^>]*disabled)[^>]*>(?=<span>Show side labels)/);
   });
 });

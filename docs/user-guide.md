@@ -17,19 +17,19 @@ You will see one of three messages above the cards:
 
 ## Fill in the show details
 
-Show, venue, system engineer, company and Z-axis zero go on every pocket card, so a folded card still says whose it is. Soundvision does not state the venue, so type it. Origin (P0) says where the Soundvision origin is, for example DSE, Iron Line or Arena Centre. It is printed on the rigging plot. Type it in Settings.
+Show, venue, system engineer, company and Z-axis zero go on every pocket card, so a folded card still says whose it is. Soundvision does not state the venue, so type it. Origin (P0) says where the Soundvision origin is, for example DSE, Iron Line or Arena Centre. It is printed on the rigging plot. Type it in the row under the plot preview.
 
 Show date is optional. Pick it with the date field and it prints day, month, year, for example 23/10/2026, beside the venue on every pocket card, on the rigging plot and on the rigging summary. It is separate from the date inside the Soundvision report. Leave it blank and nothing is printed.
 
 Notes is a box for anything the whole crew needs to know about the show, up to 500 characters, with line breaks kept. It prints as a Notes paragraph under the heading of the rigging summary, and only there. Each array also has its own note on its card. Leave the box blank and the page is unchanged.
 
-Ground offset is how far below the report's heights your floor is. A report height of 9.4 m with an offset of 0.3 m shows as 9.1 m. Set one offset for every array in Settings, or type a different one on a single card. If you leave it blank the heights are the report's own.
+Ground offset is how far below the report's heights your floor is. A report height of 9.4 m with an offset of 0.3 m shows as 9.1 m. Set one offset for every array in the row under the rigging plot preview, or type a different one on a single card. If you leave it blank the heights are the report's own.
 
 ## The rigging plot
 
 The rigging plot is under development and may include errors. Check it against the Soundvision report.
 
-Below the cards, and on the page before the rigging summary, the app draws a plan view of the arrays chosen for printing. Stage is at the bottom of the page and the audience at the top. House left is on the right of the page, as Soundvision shows it, and +X and +Y are marked from the origin. The origin is drawn with a dash-dot line and labelled with the note you typed in Origin (P0). The grid is every 10 m. The plot names the sides of the plan (House left, House right, Stage and Audience). For a show in the round, untick Show side labels on the rigging plot in Settings and those four names are left off.
+Below the cards, and on the page before the rigging summary, the app draws a plan view of the arrays that are on the plot. Stage is at the bottom of the page and the audience at the top. House left is on the right of the page, as Soundvision shows it, and +X and +Y are marked from the origin. The origin is drawn with a dash-dot line and labelled with the note you typed in Origin (P0), in the row under the plot preview. The grid is every 10 m. The plot names the sides of the plan (House left, House right, Stage and Audience). For a show in the round, untick Show side labels on the rigging plot in Settings and those four names are left off.
 
 Each array is a dashed box. Its width and depth are the report's spatial dimensions. The Position is the middle of the front edge, the box runs back from there, and it turns by the azimuth. A small red dot (black in print) marks the Position, and it gets smaller as the scale gets smaller so it stays small against small boxes. An array with no pickup gets a solid box and no number. It is drawn where the report puts it in space, and the report does not say what holds it up. It may hang from something the report does not describe, or stand on a tripod, a yoke bracket or another item. Any array the report does not mark as stacked is drawn this way, whatever the report says about its mounting. The plot leaves an array off only when the report gives no Position, spatial dimensions or azimuth for it, and it then names that array under the plot. Each pickup has a circle with a cross, centred on its X and Y, and a label with its number (PA1, PA2 and so on) and its motor load. The plot shows no heights, so the ground offset does not change it. A plain line joins the front and rear pickups of an array. Each array is labelled with its name, then Total with the total weight the report states, then Spacing with the distance between its two pickups, for example Total 1332.6 kg and Spacing 1.01 m. The Total line is left out when the report states no total, and the Spacing line when the array has fewer than two pickups. The spacing is calculated from the X and Y positions in the report, as a distance on the plan, and ignores height. It is also in the table, on the front row of each array that has both pickups. The site angle and the heights are not on the plot, because they are on each card and in the rigging summary.
 
@@ -89,7 +89,7 @@ The carts are saved with the file. An approved or superseded file shows them but
 
 ## Settings
 
-The Settings button in the toolbar opens a box with the choices that belong to the whole job and not to one card. Escape or Close shuts it. Under Cards are the sizes of the carts, one field for each type of enclosure in the report, and a button to bring back the usual sizes. Leave a field blank to keep that type as one block. Under Rigging plot are the Origin (P0) note, the tick for the side labels, and the venue. Under Defaults is the ground offset every array uses. Under Display is the tick that shows the exact mirror images too. An approved or superseded file shows all of it but cannot change it.
+The Settings button in the toolbar opens a box with the choices that belong to the whole job and not to one card. Escape or Close shuts it. Under Cards are the sizes of the carts, one field for each type of enclosure in the report, and a button to bring back the usual sizes. Leave a field blank to keep that type as one block. Under Rigging plot are the tick for the side labels and the venue. Under Display is the tick that shows the exact mirror images too. The Origin (P0) note and the ground offset every array uses are not in Settings: they are in the row under the rigging plot preview, with Print rigging plot and Download DXF. An approved or superseded file shows all of it but cannot change it.
 
 ## Cable patch
 
@@ -104,6 +104,10 @@ The cable patch is saved with the file. An approved or superseded file cannot ch
 ## Choose what to print
 
 Each card has a Print this array checkbox. Unticked arrays are left out of the printout, the images and the pickups and fixation positions on the rigging page. The choice is saved with the file.
+
+Each card also has an Include on rigging plot checkbox. It is ticked to begin with. An array that is not ticked is not drawn on the plot, is not numbered, is not in its table, and is not in the DXF, and the pickup numbers close up over the gap. The plot has its own choice: unticking Print this array does not take the array off the plot, and unticking Include on rigging plot does not take its card off the printout. On a card that stands for a mirrored pair, the tick decides for both arrays. Tick Show the mirrored arrays too in Settings to give each its own. If no array is ticked, the plot has nothing to draw and the preview says so.
+
+Beside the plot preview is Print rigging plot, also ticked to begin with. Untick it and the plot page is left out of the printout and the Download PDF, and the page numbers run on without a gap. The preview and Download DXF stay. It switches itself off, and cannot be ticked, while no array is on the plot. Both choices are saved with the file. On an approved or superseded file they can still be changed for this session, as Print this array can, and they are not saved.
 
 ## Print, download or save images
 

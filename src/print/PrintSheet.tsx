@@ -14,7 +14,7 @@ import { CREDIT_TEXT, pageFooterText } from './footer';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { qrMatrix, qrPath, qrSize } from './qr';
 import { PlotSvg } from './PlotSvg';
-import { plotContent } from './plot-input';
+import { plotForPrint } from './plot-input';
 import { layoutPlotPages, plotPageCount, PRINT_PALETTE } from './plot-layout';
 import { SMALL_PRINT } from './small-print';
 import { canvasMeasurePt } from './array-image';
@@ -200,7 +200,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
   const overflow = plan.some((p) => p.kind === 'long' && p.cards.some((c) => c.overflow)) || riggingFit.overflow;
   useEffect(() => onOverflow?.(overflow), [overflow, onOverflow]);
 
-  const plotData = useMemo(() => plotContent(doc, model), [doc, model]);
+  const plotData = useMemo(() => plotForPrint(doc, model), [doc, model]);
   const plotCount = plotData ? plotPageCount(plotData.points.length) : 0;
   const total = plan.length + plotCount + 1;
   const draft = doc.status === 'draft';

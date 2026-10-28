@@ -11,9 +11,14 @@ import type { PlotInput } from './plot-layout';
 
 export type PlotContent = Omit<PlotInput, 'footer'>;
 
-/** Null when no chosen array can be drawn, in which case the printout has no plot page. */
+/** What the printout draws: the plot, unless Print rigging plot is off or no array is on it. The screen preview and the DXF use plotContent. */
+export function plotForPrint(doc: Doc, model: SheetModel): PlotContent | null {
+  return model.printsPlot ? plotContent(doc, model) : null;
+}
+
+/** Null when no array on the plot can be drawn, in which case there is nothing to show. */
 export function plotContent(doc: Doc, model: SheetModel): PlotContent | null {
-  const { drawn, notDrawn } = plotArrays(model.sources, model.printedSources);
+  const { drawn, notDrawn } = plotArrays(model.sources, model.plottedSources);
   if (drawn.length === 0) return null;
   // A mirror image that a card stands for has no choice of its own: it takes its pickup's symbol from that card.
   const standsFor = new Map<number, number>();

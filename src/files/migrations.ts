@@ -86,6 +86,13 @@ export const MIGRATIONS: Record<number, Migration> = {
   // Version 12 added the optional row of an enclosure row (ground stacks laid out in rows, "R2 #1"). Nothing in an older file
   // changes; the step makes older copies of the app refuse every version 12 file, so they cannot open one with rows and drop them.
   11: (file) => file,
+  // Version 13 added the choice of which arrays are on the rigging plot, and whether the plot prints. Earlier files had every
+  // array on the plot and printed it. An older copy of the app would drop the choices when it saved, so it refuses version 13 files.
+  12: (file) => {
+    const report = file['report'];
+    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
+    return { ...file, plot: Array.isArray(sources) ? sources.map(() => true) : [], print_plot: true };
+  },
 };
 
 export function migrate(

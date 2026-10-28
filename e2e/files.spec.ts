@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { changedPdf, closeSettings, inSettings, openJson, openPdf, openSettings, samplePdf, save, savedName, start } from './helpers';
+import { changedPdf, closeSettings, inSettings, openJson, openPdf, openSettings, plotControls, samplePdf, save, savedName, start } from './helpers';
 
 test('opens a Soundvision PDF and shows one card per array without sideways scrolling', async ({ page }) => {
   await start(page);
@@ -57,16 +57,14 @@ test('save, reopen, approve and lock', async ({ page }) => {
   await expect(page.getByText('● Unsaved changes')).toBeVisible();
 
   await page.getByLabel('Show', { exact: true }).fill('Main stage');
-  await inSettings(page, async (d) => {
-    await d.getByLabel('Origin (P0)').fill('Iron Line');
-    await d.getByLabel('Ground offset for every array (m)').fill('0.3');
-  });
+  await plotControls(page).getByLabel('Origin (P0)').fill('Iron Line');
+  await plotControls(page).getByLabel('Ground offset for every array (m)').fill('0.3');
   const first = page.locator('.card').first();
   await expect(first.getByTestId('top-height')).toHaveText('9.1 m');
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/12', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/13', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -75,7 +73,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Open a Soundvision report' })).toBeVisible();
   await openJson(page, 'Main stage.arraysheet.json', draft.text);
   await expect(page.getByLabel('Show', { exact: true })).toHaveValue('Main stage');
-  await inSettings(page, (d) => expect(d.getByLabel('Origin (P0)')).toHaveValue('Iron Line'));
+  await expect(plotControls(page).getByLabel('Origin (P0)')).toHaveValue('Iron Line');
   await expect(page.locator('.card').first().getByTestId('top-height')).toHaveText('9.1 m');
 
   // Approve it: still editable until saved, then read-only.
@@ -257,7 +255,7 @@ test('each array can be saved as an image, one at a time or all together', async
 test('images are not offered while an offset is not a number', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  await inSettings(page, (d) => d.getByLabel('Ground offset for every array (m)').fill('x'));
+  await plotControls(page).getByLabel('Ground offset for every array (m)').fill('x');
   await expect(page.getByRole('button', { name: 'Save selected as images' })).toBeDisabled();
   await expect(page.getByRole('button', { name: /as an image$/ })).toHaveCount(0);
 });
@@ -348,7 +346,7 @@ test('Download DXF saves the plot in millimetres at full size, and says so besid
   await start(page);
   await openPdf(page, samplePdf('a'));
   await page.getByLabel('Show', { exact: true }).fill('Main stage');
-  await inSettings(page, (d) => d.getByLabel('Origin (P0)').fill('DSE'));
+  await plotControls(page).getByLabel('Origin (P0)').fill('DSE');
   const plot = page.getByTestId('plot-preview');
   await expect(plot.getByText('DXF units are millimetres at full size (1:1).')).toBeVisible();
   const [download] = await Promise.all([page.waitForEvent('download'), plot.getByRole('button', { name: 'Download DXF' }).click()]);
@@ -589,7 +587,7 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
 
   // It is saved in the file and comes back with the layer still off.
   const saved = await save(page);
-  expect((saved.json['format'] as string)).toBe('arraysheet/12');
+  expect((saved.json['format'] as string)).toBe('arraysheet/13');
   expect(saved.text).not.toContain('Label');
   await openJson(page, 'venue.arraysheet.json', saved.text);
   const again = (await openSettings(page)).getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });

@@ -21,7 +21,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 12;
+export const FORMAT_VERSION = 13;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -110,6 +110,8 @@ export const ArrayFileSchema = z
     titles: z.array(text('Title', TITLE_MAX), { error: 'Titles must be a list' }),
     notes: z.array(text('Notes', NOTES_MAX), { error: 'Notes must be a list' }),
     deleted: z.array(z.boolean({ error: 'Deleted must be true or false' }), { error: 'Deleted choices must be a list' }),
+    plot: z.array(z.boolean({ error: 'Include on the rigging plot must be true or false' }), { error: 'The choices of what is on the rigging plot must be a list' }),
+    print_plot: z.boolean({ error: 'Print rigging plot must be true or false' }),
     markers: z.array(z.object({ front: MarkerSchema, rear: MarkerSchema }), { error: 'Pickup symbols must be a list' }),
     patch: z.array(z.array(PatchRowSchema, { error: 'The cable patch of an array must be a list' }), { error: 'Cable patches must be a list' }),
     cart_sizes: z.array(CartSizeSchema, { error: 'Cart sizes must be a list' }).max(CART_SIZES_MAX, { error: `There are more than ${CART_SIZES_MAX} cart sizes` }),
@@ -138,6 +140,9 @@ export const ArrayFileSchema = z
     }
     if (file.deleted.length !== sources.length) {
       ctx.addIssue({ code: 'custom', path: ['deleted'], message: 'There must be one deleted choice for each array' });
+    }
+    if (file.plot.length !== sources.length) {
+      ctx.addIssue({ code: 'custom', path: ['plot'], message: 'There must be one rigging plot choice for each array' });
     }
     if (file.markers.length !== sources.length) {
       ctx.addIssue({ code: 'custom', path: ['markers'], message: 'There must be one pair of pickup symbols for each array' });

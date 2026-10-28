@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { numberPickups, plotArrays } from '../engine/plot';
 import { parseFixture } from '../testing/fixtures';
-import { newDoc } from '../ui/document';
+import { newDoc, withDeleted, withPlotPrinted } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
 import { NOT_STATED } from '../ui/format';
 import { estimateWidth } from './array-image';
 import { CREDIT_TEXT } from './footer';
 import { PT_PER_MM } from './pdf-layout';
-import { plotContent } from './plot-input';
+import { plotContent, plotForPrint } from './plot-input';
 import {
   CHECK_BAR_MM,
   CHECK_BAR_TEXT,
@@ -191,7 +191,7 @@ describe('the plot page', () => {
     const doc = newDoc(parseFixture('c'), 'c.pdf');
     doc.job.origin = 'DSE';
     const sources = doc.result.report.sources;
-    doc.noPrint = Object.fromEntries(sources.map((s, i) => [i, s.mounting === 'stacked']));
+    doc.noPlot = Object.fromEntries(sources.map((s, i) => [i, s.mounting === 'stacked']));
     const content = plotContent(doc, sheetModel(doc, false))!;
     expect(content.arrays.every((a) => a.kind === 'flown')).toBe(true);
     const t = texts(layoutPlotPages({ ...content, footer: () => 'f' }, estimateWidth)[0]!.ops);
@@ -435,17 +435,17 @@ describe('the plot page', () => {
 });
 
 describe('plotContent', () => {
-  it('is null when nothing chosen can be drawn', () => {
+  it('is null when no array is on the plot', () => {
     const doc = newDoc(parseFixture('a'), 'a.pdf');
-    doc.noPrint = Object.fromEntries(doc.result.report.sources.map((_, i) => [i, true]));
+    doc.noPlot = Object.fromEntries(doc.result.report.sources.map((_, i) => [i, true]));
     expect(plotContent(doc, sheetModel(doc, false))).toBeNull();
   });
 
-  it('draws only the arrays chosen for printing, and a collapsed mirror with its partner', () => {
+  it('draws only the arrays on the plot, and a collapsed mirror with its partner', () => {
     const doc = newDoc(parseFixture('a'), 'a.pdf');
     const sources = doc.result.report.sources;
     const keep = sources.findIndex((s) => s.name === 'KARA II L Main');
-    doc.noPrint = Object.fromEntries(sources.map((_, i) => [i, i !== keep]));
+    doc.noPlot = Object.fromEntries(sources.map((_, i) => [i, i !== keep]));
     const c = plotContent(doc, sheetModel(doc, false))!;
     expect(c.arrays.map((a) => a.name).sort()).toEqual(['KARA II L Main', 'KARA II R Main']);
   });
@@ -453,7 +453,71 @@ describe('plotContent', () => {
   it('numbers the same way as the engine', () => {
     const doc = newDoc(parseFixture('e'), 'e.pdf');
     const model = sheetModel(doc, false);
-    expect(plotContent(doc, model)!.points).toEqual(numberPickups(plotArrays(doc.result.report.sources, model.printedSources).drawn));
+    expect(plotContent(doc, model)!.points).toEqual(numberPickups(plotArrays(doc.result.report.sources, model.plottedSources).drawn));
+  });
+});
+
+describe('what is on the rigging plot', () => {
+  const kara = (doc: ReturnType<typeof newDoc>) => doc.result.report.sources.findIndex((s) => s.name === 'KARA II L Main');
+
+  it('does not depend on what is chosen for printing', () => {
+    const doc = newDoc(parseFixture('a'), 'a.pdf');
+    doc.noPrint = Object.fromEntries(doc.result.report.sources.map((_, i) => [i, true]));
+    expect(plotContent(doc, sheetModel(doc, false))!.arrays).toHaveLength(18);
+  });
+
+  it('leaves out an array that is not on the plot: not drawn, not numbered, not in the table, not in the not-drawn note', () => {
+    const doc = newDoc(parseFixture('a'), 'a.pdf');
+    const all = plotContent(doc, sheetModel(doc, true))!;
+    const one = kara(doc);
+    doc.noPlot = { [one]: true };
+    const model = sheetModel(doc, true);
+    const content = plotContent(doc, model)!;
+    expect(content.arrays.map((a) => a.name)).not.toContain('KARA II L Main');
+    expect(content.arrays).toHaveLength(all.arrays.length - 1);
+    expect(content.points.map((p) => p.source)).not.toContain('KARA II L Main');
+    expect(content.notDrawn).toEqual(all.notDrawn);
+    // The numbers close up over the gap: PA1 up to the last one, with none missing.
+    expect(content.points.map((p) => p.number)).toEqual(content.points.map((_, i) => i + 1));
+    const t = texts(layoutPlotPages({ ...content, footer: () => 'f' }, estimateWidth)[0]!.ops).join('|');
+    expect(t).not.toContain('KARA II L Main');
+  });
+
+  it('takes a collapsed mirror partner off the plot with the card that stands for it', () => {
+    const doc = newDoc(parseFixture('a'), 'a.pdf');
+    const names = ['KARA II L Main', 'KARA II R Main'];
+    const shown = doc.result.report.sources.findIndex((s) => names.includes(s.name));
+    doc.noPlot = { [shown]: true };
+    const content = plotContent(doc, sheetModel(doc, false))!;
+    expect(content.arrays.map((a) => a.name)).not.toEqual(expect.arrayContaining(names));
+    expect(content.arrays.filter((a) => names.includes(a.name))).toHaveLength(0);
+  });
+
+  it('gives each mirror image its own say when the mirrors are shown', () => {
+    const doc = newDoc(parseFixture('a'), 'a.pdf');
+    doc.noPlot = { [kara(doc)]: true };
+    const content = plotContent(doc, sheetModel(doc, true))!;
+    expect(content.arrays.map((a) => a.name)).toContain('KARA II R Main');
+    expect(content.arrays.map((a) => a.name)).not.toContain('KARA II L Main');
+  });
+
+  it('never draws a deleted array, whatever its tick says', () => {
+    const doc = withDeleted(newDoc(parseFixture('a'), 'a.pdf'), kara(newDoc(parseFixture('a'), 'a.pdf')), true);
+    expect(plotContent(doc, sheetModel(doc, true))!.arrays.map((a) => a.name)).not.toContain('KARA II L Main');
+  });
+
+  it('has nothing to print when Print rigging plot is off, though the preview still has the plot', () => {
+    const doc = withPlotPrinted(newDoc(parseFixture('a'), 'a.pdf'), false);
+    const model = sheetModel(doc, false);
+    expect(plotContent(doc, model)).not.toBeNull();
+    expect(plotForPrint(doc, model)).toBeNull();
+  });
+
+  it('has nothing to print when no array is on the plot, even though the tick is still on', () => {
+    const doc = newDoc(parseFixture('a'), 'a.pdf');
+    doc.noPlot = Object.fromEntries(doc.result.report.sources.map((_, i) => [i, true]));
+    expect(doc.plotPrintOff).toBe(false);
+    expect(plotForPrint(doc, sheetModel(doc, false))).toBeNull();
   });
 });
 

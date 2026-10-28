@@ -20,6 +20,9 @@ interface Props {
   /** Whether this array is chosen for printing, and how to change that. */
   printed: boolean;
   onPrinted: (printed: boolean) => void;
+  /** Whether this array is on the rigging plot, and how to change that. A card that stands for a mirror pair decides for both. */
+  onPlot: boolean;
+  onOnPlot: (on: boolean) => void;
   /** Saves this array as a PNG image. Not offered when the heights cannot be shown. */
   onImage?: (() => void) | undefined;
   /** True for a read-only file: the offset cannot be changed. */
@@ -53,7 +56,7 @@ interface Props {
   usingDefault: boolean;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, patch, onPatch, carts, onCartBreak, onCartReset }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onPlot, onOnPlot, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, patch, onPatch, carts, onCartBreak, onCartReset }: Props) {
   const id = useId();
   const hasColumns = c.rows.some((r) => r.column !== null);
   const hasStackRows = c.rows.some((r) => r.row !== null);
@@ -91,6 +94,10 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
       <label className="check-field print-check">
         <input type="checkbox" checked={printed} onChange={(e) => onPrinted(e.target.checked)} />
         <span>Print this array</span>
+      </label>
+      <label className="check-field print-check">
+        <input type="checkbox" checked={onPlot} onChange={(e) => onOnPlot(e.target.checked)} />
+        <span>Include on rigging plot</span>
       </label>
 
       {c.warnings.length > 0 ? (

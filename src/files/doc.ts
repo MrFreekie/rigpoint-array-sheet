@@ -70,6 +70,14 @@ export interface Doc {
    * still pick what to print this time. Never saved. Null when there is nothing to override.
    */
   printOverride: Record<number, boolean> | null;
+  /** Arrays the person left off the rigging plot, by position in the report. Saved in the file. */
+  noPlot: Record<number, boolean>;
+  /** The same choices while the file is read-only. Never saved. Null when there is nothing to override. */
+  plotOverride: Record<number, boolean> | null;
+  /** True when the person turned Print rigging plot off. Saved in the file. */
+  plotPrintOff: boolean;
+  /** The same choice while the file is read-only: true for off. Never saved. Null when there is nothing to override. */
+  plotPrintOverride: boolean | null;
   /** The plot symbol chosen for the front and rear pickup of an array, by position in the report. Arrays not listed use the default. Saved in the file. */
   markers: Record<number, MarkerPair>;
   /** The same choices while the file is read-only. Never saved. Null when there is nothing to override. */
@@ -105,6 +113,10 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     locked: false,
     noPrint: {},
     printOverride: null,
+    noPlot: {},
+    plotOverride: null,
+    plotPrintOff: false,
+    plotPrintOverride: null,
     markers: {},
     markerOverride: null,
     patches: {},
@@ -155,11 +167,15 @@ export function editKey(doc: Doc): string {
     .filter(([, skip]) => skip)
     .map(([i]) => Number(i))
     .sort((a, b) => a - b);
+  const offPlot = Object.entries(doc.noPlot)
+    .filter(([, skip]) => skip)
+    .map(([i]) => Number(i))
+    .sort((a, b) => a - b);
   const typed = (r: Record<number, string>) =>
     Object.entries(r)
       .filter(([, text]) => text.trim() !== '')
       .sort(([a], [b]) => Number(a) - Number(b));
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc)]);
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc), offPlot, doc.plotPrintOff]);
 }
 
 /** The plot symbols that are not the default, by position, in order. Only what is saved counts, not a read-only file's override. */
@@ -317,6 +333,9 @@ export function updatedDoc(doc: Doc, fresh: ParseResult, sourceName: string): Do
     titles: carry(doc.titles, () => true),
     notes: carry(doc.notes, () => true),
     noPrint: carry(doc.noPrint, (skip) => skip),
+    noPlot: carry(doc.noPlot, (skip) => skip),
+    plotOverride: null,
+    plotPrintOverride: null,
     deleted: {},
     printOverride: null,
     markers: trackMarkers(doc.result.report, fresh.report, doc.markerOverride ?? doc.markers).kept,
@@ -353,6 +372,28 @@ export function isPrinted(doc: Doc, index: number): boolean {
 export function withPrinted(doc: Doc, index: number, printed: boolean): Doc {
   if (doc.locked) return { ...doc, printOverride: { ...(doc.printOverride ?? doc.noPrint), [index]: !printed } };
   return { ...doc, noPrint: { ...doc.noPrint, [index]: !printed }, printOverride: null };
+}
+
+/** True when the array at this position is on the rigging plot. Every array is until the person leaves it off. */
+export function isOnPlot(doc: Doc, index: number): boolean {
+  return !(doc.plotOverride ?? doc.noPlot)[index];
+}
+
+/** Put an array on the rigging plot, or take it off. A read-only file keeps the choice for this session only. */
+export function withOnPlot(doc: Doc, index: number, on: boolean): Doc {
+  if (doc.locked) return { ...doc, plotOverride: { ...(doc.plotOverride ?? doc.noPlot), [index]: !on } };
+  return { ...doc, noPlot: { ...doc.noPlot, [index]: !on }, plotOverride: null };
+}
+
+/** True when the person has Print rigging plot ticked. The sheet model adds that some array must be on the plot. */
+export function plotPrintChosen(doc: Doc): boolean {
+  return !(doc.plotPrintOverride ?? doc.plotPrintOff);
+}
+
+/** Turn Print rigging plot on or off. A read-only file keeps the choice for this session only. */
+export function withPlotPrinted(doc: Doc, printed: boolean): Doc {
+  if (doc.locked) return { ...doc, plotPrintOverride: !printed };
+  return { ...doc, plotPrintOff: !printed, plotPrintOverride: null };
 }
 
 /** True when the document has never been saved, or has changed since it was. */

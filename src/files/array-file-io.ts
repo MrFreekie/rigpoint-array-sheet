@@ -33,6 +33,8 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
     },
     offsets: Array.from({ length: count }, (_, i) => doc.offsets[i] ?? ''),
     print: Array.from({ length: count }, (_, i) => !doc.noPrint[i]),
+    plot: Array.from({ length: count }, (_, i) => !doc.noPlot[i]),
+    print_plot: !doc.plotPrintOff,
     titles: Array.from({ length: count }, (_, i) => doc.titles[i] ?? ''),
     notes: Array.from({ length: count }, (_, i) => doc.notes[i] ?? ''),
     deleted: Array.from({ length: count }, (_, i) => doc.deleted[i] === true),
@@ -89,6 +91,10 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
   f.print.forEach((printed, i) => {
     if (!printed) noPrint[i] = true;
   });
+  const noPlot: Record<number, boolean> = {};
+  f.plot.forEach((on, i) => {
+    if (!on) noPlot[i] = true;
+  });
   const titles: Record<number, string> = {};
   f.titles.forEach((t, i) => {
     if (t.trim() !== '') titles[i] = t;
@@ -142,6 +148,10 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
     locked: statusLocks(f.status),
     noPrint,
     printOverride: null,
+    noPlot,
+    plotOverride: null,
+    plotPrintOff: !f.print_plot,
+    plotPrintOverride: null,
     markers,
     markerOverride: null,
     patches,

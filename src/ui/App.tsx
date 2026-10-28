@@ -28,7 +28,7 @@ import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
 import type { CartSize } from '../engine/carts';
 import type { Underlay } from '../engine/underlay';
-import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withCartBreak, withCartReset, withCartSizes, withDeleted, withPatch, withLayerHidden, withMarker, withNote, withPrinted, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
+import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withCartBreak, withCartReset, withCartSizes, withDeleted, withPatch, withLayerHidden, withMarker, withNote, withOnPlot, withPlotPrinted, withPrinted, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -326,7 +326,7 @@ export function App() {
   function createRevision() {
     if (!doc) return;
     const revision = nextRevision(doc.revision);
-    setDoc({ ...doc, status: 'draft', revision, fileName: null, savedKey: null, locked: false, noPrint: doc.printOverride ?? doc.noPrint, printOverride: null, markers: doc.markerOverride ?? doc.markers, markerOverride: null });
+    setDoc({ ...doc, status: 'draft', revision, fileName: null, savedKey: null, locked: false, noPrint: doc.printOverride ?? doc.noPrint, printOverride: null, noPlot: doc.plotOverride ?? doc.noPlot, plotOverride: null, plotPrintOff: doc.plotPrintOverride ?? doc.plotPrintOff, plotPrintOverride: null, markers: doc.markerOverride ?? doc.markers, markerOverride: null });
     // A new revision never writes over the file it came from: Save asks where.
     setHandle(null);
     setNotice(`Revision ${revision} started as a draft. It is not saved yet. Save it to keep it under its new name.`);
@@ -386,6 +386,8 @@ export function App() {
   const setOffset = (index: number, text: string) =>
     setDoc((d) => (d && !d.locked ? { ...d, offsets: { ...d.offsets, [index]: text } } : d));
   const setPrinted = (index: number, printed: boolean) => setDoc((d) => (d ? withPrinted(d, index, printed) : d));
+  const setOnPlot = (index: number, on: boolean) => setDoc((d) => (d ? withOnPlot(d, index, on) : d));
+  const setPlotPrinted = (printed: boolean) => setDoc((d) => (d ? withPlotPrinted(d, printed) : d));
   const setTitle = (index: number, text: string) => setDoc((d) => (d ? withTitle(d, index, text) : d));
   const setNote = (index: number, text: string) => setDoc((d) => (d ? withNote(d, index, text) : d));
   const setUnderlay = (underlay: Underlay | null) => setDoc((d) => (d ? withUnderlay(d, underlay) : d));
@@ -652,6 +654,8 @@ export function App() {
             onCartBreak={setCartBreak}
             onCartReset={resetCarts}
             onPrinted={setPrinted}
+            onOnPlot={setOnPlot}
+            onPlotPrinted={setPlotPrinted}
             onImage={(entry) => void saveImages([entry])}
             onAllImages={() => model && void saveImages(model.entries.filter((e) => e.print))}
           />
@@ -730,11 +734,13 @@ interface ReportProps {
   onCartBreak: (i: number, row: number) => void;
   onCartReset: (i: number) => void;
   onPrinted: (i: number, printed: boolean) => void;
+  onOnPlot: (i: number, on: boolean) => void;
+  onPlotPrinted: (printed: boolean) => void;
   onImage: (entry: SheetEntry) => void;
   onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPatch, onCartBreak, onCartReset, onPrinted, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, onImage, onAllImages }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -823,13 +829,15 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                   onCartReset={() => onCartReset(entry.index)}
                   printed={entry.print}
                   onPrinted={(p) => onPrinted(entry.index, p)}
+                  onPlot={entry.plot}
+                  onOnPlot={(p) => onOnPlot(entry.index, p)}
                   onImage={entry.offset.value === null ? undefined : () => onImage(entry)}
                   onDelete={locked ? undefined : () => onDelete(entry.index)}
                 />
               ))}
             </div>
           </section>
-          <RiggingPlotPreview doc={doc} model={model} />
+          <RiggingPlotPreview doc={doc} model={model} locked={locked} onJob={onJob} onPlotPrinted={onPlotPrinted} />
           <RiggingSummary rows={riggingRows(model.sources, model.live)} fixations={riggingFixations(model.sources, model.live)} notes={riggingNotes(doc.job)} />
         </>
       ) : null}

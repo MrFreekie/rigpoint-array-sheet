@@ -1,13 +1,12 @@
-// Settings: the choices that apply to the whole job rather than to one card. The cart sizes, the plot options and the venue, the
-// ground offset every array uses, and whether the exact mirror images are shown. Each keeps its saved behaviour and is switched
-// off in a read-only file.
+// Settings: the choices that apply to the whole job rather than to one card. The cart sizes, the side labels and the venue of the
+// rigging plot, and whether the exact mirror images are shown. Each keeps its saved behaviour and is switched off in a read-only
+// file. The Origin (P0) note and the ground offset every array uses sit under the rigging plot preview.
 
 import { useId, useState } from 'react';
 import { CART_SIZE_MAX, defaultCartSizes, sizeFor, type CartSize } from '../engine/carts';
 import type { Underlay } from '../engine/underlay';
-import { ORIGIN_MAX } from '../schema/array-file';
 import { Dialog } from './Dialog';
-import { effectiveOffset, type Doc, type Job } from './document';
+import type { Doc, Job } from './document';
 import type { SheetModel } from './sheet-model';
 import { VenuePanel } from './VenuePanel';
 
@@ -91,7 +90,6 @@ function SizeField({ type, size, disabled, note, onSize }: { type: string; size:
 }
 
 export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onUnderlay, onLayer, showMirrors, onShowMirrors, onClose }: Props) {
-  const badDefault = effectiveOffset({ ...doc, offsets: {} }, 0).value === null;
   const types = reportTypes(model);
   const inReport = new Set(types.map((t) => t.toLowerCase()));
   const elsewhere = doc.cartSizes.filter((c) => !inReport.has(c.type.trim().toLowerCase()));
@@ -127,19 +125,6 @@ export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onUnder
 
         <section aria-labelledby="settings-plot">
           <h3 id="settings-plot">Rigging plot</h3>
-          <label className="field">
-            <span>Origin (P0)</span>
-            <input
-              type="text"
-              value={doc.job.origin}
-              disabled={locked}
-              maxLength={ORIGIN_MAX}
-              onChange={(e) => onJob({ origin: e.target.value })}
-              placeholder="e.g. DSE, Iron Line, Arena Centre"
-              autoComplete="off"
-            />
-            <span className="field-hint">Where the Soundvision origin is. Printed on the rigging plot.</span>
-          </label>
           <div className="field">
             <label className="check-field">
               <input type="checkbox" checked={doc.job.sideLabels} disabled={locked} onChange={(e) => onJob({ sideLabels: e.target.checked })} />
@@ -148,27 +133,6 @@ export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onUnder
             <span className="field-hint">Names House left, House right, Stage and Audience. Turn off for a show in the round.</span>
           </div>
           <VenuePanel underlay={doc.underlay} locked={locked} onUnderlay={onUnderlay} onLayer={onLayer} />
-        </section>
-
-        <section aria-labelledby="settings-defaults">
-          <h3 id="settings-defaults">Defaults</h3>
-          <label className="field">
-            <span>Ground offset for every array (m)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={doc.job.defaultOffset}
-              disabled={locked}
-              onChange={(e) => onJob({ defaultOffset: e.target.value })}
-              aria-invalid={badDefault}
-              aria-describedby="default-offset-hint"
-              placeholder="0"
-              autoComplete="off"
-            />
-            <span id="default-offset-hint" className={badDefault ? 'field-error' : 'field-hint'}>
-              {badDefault ? 'Enter a number of metres, such as 0.3.' : 'Taken off the report heights. Each array can have its own.'}
-            </span>
-          </label>
         </section>
 
         <section aria-labelledby="settings-display">

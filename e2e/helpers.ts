@@ -44,6 +44,9 @@ export async function start(page: Page, opts: { fsAccess?: boolean } = {}) {
 }
 
 /** Open the Settings dialog and return it. */
+/** The row under the rigging plot: the Origin (P0) note, the ground offset every array uses, Print rigging plot and Download DXF. */
+export const plotControls = (page: Page): Locator => page.getByTestId('plot-controls');
+
 export async function openSettings(page: Page): Promise<Locator> {
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Settings' });

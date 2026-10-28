@@ -45,7 +45,7 @@ describe('the venue underlay in a saved file', () => {
     const doc = withVenue();
     const text = serialiseDoc(doc, '0.1.0', NOW);
     const saved = JSON.parse(text);
-    expect(saved.format).toBe('arraysheet/12');
+    expect(saved.format).toBe('arraysheet/13');
     expect(typeof saved.underlay.layers[0].shades[0].edges).toBe('string');
     expect(roundTrip(doc).doc.underlay).toEqual(doc.underlay);
   });

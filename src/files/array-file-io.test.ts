@@ -130,6 +130,45 @@ describe('show notes', () => {
   });
 });
 
+describe('rigging plot choices', () => {
+  it('are saved with the file and come back, apart from the read-only session choices', () => {
+    const doc = sample();
+    doc.noPlot = { 0: true, 7: true };
+    doc.plotPrintOff = true;
+    const file = docToFile(doc, '0.1.0', NOW);
+    expect(file.plot).toHaveLength(18);
+    expect(file.plot.map((p, i) => (p ? null : i)).filter((i) => i !== null)).toEqual([0, 7]);
+    expect(file.print_plot).toBe(false);
+    const back = roundTrip(doc).doc;
+    expect(back.noPlot).toEqual({ 0: true, 7: true });
+    expect(back.plotPrintOff).toBe(true);
+    expect(back.plotOverride).toBeNull();
+    expect(back.plotPrintOverride).toBeNull();
+  });
+
+  it('are all on for a new document', () => {
+    const file = docToFile(sample(), '0.1.0', NOW);
+    expect(file.plot.every(Boolean)).toBe(true);
+    expect(file.print_plot).toBe(true);
+  });
+
+  it('a read-only override is not saved', () => {
+    const doc = sample();
+    doc.locked = true;
+    doc.plotOverride = { 2: true };
+    doc.plotPrintOverride = true;
+    const file = docToFile(doc, '0.1.0', NOW);
+    expect(file.plot.every(Boolean)).toBe(true);
+    expect(file.print_plot).toBe(true);
+  });
+
+  it('are refused when the list does not have one choice for each array', () => {
+    const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { plot: boolean[] };
+    f.plot.pop();
+    expect(() => openFileText(JSON.stringify(f), null)).toThrow(/one rigging plot choice for each array/);
+  });
+});
+
 describe('print choices', () => {
   it('are saved with the file and come back', () => {
     const doc = sample();
@@ -257,7 +296,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/12');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/13');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -303,7 +342,7 @@ describe('opening a bad file', () => {
   });
 
   it('refuses a file from a newer version', () => {
-    expect(() => open(edited((f) => (f.format = 'arraysheet/13')))).toThrow(/newer version/);
+    expect(() => open(edited((f) => (f.format = 'arraysheet/14')))).toThrow(/newer version/);
   });
 
   it('refuses a file over the size limit', () => {

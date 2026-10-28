@@ -66,7 +66,7 @@ test('hand cut carts and the sizes are saved, and come back on reopening', async
   await inSettings(page, (d) => d.getByLabel('KARA II', { exact: true }).fill('5'));
   const saved = await save(page);
   const json = saved.json as { format: string; cart_sizes: { type: string; size: number }[]; carts: { manual: boolean; breaks: number[] }[] };
-  expect(json.format).toBe('arraysheet/12');
+  expect(json.format).toBe('arraysheet/13');
   expect(json.cart_sizes).toContainEqual({ type: 'KARA II', size: 5 });
   expect(json.carts[0]).toEqual({ manual: true, breaks: [6, 9, 12] });
   expect(json.carts.filter((x) => x.manual)).toHaveLength(1);
@@ -100,7 +100,8 @@ test('Settings opens from the toolbar, closes with Escape, and keeps the Tab key
   await start(page);
   await openPdf(page, samplePdf('a'));
   const dialog = await openSettings(page);
-  for (const heading of ['Cards', 'Rigging plot', 'Defaults', 'Display']) await expect(dialog.getByRole('heading', { name: heading })).toBeVisible();
+  for (const heading of ['Cards', 'Rigging plot', 'Display']) await expect(dialog.getByRole('heading', { name: heading })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Defaults' })).toHaveCount(0);
   for (let i = 0; i < 8; i++) {
     await page.keyboard.press('Tab');
     expect(await page.evaluate(() => Boolean(document.activeElement?.closest('dialog')))).toBe(true);

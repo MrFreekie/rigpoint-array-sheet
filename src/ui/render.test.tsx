@@ -13,7 +13,8 @@ import { plotContent } from '../print/plot-input';
 import { layoutPlotPages, PRINT_PALETTE, SCREEN_PALETTE } from '../print/plot-layout';
 import { estimateWidth } from '../print/array-image';
 import { RiggingPlotPreview, PLOT_DEVELOPMENT_NOTE } from './RiggingPlotPreview';
-import { newDoc } from './document';
+import { ORIGIN_MAX } from '../schema/array-file';
+import { newDoc, withOnPlot, type Doc } from './document';
 import { sheetModel } from './sheet-model';
 import { RiggingSummary } from './RiggingSummary';
 
@@ -23,7 +24,7 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} markers={{ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }} onMarker={() => {}} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} onPlot onOnPlot={() => {}} markers={{ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }} onMarker={() => {}} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} {...extra} />,
   );
 
 describe('ArrayCard', () => {
@@ -117,6 +118,13 @@ describe('ArrayCard', () => {
     const off = card('X8 2', a, { printed: false });
     expect(off).toContain('Print this array');
     expect(off).not.toMatch(/checked=""[^>]*\/><span>Print this array/);
+  });
+
+  it('has an Include on rigging plot checkbox beside it, ticked unless the array is left off', () => {
+    expect(card('X8 2')).toMatch(/<input type="checkbox" checked=""[^>]*\/><span>Include on rigging plot<\/span>/);
+    const off = card('X8 2', a, { onPlot: false });
+    expect(off).toContain('Include on rigging plot');
+    expect(off).not.toMatch(/checked=""[^>]*\/><span>Include on rigging plot/);
   });
 
   it('labels the offset field', () => {
@@ -221,9 +229,56 @@ describe('rigging plot', () => {
   });
 
   it('shows the under development note above the plot', () => {
-    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} />);
+    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} locked={false} onJob={() => {}} onPlotPrinted={() => {}} />);
     expect(html).toContain(PLOT_DEVELOPMENT_NOTE);
     expect(html).toContain('data-testid="plot-svg"');
+  });
+});
+
+describe('the controls under the rigging plot', () => {
+  const preview = (d: Doc, locked = false) =>
+    renderToStaticMarkup(<RiggingPlotPreview doc={d} model={sheetModel(d, false)} locked={locked} onJob={() => {}} onPlotPrinted={() => {}} />);
+
+  it('hold the Origin (P0) note with its limit', () => {
+    const d = newDoc(parseFixture('a'), 'a.pdf');
+    d.job.origin = 'Iron Line';
+    const out = preview(d);
+    expect(out).toContain('data-testid="plot-controls"');
+    expect(out).toContain('Origin (P0)');
+    expect(out).toContain('value="Iron Line"');
+    expect(out).toContain(`maxLength="${ORIGIN_MAX}"`);
+  });
+
+  it('hold the ground offset for every array, with its hint, and the typed value', () => {
+    const d = newDoc(parseFixture('a'), 'a.pdf');
+    d.job.defaultOffset = '0.3';
+    const out = preview(d);
+    expect(out).toContain('Ground offset for every array (m)');
+    expect(out).toContain('value="0.3"');
+    expect(out).toContain('Taken off the report heights.');
+    d.job.defaultOffset = 'x';
+    expect(preview(d)).toContain('Enter a number of metres, such as 0.3.');
+  });
+
+  it('switch the two fields off on a read-only file, and keep Print rigging plot and Download DXF with them', () => {
+    const d = newDoc(parseFixture('a'), 'a.pdf');
+    const open = preview(d);
+    expect(open).not.toMatch(/disabled=""[^>]*placeholder="e\.g\. DSE/);
+    const out = preview(d, true);
+    expect(out).toMatch(/<input[^>]*disabled=""[^>]*placeholder="e\.g\. DSE/);
+    expect(out).toContain('Print rigging plot');
+    expect(out).toContain('Download DXF');
+  });
+
+  it('are still there, with Print rigging plot switched off, when no array is on the plot', () => {
+    let d = newDoc(parseFixture('a'), 'a.pdf');
+    d.result.report.sources.forEach((_, i) => (d = withOnPlot(d, i, false)));
+    const out = renderToStaticMarkup(<RiggingPlotPreview doc={d} model={sheetModel(d, true)} locked={false} onJob={() => {}} onPlotPrinted={() => {}} />);
+    expect(out).toContain('No array is on the plot');
+    expect(out).toContain('Origin (P0)');
+    expect(out).toContain('Ground offset for every array (m)');
+    expect(out).toMatch(/disabled=""[^>]*\/><span>Print rigging plot/);
+    expect(out).not.toContain('Download DXF');
   });
 });
 

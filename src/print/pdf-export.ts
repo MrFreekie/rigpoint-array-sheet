@@ -26,7 +26,7 @@ import {
 } from './layout';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, ptToPx, riggingNotes, riggingSubtitle, type Laid } from './pdf-layout';
-import { plotContent } from './plot-input';
+import { plotForPrint } from './plot-input';
 import { drawPlotOps } from './plot-pdf';
 import { layoutPlotPages, plotPageCount, PRINT_PALETTE } from './plot-layout';
 import { qrMatrix } from './qr';
@@ -199,7 +199,7 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
     .map((e) => ({ item: layoutPocketCard(cardContent(e, ctx), measure) }))
     .map((c) => ({ item: c.item, heightPx: ptToPx(c.item.height) }));
   const plan = planPages(cards);
-  const plotData = plotContent(doc, model);
+  const plotData = plotForPrint(doc, model);
   const plotCount = plotData ? plotPageCount(plotData.points.length) : 0;
   const total = plan.length + plotCount + 1;
   const draft = doc.status === 'draft';

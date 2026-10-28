@@ -6,7 +6,7 @@ import { flySheetColumn, type FlySheetColumn } from '../engine/sheet';
 import { findMirrors } from '../engine/symmetry';
 import type { ArraySource } from '../engine/types';
 import { cartShade } from '../engine/carts';
-import { cartsOf, patchOf, deletedList, displayName, effectiveOffset, isDeleted, isPrinted, type Doc, type EffectiveOffset } from './document';
+import { cartsOf, patchOf, deletedList, displayName, effectiveOffset, isDeleted, isOnPlot, isPrinted, plotPrintChosen, type Doc, type EffectiveOffset } from './document';
 
 export interface SheetEntry {
   /** Position of the array in the report. */
@@ -19,6 +19,8 @@ export interface SheetEntry {
   mirrorIndex?: number | undefined;
   /** True when the person chose this array for printing. */
   print: boolean;
+  /** True when the person has this array on the rigging plot. Independent of printing the card. */
+  plot: boolean;
   /** Set when this card is the mirror image of another array that is also shown. */
   mirrorOf?: string | undefined;
   /** The name the report gives the array, which can differ from the title shown. */
@@ -43,6 +45,12 @@ export interface SheetModel {
   badOffsets: boolean;
   /** Arrays chosen for printing, and the mirror images they stand for. Positions in the report. */
   printedSources: Set<number>;
+  /** Arrays on the rigging plot, and the mirror images they stand for. Positions in the report. The plot ignores what is chosen for printing. */
+  plottedSources: Set<number>;
+  /** True when some array is on the rigging plot. Without one there is no plot, and Print rigging plot cannot be ticked. */
+  hasPlot: boolean;
+  /** True when the rigging plot is printed: some array is on it and Print rigging plot is ticked. */
+  printsPlot: boolean;
   /** The arrays of the report at the same positions, each with the title shown in place of its name. Deleted ones are included. */
   sources: ArraySource[];
   /** Positions in the report of the arrays that are not deleted. Every reader of arrays goes through this. */
@@ -84,6 +92,7 @@ export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
       coversMirror: mirror !== undefined && !showMirrors ? sources[mirror]?.name : undefined,
       mirrorIndex: mirror !== undefined && !showMirrors ? mirror : undefined,
       print: isPrinted(doc, i),
+      plot: isOnPlot(doc, i),
       mirrorOf: shown !== undefined ? sources[shown]?.name : undefined,
       reportName: report[i]?.name ?? s.name,
       renamed: s.name !== (report[i]?.name ?? s.name),
@@ -99,12 +108,22 @@ export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
     printedSources.add(e.index);
     if (e.mirrorIndex !== undefined) printedSources.add(e.mirrorIndex);
   }
+  // A mirror image that a card stands for goes on the plot with that card, like its pickup symbols.
+  const plottedSources = new Set<number>();
+  for (const e of entries) {
+    if (!e.plot) continue;
+    plottedSources.add(e.index);
+    if (e.mirrorIndex !== undefined) plottedSources.add(e.mirrorIndex);
+  }
   return {
     entries,
     mirrorPairs: mirrors.size,
     hidden,
     badOffsets: entries.some((e) => e.offset.value === null),
     printedSources,
+    plottedSources,
+    hasPlot: plottedSources.size > 0,
+    printsPlot: plottedSources.size > 0 && plotPrintChosen(doc),
     sources,
     live,
     deletedList: [...gone].map((index) => ({ index, name: report[index]?.name ?? '' })),
