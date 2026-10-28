@@ -38,7 +38,7 @@ export interface SheetModel {
   /** Number of mirrored pairs found. */
   mirrorPairs: number;
   /** Mirror images left out of the sheet because their partner stands for them. */
-  hidden: { name: string; mirrorOf: string; patchDiffers: boolean; cartsDiffer: boolean }[];
+  hidden: { name: string; mirrorOf: string }[];
   /** True when any offset in use is not a number, so heights cannot be shown. */
   badOffsets: boolean;
   /** Arrays chosen for printing, and the mirror images they stand for. Positions in the report. */
@@ -56,11 +56,9 @@ export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
   const sources = report.map((s, i) => ({ ...s, name: displayName(doc, i) }));
   const gone = new Set(deletedList(doc));
   const live = new Set(report.flatMap((_, i) => (gone.has(i) ? [] : [i])));
-  const noteOf = (i: number) => (doc.notes[i] ?? '').trim();
-  const offsetOf = (i: number) => (doc.offsets[i] ?? '').trim();
-  // Two mirrored arrays with different notes keep a card each, so no instruction is hidden. The same goes for two
-  // arrays whose typed ground offsets differ, because the card would show the heights of only one of them.
-  const mirrors = findMirrors(sources, gone, (a, b) => noteOf(a) === noteOf(b) && offsetOf(a) === offsetOf(b));
+  // Only the report decides which arrays are mirror images. What the person typed on an array (title, note, ground
+  // offset, patch, carts) never splits a pair: the card shows the shown array's own.
+  const mirrors = findMirrors(sources, gone);
   const mirrorToShown = new Map([...mirrors].map(([shown, mirror]) => [mirror, shown]));
   const entries: SheetEntry[] = [];
   const hidden: SheetModel['hidden'] = [];
@@ -70,12 +68,7 @@ export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
     const mirror = mirrors.get(i);
     const shown = mirrorToShown.get(i);
     if (!showMirrors && shown !== undefined) {
-      hidden.push({
-        name: s.name,
-        mirrorOf: sources[shown]?.name ?? '',
-        patchDiffers: JSON.stringify(patchOf(doc, i)) !== JSON.stringify(patchOf(doc, shown)),
-        cartsDiffer: JSON.stringify(cartsOf(doc, i).breaks) !== JSON.stringify(cartsOf(doc, shown).breaks),
-      });
+      hidden.push({ name: s.name, mirrorOf: sources[shown]?.name ?? '' });
       return;
     }
     const offset = effectiveOffset(doc, i, mirror ?? shown);

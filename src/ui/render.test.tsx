@@ -23,7 +23,7 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} markers={{ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }} onMarker={() => {}} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartSize={() => {}} onCartReset={() => {}} {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} markers={{ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }} onMarker={() => {}} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} {...extra} />,
   );
 
 describe('ArrayCard', () => {
@@ -356,12 +356,13 @@ describe('ArrayCard carts', () => {
     expect(card('SB28 L Front', a)).toContain('Carts: 1, one block, automatic');
   });
 
-  it('offers the sizes 3, 4 and 6, a custom size and a Reset that is disabled while the carts are automatic', () => {
-    const html = card('KARA II L Main', a, { carts });
-    for (const k of [3, 4, 6]) expect(html).toContain(`aria-label="Cut KARA II L Main into carts of ${k}"`);
-    expect(html).toContain('Custom cart size, 1 to 24');
-    expect(html).toMatch(/<button type="button" class="button" disabled="">Reset to automatic<\/button>/);
-    expect(card('KARA II L Main', a, { carts: { ...carts, manual: true } })).not.toMatch(/disabled="">Reset to automatic/);
+  it('offers a way back to automatic only while the carts are set by hand, and no size buttons', () => {
+    const auto = card('KARA II L Main', a, { carts });
+    expect(auto).not.toContain('Back to automatic');
+    expect(auto).not.toContain('into carts of');
+    expect(auto).not.toContain('Custom cart size');
+    expect(auto).not.toContain('Reset to automatic');
+    expect(card('KARA II L Main', a, { carts: { ...carts, manual: true } })).toContain('Back to automatic');
   });
 
   it('has a break button between every pair of rows, pressed where a cart starts, and none above the first row', () => {
@@ -391,8 +392,8 @@ describe('ArrayCard carts', () => {
     const html = card('KARA II L Main', a, { carts, locked: true });
     expect(html).toContain('Carts: 3 + 3 + 3 + 3 + 3, automatic');
     expect(html).not.toContain('class="cart-break"');
-    expect(html).not.toContain('Reset to automatic');
-    expect(html).not.toContain('Cut KARA II L Main into carts of');
+    expect(html).not.toContain('Back to automatic');
+    expect(html).not.toContain('into carts of');
     expect(html).toContain('A new cart starts here');
   });
 });

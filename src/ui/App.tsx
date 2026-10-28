@@ -28,7 +28,7 @@ import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
 import type { CartSize } from '../engine/carts';
 import type { Underlay } from '../engine/underlay';
-import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withCartBreak, withCartReset, withCartSize, withCartSizes, withDeleted, withPatch, withLayerHidden, withMarker, withNote, withPrinted, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
+import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withCartBreak, withCartReset, withCartSizes, withDeleted, withPatch, withLayerHidden, withMarker, withNote, withPrinted, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -392,7 +392,6 @@ export function App() {
   const setLayerHidden = (name: string, hidden: boolean) => setDoc((d) => (d ? withLayerHidden(d, name, hidden) : d));
   const setMarker = (index: number, side: PickupSide, marker: Marker) => setDoc((d) => (d ? withMarker(d, index, side, marker) : d));
   const setCartBreak = (index: number, row: number) => setDoc((d) => (d ? withCartBreak(d, index, row) : d));
-  const setCartSize = (index: number, size: number) => setDoc((d) => (d ? withCartSize(d, index, size) : d));
   const resetCarts = (index: number) => setDoc((d) => (d ? withCartReset(d, index) : d));
   const setCartSizes = (sizes: CartSize[]) => setDoc((d) => (d ? withCartSizes(d, sizes) : d));
   const setPatch = (index: number, row: number, field: PatchField, value: PatchValue) => setDoc((d) => (d ? withPatch(d, index, row, field, value) : d));
@@ -651,7 +650,6 @@ export function App() {
             onMarker={setMarker}
             onPatch={setPatch}
             onCartBreak={setCartBreak}
-            onCartSize={setCartSize}
             onCartReset={resetCarts}
             onPrinted={setPrinted}
             onImage={(entry) => void saveImages([entry])}
@@ -730,14 +728,13 @@ interface ReportProps {
   onMarker: (i: number, side: PickupSide, marker: Marker) => void;
   onPatch: (i: number, row: number, field: PatchField, value: PatchValue) => void;
   onCartBreak: (i: number, row: number) => void;
-  onCartSize: (i: number, size: number) => void;
   onCartReset: (i: number) => void;
   onPrinted: (i: number, printed: boolean) => void;
   onImage: (entry: SheetEntry) => void;
   onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPatch, onCartBreak, onCartSize, onCartReset, onPrinted, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPatch, onCartBreak, onCartReset, onPrinted, onImage, onAllImages }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -771,13 +768,6 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                 </button>
               </p>
             ) : null}
-            {model.hidden
-              .filter((h) => h.patchDiffers || h.cartsDiffer)
-              .map((h) => (
-                <p key={h.name} className="muted source-line" data-testid="patch-differs">
-                  {`The ${h.patchDiffers && h.cartsDiffer ? 'cable patch and the carts' : h.patchDiffers ? 'cable patch' : 'carts'} of ${h.name} ${h.patchDiffers && !h.cartsDiffer ? 'is' : 'are'} not the same as ${h.mirrorOf}, whose card stands for both. Choose Show them to see and print ${h.patchDiffers && !h.cartsDiffer ? 'it' : 'each'}.`}
-                </p>
-              ))}
             {model.deletedList.length > 0 ? (
               <div className="muted source-line" data-testid="deleted-list">
                 <p>
@@ -830,7 +820,6 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                   onPatch={(row, field, value) => onPatch(entry.index, row, field, value)}
                   carts={entry.carts}
                   onCartBreak={(row) => onCartBreak(entry.index, row)}
-                  onCartSize={(size) => onCartSize(entry.index, size)}
                   onCartReset={() => onCartReset(entry.index)}
                   printed={entry.print}
                   onPrinted={(p) => onPrinted(entry.index, p)}

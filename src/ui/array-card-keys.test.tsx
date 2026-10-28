@@ -29,7 +29,7 @@ describe('ArrayCard fixation rows', () => {
       { name: 'Fr', at: { x: 1, y: 2, z: 3 } },
       { name: 'Fr', at: { x: 4, y: 5, z: 6 } },
     ];
-    const tree = ArrayCard({ column: flySheetColumn(source), offsetText: '', offsetBad: false, defaultBad: false, usingDefault: true, onOffset: () => {}, titleText: '', reportName: source.name, onTitle: () => {}, note: '', onNote: () => {}, printed: true, onPrinted: () => {}, markers: { front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }, onMarker: () => {}, patch: [], onPatch: () => {}, carts: { breaks: [], manual: false, groups: [source.cabinets.length], forced: [] }, onCartBreak: () => {}, onCartSize: () => {}, onCartReset: () => {} });
+    const tree = ArrayCard({ column: flySheetColumn(source), offsetText: '', offsetBad: false, defaultBad: false, usingDefault: true, onOffset: () => {}, titleText: '', reportName: source.name, onTitle: () => {}, note: '', onNote: () => {}, printed: true, onPrinted: () => {}, markers: { front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }, onMarker: () => {}, patch: [], onPatch: () => {}, carts: { breaks: [], manual: false, groups: [source.cabinets.length], forced: [] }, onCartBreak: () => {}, onCartReset: () => {} });
     const keys = rowKeys(tree);
     expect(keys).toHaveLength(2);
     expect(new Set(keys).size).toBe(2);

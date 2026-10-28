@@ -59,13 +59,12 @@ test('the dropdowns are switched off on a read-only file, and the patch is kept'
   await expect(way(card(page, 'KARA II L Out'), 3)).toBeDisabled();
 });
 
-test('a collapsed mirror pair shows the shown array patch and says when the partner differs; the checkbox shows each own patch', async ({ page }) => {
+test('a collapsed mirror pair shows the shown array patch with no notice; the checkbox shows each own patch', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
   const left = card(page, 'KARA II L Main');
-  await expect(page.getByTestId('patch-differs')).toHaveCount(0);
   await feeder(left, 1).selectOption('1');
-  await expect(page.getByTestId('patch-differs')).toHaveCount(1);
+  await expect(page.getByTestId('patch-differs')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Show them' }).click();
   const right = card(page, 'KARA II R Main');
@@ -74,9 +73,7 @@ test('a collapsed mirror pair shows the shown array patch and says when the part
   await page.getByRole('button', { name: 'Hide them' }).click();
   await expect(card(page, 'KARA II R Main')).toHaveCount(0);
   await expect(feeder(card(page, 'KARA II L Main'), 1)).toHaveValue('1');
-  await expect(page.getByTestId('patch-differs')).toHaveText(
-    'The cable patch of KARA II R Main is not the same as KARA II L Main, whose card stands for both. Choose Show them to see and print it.',
-  );
+  await expect(page.getByTestId('patch-differs')).toHaveCount(0);
   await page.getByRole('button', { name: 'Show them' }).click();
   await expect(feeder(card(page, 'KARA II R Main'), 1)).toHaveValue('2');
   await expect(feeder(card(page, 'KARA II L Main'), 1)).toHaveValue('1');

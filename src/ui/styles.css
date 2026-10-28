@@ -619,32 +619,6 @@ td.n {
   font-weight: 600;
 }
 
-.carts-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 0.6rem;
-}
-
-.carts-sizes {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.carts-sizes .button {
-  min-width: 2.75rem;
-}
-
-.carts-custom {
-  width: 4rem;
-  min-height: var(--touch);
-  padding: 0 0.5rem;
-  font: inherit;
-  text-align: center;
-}
-
 /* Settings: the box of whole job choices. Each cart size is a label and a short field on one line. */
 .settings section + section {
   margin-top: 1.25rem;

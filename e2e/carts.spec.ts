@@ -7,6 +7,9 @@ import { inSettings, openJson, openPdf, openSettings, samplePdf, save, start } f
 const card = (page: Page, name: string) => page.locator('.card', { has: page.getByRole('heading', { name, exact: true }) });
 const summary = (page: Page, name: string) => card(page, name).getByTestId('carts-summary');
 const MAIN = 'KARA II L Main';
+// A hand cut: the break between enclosures 3 and 4 is taken away, which leaves the carts set by hand.
+const HAND_CUT = 'Carts: 6 + 3 + 3 + 3, set by hand';
+const handCut = (page: Page) => card(page, MAIN).getByRole('button', { name: 'Cart break between enclosures 3 and 4' }).click();
 
 test('a new file cuts KARA II three to a cart, and the card says so', async ({ page }) => {
   await start(page);
@@ -14,23 +17,20 @@ test('a new file cuts KARA II three to a cart, and the card says so', async ({ p
   await expect(summary(page, MAIN)).toHaveText('Carts: 3 + 3 + 3 + 3 + 3, automatic');
   // One enclosure of another type is one block.
   await expect(summary(page, 'SB28 L Front')).toHaveText('Carts: 1, one block, automatic');
-  await expect(card(page, MAIN).getByRole('button', { name: 'Reset to automatic' })).toBeDisabled();
+  await expect(card(page, MAIN).getByRole('button', { name: 'Back to automatic' })).toHaveCount(0);
 });
 
-test('the size buttons cut an array into carts of one size, and Reset goes back to automatic', async ({ page }) => {
+test('a hand cut shows Back to automatic, and it returns the array to the sizes in Settings', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
   const c = card(page, MAIN);
-  await c.getByRole('button', { name: `Cut ${MAIN} into carts of 4` }).click();
-  await expect(summary(page, MAIN)).toHaveText('Carts: 4 + 4 + 4 + 3, set by hand');
-  await c.getByRole('button', { name: `Cut ${MAIN} into carts of 6` }).click();
-  await expect(summary(page, MAIN)).toHaveText('Carts: 6 + 6 + 3, set by hand');
-  await c.getByLabel('Custom cart size, 1 to 24').fill('5');
-  await c.getByRole('button', { name: 'Apply' }).click();
-  await expect(summary(page, MAIN)).toHaveText('Carts: 5 + 5 + 5, set by hand');
+  await expect(c.getByRole('button', { name: /into carts of/ })).toHaveCount(0);
+  await handCut(page);
+  await expect(summary(page, MAIN)).toHaveText(HAND_CUT);
   await expect(page.getByText('● Unsaved changes')).toBeVisible();
-  await c.getByRole('button', { name: 'Reset to automatic' }).click();
+  await c.getByRole('button', { name: 'Back to automatic' }).click();
   await expect(summary(page, MAIN)).toHaveText('Carts: 3 + 3 + 3 + 3 + 3, automatic');
+  await expect(c.getByRole('button', { name: 'Back to automatic' })).toHaveCount(0);
 });
 
 test('a break between two rows is added and taken away from the keyboard', async ({ page }) => {
@@ -62,18 +62,18 @@ test('a break is not offered where the type changes, because a new cart always s
 test('hand cut carts and the sizes are saved, and come back on reopening', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  await card(page, MAIN).getByRole('button', { name: `Cut ${MAIN} into carts of 4` }).click();
+  await handCut(page);
   await inSettings(page, (d) => d.getByLabel('KARA II', { exact: true }).fill('5'));
   const saved = await save(page);
   const json = saved.json as { format: string; cart_sizes: { type: string; size: number }[]; carts: { manual: boolean; breaks: number[] }[] };
   expect(json.format).toBe('arraysheet/12');
   expect(json.cart_sizes).toContainEqual({ type: 'KARA II', size: 5 });
-  expect(json.carts[0]).toEqual({ manual: true, breaks: [4, 8, 12] });
+  expect(json.carts[0]).toEqual({ manual: true, breaks: [6, 9, 12] });
   expect(json.carts.filter((x) => x.manual)).toHaveLength(1);
 
   await page.getByRole('button', { name: 'New' }).click();
   await openJson(page, 'carts.arraysheet.json', saved.text);
-  await expect(summary(page, MAIN)).toHaveText('Carts: 4 + 4 + 4 + 3, set by hand');
+  await expect(summary(page, MAIN)).toHaveText(HAND_CUT);
   // The other array of the same type follows the saved size.
   await expect(summary(page, 'KARA II L Out')).toHaveText('Carts: 5 + 1, automatic');
 });
@@ -126,30 +126,27 @@ test('Settings holds the show mirrors tick, and the fly sheet line has a button 
   await expect(page.getByRole('button', { name: 'Hide them' })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('a collapsed mirror pair with different carts says so, and showing both gives each its own', async ({ page }) => {
+test('a hand cut on the shown card of a collapsed pair does not split the pair, and showing both gives each its own carts', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
+  await handCut(page);
   await expect(page.getByTestId('patch-differs')).toHaveCount(0);
-  await card(page, MAIN).getByRole('button', { name: `Cut ${MAIN} into carts of 4` }).click();
-  await expect(page.getByTestId('patch-differs')).toHaveText(
-    'The carts of KARA II R Main are not the same as KARA II L Main, whose card stands for both. Choose Show them to see and print each.',
-  );
+  await expect(card(page, 'KARA II R Main')).toHaveCount(0);
   await page.getByRole('button', { name: 'Show them' }).click();
   await expect(summary(page, 'KARA II R Main')).toHaveText('Carts: 3 + 3 + 3 + 3 + 3, automatic');
-  await expect(summary(page, MAIN)).toHaveText('Carts: 4 + 4 + 4 + 3, set by hand');
+  await expect(summary(page, MAIN)).toHaveText(HAND_CUT);
 });
 
 test('an approved file shows the carts but offers no way to change them, in the card or in Settings', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  await card(page, MAIN).getByRole('button', { name: `Cut ${MAIN} into carts of 4` }).click();
+  await handCut(page);
   await page.getByLabel('Status').selectOption('approved');
   const saved = await save(page);
   await openJson(page, 'approved.arraysheet.json', saved.text);
   const c = card(page, MAIN);
-  await expect(summary(page, MAIN)).toHaveText('Carts: 4 + 4 + 4 + 3, set by hand');
-  await expect(c.getByRole('button', { name: /Cut .* into carts of/ })).toHaveCount(0);
-  await expect(c.getByRole('button', { name: 'Reset to automatic' })).toHaveCount(0);
+  await expect(summary(page, MAIN)).toHaveText(HAND_CUT);
+  await expect(c.getByRole('button', { name: 'Back to automatic' })).toHaveCount(0);
   await expect(c.getByRole('button', { name: /^Cart break between enclosures/ })).toHaveCount(0);
   const dialog = await openSettings(page);
   await expect(dialog.getByLabel('KARA II', { exact: true })).toBeDisabled();
@@ -159,10 +156,10 @@ test('an approved file shows the carts but offers no way to change them, in the 
 test('Update from PDF keeps a hand cut array with the same rows', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  await card(page, MAIN).getByRole('button', { name: `Cut ${MAIN} into carts of 4` }).click();
+  await handCut(page);
   await page.getByTestId('update-file').setInputFiles({ name: 'again.pdf', mimeType: 'application/pdf', buffer: samplePdf('a') });
   // The same report: nothing differs, so nothing changes and the carts stay.
-  await expect(summary(page, MAIN)).toHaveText('Carts: 4 + 4 + 4 + 3, set by hand');
+  await expect(summary(page, MAIN)).toHaveText(HAND_CUT);
 });
 
 test('a printed card shades every other cart, but never the Feeder and Way cells, and is as tall as planned', async ({ page, browserName }) => {

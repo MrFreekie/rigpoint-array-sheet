@@ -11,7 +11,7 @@ describe('sheetModel', () => {
     expect(m.entries).toHaveLength(9);
     expect(m.mirrorPairs).toBe(9);
     expect(m.hidden).toHaveLength(9);
-    expect(m.hidden[0]).toEqual({ name: 'KARA II R Main', mirrorOf: 'KARA II L Main', patchDiffers: false, cartsDiffer: false });
+    expect(m.hidden[0]).toEqual({ name: 'KARA II R Main', mirrorOf: 'KARA II L Main' });
     expect(m.entries[0]?.coversMirror).toBe('KARA II R Main');
     expect(m.entries[0]?.mirrorOf).toBeUndefined();
   });
@@ -34,13 +34,16 @@ describe('sheetModel', () => {
     expect(m.entries[1]?.column.topHeight).toBe(9.4);
   });
 
-  it('keeps a card each when the typed offsets of a mirror pair differ, so no height is shown for the wrong array', () => {
-    const doc = docA();
-    doc.offsets[0] = '0.4';
-    const m = sheetModel(doc, false);
-    expect(m.hidden.map((h) => h.name)).not.toContain('KARA II R Main');
+  it('collapses a pair whatever offsets are typed: the shown card uses its own offset, else the one on its partner, else the default', () => {
+    const own = docA();
+    own.offsets[0] = '0.4';
+    own.offsets[1] = '0.2';
+    const m = sheetModel(own, false);
+    expect(m.hidden.map((h) => h.name)).toContain('KARA II R Main');
     expect(m.entries[0]?.column.topHeight).toBe(9);
-    expect(m.entries[1]?.column.topHeight).toBe(9.4);
+    const partnerOnly = docA();
+    partnerOnly.offsets[1] = '0.4';
+    expect(sheetModel(partnerOnly, false).entries[0]?.column.topHeight).toBe(9);
   });
 
   it('hides heights and flags a bad offset', () => {
@@ -126,17 +129,14 @@ describe('sheetModel with deleted arrays, titles and notes', () => {
     expect(m.entries.find((x) => x.index === 2)?.renamed).toBe(false);
   });
 
-  it('keeps both cards when two mirrored arrays carry different notes', () => {
+  it('collapses a pair whatever notes are typed: the shown card prints its own note and the hidden one is not printed', () => {
     const doc = withNote(docA(), 1, 'Hang this one second');
     const m = sheetModel(doc, false);
-    expect(m.entries.find((e) => e.index === 0)?.coversMirror).toBeUndefined();
-    expect(m.entries.find((e) => e.index === 1)?.note).toBe('Hang this one second');
-    expect(m.mirrorPairs).toBe(8);
-  });
-
-  it('still collapses a pair that carries the same note', () => {
-    const doc = withNote(withNote(docA(), 0, 'Same'), 1, ' Same ');
-    expect(sheetModel(doc, false).entries.find((e) => e.index === 0)?.coversMirror).toBe('KARA II R Main');
+    expect(m.entries.find((e) => e.index === 0)?.coversMirror).toBe('KARA II R Main');
+    expect(m.entries.find((e) => e.index === 0)?.note).toBe('');
+    expect(m.entries.find((e) => e.index === 1)).toBeUndefined();
+    expect(m.mirrorPairs).toBe(9);
+    expect(sheetModel(doc, true).entries.find((e) => e.index === 1)?.note).toBe('Hang this one second');
   });
 });
 
@@ -149,12 +149,11 @@ describe('sheetModel cable patch', () => {
     expect(m.entries[1]?.patch.every((r) => r.feeder === '' && r.way === '')).toBe(true);
   });
 
-  it('a collapsed pair shows the shown array patch only, and says when the partner differs', () => {
+  it('a collapsed pair shows the shown array patch only', () => {
     const doc = withPatch(docA(), 1, 0, 'way', '3');
     const m = sheetModel(doc, false);
-    expect(m.hidden[0]).toMatchObject({ name: 'KARA II R Main', mirrorOf: 'KARA II L Main', patchDiffers: true });
+    expect(m.hidden[0]).toEqual({ name: 'KARA II R Main', mirrorOf: 'KARA II L Main' });
     expect(m.entries[0]?.patch.every((r) => r.way === '')).toBe(true);
-    expect(m.hidden.filter((h) => h.patchDiffers)).toHaveLength(1);
   });
 
   it('a pair with different patches still collapses, and each card shows its own patch when the mirrors are shown', () => {
@@ -168,9 +167,8 @@ describe('sheetModel cable patch', () => {
     expect(shown.entries.find((e) => e.index === 1)?.patch[0]?.feeder).toBe('2');
   });
 
-  it('the same patch on both does not raise the notice, and a deleted partner is left alone', () => {
+  it('keeps the hidden partner patch in the file, and each array shows its own when the mirrors are shown', () => {
     const same = withPatch(withPatch(docA(), 0, 0, 'feeder', '1'), 1, 0, 'feeder', '1');
-    expect(sheetModel(same, false).hidden.some((h) => h.patchDiffers)).toBe(false);
     expect(patchOf(same, 1)[0]?.feeder).toBe('1');
   });
 

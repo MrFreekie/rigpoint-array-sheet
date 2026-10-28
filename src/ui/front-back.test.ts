@@ -39,7 +39,7 @@ describe('a front-back mirror pair read from a report', () => {
     const model = sheetModel(doc, false);
     expect(model.entries).toHaveLength(1);
     expect(model.mirrorPairs).toBe(1);
-    expect(model.hidden).toEqual([{ name: 'Back hang', mirrorOf: 'Front hang', patchDiffers: false, cartsDiffer: false }]);
+    expect(model.hidden).toEqual([{ name: 'Back hang', mirrorOf: 'Front hang' }]);
     expect(cardContent(model.entries[0]!, ctx).mirrorNote).toBe('Also mirrored with: Back hang');
   });
 

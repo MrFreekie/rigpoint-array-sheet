@@ -300,7 +300,7 @@ describe('front-back mirrors', () => {
   });
 });
 
-describe('left-right pairs: azimuth, group prefixes and typed offsets', () => {
+describe('left-right pairs: azimuth and group prefixes', () => {
   const base = a.find((s) => s.name === 'KARA II L Main')!;
   const twin = (over: Partial<ArraySource>): ArraySource => ({ ...mirrorOf(base), ...over });
   const withAz = (x: ArraySource, az: number) => ({ ...structuredClone(x), azimuth: az });

@@ -20,7 +20,7 @@ Download DXF saves the plot for a CAD program, in millimetres at full size (1:1)
 
 In Settings you can import a venue from the text file that SU4SV, the SketchUp to Soundvision converter, writes. It is drawn as pale grey lines under the plot, shaded by height, with a tick for each SketchUp layer. A model over 60,000 lines, 300 layers or 8 MB is refused. A file holds one venue. The venue never changes the scale or the page, and it goes into the DXF only if you tick Include venue in the DXF.
 
-An array is built from carts of three or four enclosures, sometimes six. Each card shows its carts and prints every other cart shaded, so a crew can see where one cart ends and the next begins. The carts are cut from a size for each type of enclosure (the Settings button holds the table, and it starts with K2 four to a cart and KARA II and KARA three), and a new cart always starts where the type changes. A flown array is counted from the top and a stack from the bottom. You can cut any array by hand, with the size buttons or a break between two rows, and the app keeps what you did. Settings also holds the origin note, the side labels of the plot, the venue, the ground offset every array uses, and whether the exact mirror images are shown.
+An array is built from carts of three or four enclosures, sometimes six. Each card shows its carts and prints every other cart shaded, so a crew can see where one cart ends and the next begins. The carts are cut from a size for each type of enclosure (the Settings button holds the table, and it starts with K2 four to a cart and KARA II and KARA three), and a new cart always starts where the type changes. A flown array is counted from the top and a stack from the bottom. You can cut any array by hand with a break between two rows, and the app keeps what you did until you choose Back to automatic. Settings also holds the origin note, the side labels of the plot, the venue, the ground offset every array uses, and whether the exact mirror images are shown.
 
 ## Printing, PDF and images
 
@@ -80,7 +80,7 @@ It does not check that a rig is safe. Soundvision's own warnings are passed thro
 
 When something cannot be read, the app says so and names the array. It never fills the gap with a guess. A report in pounds or feet is refused, because the app reads kilograms and metres only.
 
-When two arrays are exact mirror images, left to right or front to back, the fly sheet shows one and says `Also mirrored with: <name>` under its title. A button above the cards, and a tick in Settings, show both. Two mirrors with different notes keep a card each. A card that stands for a pair shows the cable patch and the carts of the array it shows. A front to back pair is only found when the arrays have no fixations and the same Panflex figures.
+When two arrays are exact mirror images, left to right or front to back, the fly sheet shows one and says `Also mirrored with: <name>` under its title. A button above the cards, and a tick in Settings, show both. Only the report decides which arrays are mirrors, so a title, note, ground offset, cable patch or carts you typed never splits a pair. A card that stands for a pair prints its own. A front to back pair is only found when the arrays have no fixations and the same Panflex figures.
 
 The one value it works out itself is the Panflex label on a fly sheet (for example 90 On). That rule is described in [docs/development.md](docs/development.md).
 
