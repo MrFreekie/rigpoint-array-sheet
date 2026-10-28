@@ -1,7 +1,7 @@
 import { Fragment, useId } from 'react';
 import { cartShade, groupsText } from '../engine/carts';
 import type { FlySheetColumn } from '../engine/sheet';
-import { cleanMarkerText, MARKER_TEXT_MAX, RATING_LABEL, SHAPE_NAME, SHAPES, type Marker, type MarkerPair, type PickupSide, type Shape } from '../engine/markers';
+import { SHAPE_NAME, SHAPES, symbolValue, type Marker, type MarkerPair, type PickupSide, type Shape, type SymbolValues } from '../engine/markers';
 import { PATCH_COLOURS, PATCH_DIGITS, type PatchDigit, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
 import { enclosureLabel } from '../engine/types';
 import type { CartsOf } from '../files/doc';
@@ -43,6 +43,8 @@ interface Props {
   /** The plot symbol of each pickup, and how to change one. A read-only file keeps a change for this session only. */
   markers: MarkerPair;
   onMarker: (side: PickupSide, marker: Marker) => void;
+  /** The value written for each symbol, set in Settings, for the names in the list of symbols. */
+  symbolValues: Readonly<SymbolValues>;
   /** The feeder and way of each enclosure row, and how to change one. Read-only files cannot change. */
   patch: PatchRow[];
   onPatch: (row: number, field: PatchField, value: PatchValue) => void;
@@ -56,7 +58,7 @@ interface Props {
   usingDefault: boolean;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onPlot, onOnPlot, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, patch, onPatch, carts, onCartBreak, onCartReset }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onPlot, onOnPlot, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, symbolValues, patch, onPatch, carts, onCartBreak, onCartReset }: Props) {
   const id = useId();
   const hasColumns = c.rows.some((r) => r.column !== null);
   const hasStackRows = c.rows.some((r) => r.row !== null);
@@ -205,6 +207,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
           key={p.which}
           label={c.pickups.length > 1 ? `Plot symbol, ${p.which} pickup` : 'Plot symbol'}
           marker={markers[p.which]}
+          values={symbolValues}
           onChange={(m) => onMarker(p.which, m)}
         />
       ))}
@@ -322,8 +325,8 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
   );
 }
 
-/** The symbol of one pickup on the rigging plot: a shape, and optionally text such as 1.5 t shown in place of its rating. */
-function SymbolField({ label, marker, onChange }: { label: string; marker: Marker; onChange: (m: Marker) => void }) {
+/** The symbol of one pickup on the rigging plot: one of the four shapes, each named with the value written for it in Settings. */
+function SymbolField({ label, marker, values, onChange }: { label: string; marker: Marker; values: Readonly<SymbolValues>; onChange: (m: Marker) => void }) {
   const id = useId();
   return (
     <fieldset className="field symbol-field">
@@ -331,20 +334,13 @@ function SymbolField({ label, marker, onChange }: { label: string; marker: Marke
       <label htmlFor={`${id}-shape`} className="visually-hidden">
         {label}: shape
       </label>
-      <select id={`${id}-shape`} value={marker.shape} onChange={(e) => onChange({ ...marker, shape: e.target.value as Shape })} aria-describedby={`${id}-help`}>
+      <select id={`${id}-shape`} value={marker.shape} onChange={(e) => onChange({ shape: e.target.value as Shape })}>
         {SHAPES.map((shape) => (
           <option key={shape} value={shape}>
-            {`${RATING_LABEL[shape]}, ${SHAPE_NAME[shape]}`}
+            {`${symbolValue(values, shape)}, ${SHAPE_NAME[shape]}`}
           </option>
         ))}
       </select>
-      <label className="field">
-        <span>Typed value, instead of the rating (optional)</span>
-        <input type="text" value={marker.text} maxLength={MARKER_TEXT_MAX} placeholder="for example 1.5 t" autoComplete="off" onChange={(e) => onChange({ ...marker, text: cleanMarkerText(e.target.value) })} />
-      </label>
-      <span id={`${id}-help`} className="muted">
-        A guide only. A symbol with typed text is grey on the plot.
-      </span>
     </fieldset>
   );
 }

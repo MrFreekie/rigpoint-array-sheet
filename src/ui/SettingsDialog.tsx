@@ -1,13 +1,15 @@
-// Settings: the choices that apply to the whole job rather than to one card. The cart sizes, the side labels and the venue of the
-// rigging plot, and whether the exact mirror images are shown. Each keeps its saved behaviour and is switched off in a read-only
+// Settings: the choices that apply to the whole job rather than to one card. The cart sizes, the side labels, the value written
+// for each plot symbol and the venue of the rigging plot, and whether the exact mirror images are shown. Each keeps its saved behaviour and is switched off in a read-only
 // file. The Origin (P0) note and the ground offset every array uses sit under the rigging plot preview.
 
 import { useId, useState } from 'react';
 import { CART_SIZE_MAX, defaultCartSizes, sizeFor, type CartSize } from '../engine/carts';
+import { cleanSymbolValue, DEFAULT_SYMBOL_VALUES, SHAPE_NAME, SHAPES, SYMBOL_VALUE_MAX, symbolValue, type Shape } from '../engine/markers';
 import type { Underlay } from '../engine/underlay';
 import { Dialog } from './Dialog';
 import type { Doc, Job } from './document';
 import type { SheetModel } from './sheet-model';
+import { SymbolIcon } from './SymbolIcon';
 import { VenuePanel } from './VenuePanel';
 
 interface Props {
@@ -16,6 +18,8 @@ interface Props {
   locked: boolean;
   onJob: (patch: Partial<Job>) => void;
   onCartSizes: (sizes: CartSize[]) => void;
+  onSymbolValue: (shape: Shape, text: string) => void;
+  onSymbolValuesReset: () => void;
   onUnderlay: (underlay: Underlay | null) => void;
   onLayer: (name: string, hidden: boolean) => void;
   showMirrors: boolean;
@@ -89,7 +93,47 @@ function SizeField({ type, size, disabled, note, onSize }: { type: string; size:
   );
 }
 
-export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onUnderlay, onLayer, showMirrors, onShowMirrors, onClose }: Props) {
+/**
+ * The value written for one plot symbol, with the shape drawn beside it. A blank field goes back to the usual value when the
+ * person leaves it; while they type, a blank is not kept.
+ */
+function SymbolRow({ shape, value, disabled, onValue }: { shape: Shape; value: string; disabled: boolean; onValue: (text: string) => void }) {
+  const id = useId();
+  const [text, setText] = useState(value);
+  const [seen, setSeen] = useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    setText(value);
+  }
+  return (
+    <div className="settings-size">
+      <label htmlFor={id}>
+        <SymbolIcon shape={shape} /> <span>Symbol, {SHAPE_NAME[shape]}</span>
+      </label>
+      <input
+        id={id}
+        type="text"
+        value={text}
+        disabled={disabled}
+        maxLength={SYMBOL_VALUE_MAX}
+        autoComplete="off"
+        onChange={(e) => {
+          const next = cleanSymbolValue(e.target.value);
+          setText(next);
+          if (next.trim() !== '') onValue(next);
+        }}
+        onBlur={() => {
+          if (text.trim() === '') {
+            onValue('');
+            setText(DEFAULT_SYMBOL_VALUES[shape]);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onSymbolValue, onSymbolValuesReset, onUnderlay, onLayer, showMirrors, onShowMirrors, onClose }: Props) {
   const types = reportTypes(model);
   const inReport = new Set(types.map((t) => t.toLowerCase()));
   const elsewhere = doc.cartSizes.filter((c) => !inReport.has(c.type.trim().toLowerCase()));
@@ -131,6 +175,24 @@ export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onUnder
               <span>Show side labels on the rigging plot</span>
             </label>
             <span className="field-hint">Names House left, House right, Stage and Audience. Turn off for a show in the round.</span>
+          </div>
+          <div className="field" role="group" aria-labelledby="settings-symbols">
+            <h4 id="settings-symbols" className="settings-subhead">
+              Symbols
+            </h4>
+            <span className="field-hint">
+              The value written for each pickup symbol in the plot table, the key and the symbol lists. Change one to suit the show, for example 1.5 t. A blank field goes back to the usual value.
+            </span>
+            <div className="settings-sizes">
+              {SHAPES.map((shape) => (
+                <SymbolRow key={shape} shape={shape} value={symbolValue(doc.symbolValues, shape)} disabled={locked} onValue={(text) => onSymbolValue(shape, text)} />
+              ))}
+            </div>
+            <p>
+              <button type="button" className="button" disabled={locked} onClick={onSymbolValuesReset}>
+                Reset the symbols to the usual values
+              </button>
+            </p>
           </div>
           <VenuePanel underlay={doc.underlay} locked={locked} onUnderlay={onUnderlay} onLayer={onLayer} />
         </section>

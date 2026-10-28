@@ -64,7 +64,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/13', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/14', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -497,15 +497,40 @@ test('update from PDF brings a deleted array back, and says so', async ({ page }
   await expect(page.getByRole('button', { name: 'Undo delete', exact: true })).toBeDisabled();
 });
 
-test('every symbol can be picked whatever the weight of the array, and typed text is explained as grey on the plot', async ({ page }) => {
+test('every symbol can be picked whatever the weight of the array, there is no typed value on the card, and Settings names each shape', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('c'));
   const front = page.getByRole('group', { name: 'Plot symbol, front pickup' }).first();
   await expect(front.locator('option[value="quarter"]')).toBeEnabled();
-  await expect(front).toContainText('A symbol with typed text is grey on the plot');
-  await expect(front).not.toContainText('Greyed on the plot');
-  await front.getByLabel('Typed value, instead of the rating (optional)').fill('1.5 t');
+  await expect(front).not.toContainText('typed text');
+  await expect(front.getByLabel('Typed value, instead of the rating (optional)')).toHaveCount(0);
+  await expect(front.locator('option[value="one"]')).toHaveText('1 t, circle with a cross');
+  await inSettings(page, async (d) => {
+    await expect(d.getByRole('heading', { name: 'Symbols' })).toBeVisible();
+    await d.getByLabel('Symbol, circle with a cross').fill('1.5 t');
+  });
+  await expect(front.locator('option[value="one"]')).toHaveText('1.5 t, circle with a cross');
   await expect(front.locator('option[value="quarter"]')).toBeEnabled();
+});
+
+test('the value written for a symbol in Settings is kept in the file, and a blank field goes back to the usual value', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('c'));
+  await inSettings(page, async (d) => {
+    await d.getByLabel('Symbol, circle with a cross').fill('1.5 t');
+    await d.getByLabel('Symbol, diamond with a cross').fill('');
+    await d.getByLabel('Symbol, square with a cross').click();
+    await expect(d.getByLabel('Symbol, diamond with a cross')).toHaveValue('0.25 t');
+  });
+  await expect(page.getByText('● Unsaved changes')).toBeVisible();
+  const saved = await save(page);
+  expect(saved.json['symbol_values']).toEqual({ two: '2 t', one: '1.5 t', half: '0.5 t', quarter: '0.25 t' });
+  await openJson(page, 'values.arraysheet.json', saved.text);
+  await inSettings(page, async (d) => {
+    await expect(d.getByLabel('Symbol, circle with a cross')).toHaveValue('1.5 t');
+    await d.getByRole('button', { name: 'Reset the symbols to the usual values' }).click();
+    await expect(d.getByLabel('Symbol, circle with a cross')).toHaveValue('1 t');
+  });
 });
 
 test('update from PDF keeps a symbol for the same pickup and resets one the new PDF cannot follow, and says so', async ({ page }) => {
@@ -514,7 +539,7 @@ test('update from PDF keeps a symbol for the same pickup and resets one the new 
   const card = page.locator('article.card').filter({ has: page.getByRole('group', { name: 'Plot symbol, rear pickup' }) }).first();
   const name = (await card.getByRole('heading', { level: 3 }).innerText()).trim();
   await card.getByRole('group', { name: 'Plot symbol, front pickup' }).getByRole('combobox').selectOption('two');
-  await card.getByRole('group', { name: 'Plot symbol, rear pickup' }).getByLabel('Typed value, instead of the rating (optional)').fill('1.5 t');
+  await card.getByRole('group', { name: 'Plot symbol, rear pickup' }).getByRole('combobox').selectOption('half');
 
   const moved = changedPdf((sources) => sources.map((s) => (s.name === name ? { ...s, pickups: s.pickups.map((p) => (p.which === 'rear' ? { ...p, position: p.position + 1 } : p)) } : s)), 'c');
   await page.getByTestId('update-file').setInputFiles({ name: 'newer.pdf', mimeType: 'application/pdf', buffer: moved });
@@ -526,7 +551,7 @@ test('update from PDF keeps a symbol for the same pickup and resets one the new 
 
   const again = page.locator('article.card').filter({ has: page.getByRole('heading', { level: 3, name, exact: true }) }).first();
   await expect(again.getByRole('group', { name: 'Plot symbol, front pickup' }).getByRole('combobox')).toHaveValue('two');
-  await expect(again.getByRole('group', { name: 'Plot symbol, rear pickup' }).getByLabel('Typed value, instead of the rating (optional)')).toHaveValue('');
+  await expect(again.getByRole('group', { name: 'Plot symbol, rear pickup' }).getByRole('combobox')).toHaveValue('one');
 });
 
 test('on a read-only file a symbol can still be picked for this session, and is not saved', async ({ page }) => {
@@ -587,7 +612,7 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
 
   // It is saved in the file and comes back with the layer still off.
   const saved = await save(page);
-  expect((saved.json['format'] as string)).toBe('arraysheet/13');
+  expect((saved.json['format'] as string)).toBe('arraysheet/14');
   expect(saved.text).not.toContain('Label');
   await openJson(page, 'venue.arraysheet.json', saved.text);
   const again = (await openSettings(page)).getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });

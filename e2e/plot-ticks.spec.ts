@@ -60,7 +60,7 @@ test('the choices are saved with the file and come back', async ({ page }) => {
   await onPlot(page, OUT).uncheck();
   await printPlot(page).uncheck();
   const saved = await save(page);
-  expect(saved.json['format']).toBe('arraysheet/13');
+  expect(saved.json['format']).toBe('arraysheet/14');
   expect((saved.json['plot'] as boolean[]).filter((p) => !p)).toHaveLength(1);
   expect(saved.json['print_plot']).toBe(false);
 });

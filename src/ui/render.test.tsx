@@ -24,7 +24,7 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} onPlot onOnPlot={() => {}} markers={{ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } }} onMarker={() => {}} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} onPlot onOnPlot={() => {}} markers={{ front: { shape: 'one' }, rear: { shape: 'one' } }} onMarker={() => {}} symbolValues={{ two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' }} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} {...extra} />,
   );
 
 describe('ArrayCard', () => {
@@ -323,7 +323,6 @@ describe('ArrayCard title and notes', () => {
 describe('ArrayCard plot symbol picker', () => {
   const c = parseFixture('c').report.sources;
   const heavy = c.find((s) => s.pickups.length === 2 && (s.weights.total ?? 0) > 1000)!;
-  const plainPair = { front: { shape: 'one' as const, text: '' }, rear: { shape: 'one' as const, text: '' } };
   const pick = (extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) => card(heavy.name, c, extra);
   const options = (html: string) => [...html.matchAll(/<option value="(\w+)"( disabled="")?( selected="")?[^>]*>([^<]*)</g)].map((m) => ({ value: m[1]!, disabled: !!m[2], text: m[4]! }));
 
@@ -348,18 +347,20 @@ describe('ArrayCard plot symbol picker', () => {
     expect(first[1]!.text).not.toContain('below the total weight');
   });
 
-  it('says that a symbol with typed text is grey on the plot, and keeps the typed value', () => {
-    expect(pick()).toContain('A symbol with typed text is grey on the plot');
-    expect(pick()).not.toContain('stated total weight');
-    const typed = pick({ markers: { front: { shape: 'one', text: '1.5 t' }, rear: plainPair.rear } });
-    expect(options(typed).slice(0, 4).map((o) => o.disabled)).toEqual([false, false, false, false]);
-    expect(typed).toContain('value="1.5 t"');
-    expect(typed).toContain('maxLength="12"');
+  it('has no field for a typed value on the card, and names each shape with the value set in Settings', () => {
+    const html = pick();
+    expect(html).not.toContain('Typed value');
+    expect(html).not.toContain('typed text');
+    expect(html).not.toContain('stated total weight');
+    const set = pick({ symbolValues: { two: '2.5 t', one: '1.5 t', half: '0.4 t', quarter: '0.2 t' } });
+    const named = options(set).slice(0, 4);
+    expect(named.map((o) => o.text)).toEqual(['2.5 t, square with a cross', '1.5 t, circle with a cross', '0.4 t, triangle with a cross', '0.2 t, diamond with a cross']);
+    expect(named.map((o) => o.disabled)).toEqual([false, false, false, false]);
   });
 
   it('can still be changed on a read-only file, for this session', () => {
     const locked = pick({ locked: true });
-    expect(locked.match(/<(select(?![^>]*patch-select)|input type="text" value="" maxLength="12")[^>]*disabled/g)).toBeNull();
+    expect(locked.match(/<select(?![^>]*patch-select)[^>]*disabled/g)).toBeNull();
   });
 });
 

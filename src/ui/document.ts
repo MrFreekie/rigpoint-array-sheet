@@ -35,6 +35,8 @@ export {
   withMarker,
   withNote,
   withPrinted,
+  withSymbolValue,
+  withSymbolValuesReset,
   withTitle,
 } from '../files/doc';
 export type { Doc, Job, Status } from '../files/doc';

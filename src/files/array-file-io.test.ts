@@ -296,7 +296,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/13');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/14');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -342,7 +342,7 @@ describe('opening a bad file', () => {
   });
 
   it('refuses a file from a newer version', () => {
-    expect(() => open(edited((f) => (f.format = 'arraysheet/14')))).toThrow(/newer version/);
+    expect(() => open(edited((f) => (f.format = 'arraysheet/15')))).toThrow(/newer version/);
   });
 
   it('refuses a file over the size limit', () => {
@@ -486,11 +486,11 @@ describe('pickup symbols', () => {
 
   it('are saved, one pair for each array, and come back', () => {
     const doc = sample();
-    doc.markers = { 2: { front: { shape: 'two', text: '' }, rear: { shape: 'quarter', text: '1.5 t' } } };
+    doc.markers = { 2: { front: { shape: 'two' }, rear: { shape: 'quarter' } } };
     const file = docToFile(doc, '0.1.0', NOW);
     expect(file.markers).toHaveLength(doc.result.report.sources.length);
-    expect(file.markers[0]).toEqual({ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } });
-    expect(file.markers[2]).toEqual({ front: { shape: 'two', text: '' }, rear: { shape: 'quarter', text: '1.5 t' } });
+    expect(file.markers[0]).toEqual({ front: { shape: 'one' }, rear: { shape: 'one' } });
+    expect(file.markers[2]).toEqual({ front: { shape: 'two' }, rear: { shape: 'quarter' } });
     expect(roundTrip(doc).doc.markers).toEqual(doc.markers);
   });
 
@@ -499,7 +499,7 @@ describe('pickup symbols', () => {
   });
 
   it('are not counted as unsaved after opening, and a change is', () => {
-    const opened = roundTrip({ ...sample(), markers: { 1: { front: { shape: 'half', text: '' }, rear: { shape: 'one', text: '' } } } }).doc;
+    const opened = roundTrip({ ...sample(), markers: { 1: { front: { shape: 'half' }, rear: { shape: 'one' } } } }).doc;
     expect(editKey(opened)).toBe(opened.savedKey);
     expect(editKey({ ...opened, markers: {} })).not.toBe(opened.savedKey);
   });
@@ -510,11 +510,11 @@ describe('pickup symbols', () => {
   });
 
   it('a read-only override is not saved', () => {
-    const doc = { ...sample(), markerOverride: { 0: { front: { shape: 'two', text: '' }, rear: { shape: 'two', text: '' } } } } as Doc;
-    expect(docToFile(doc, '0.1.0', NOW).markers[0]).toEqual({ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } });
+    const doc = { ...sample(), markerOverride: { 0: { front: { shape: 'two' }, rear: { shape: 'two' } } } } as Doc;
+    expect(docToFile(doc, '0.1.0', NOW).markers[0]).toEqual({ front: { shape: 'one' }, rear: { shape: 'one' } });
   });
 
-  it('are refused when the list is the wrong length, a shape is not one of the four, or the text is too long or holds a control character', () => {
+  it('are refused when the list is the wrong length or a shape is not one of the four', () => {
     const bad = (change: (f: any) => void, message: RegExp) => {
       const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW));
       change(f);
@@ -522,9 +522,41 @@ describe('pickup symbols', () => {
     };
     bad((f) => f.markers.pop(), /one pair of pickup symbols for each array/);
     bad((f) => (f.markers[0].front.shape = 'three'), /pickup symbol must be/);
-    bad((f) => (f.markers[0].rear.text = 'x'.repeat(13)), /symbol value is too long/);
-    bad((f) => (f.markers[0].rear.text = 'a\nb'), /cannot hold line breaks or control characters/);
     bad((f) => (f.markers = 'many'), /must be a list/);
+  });
+});
+
+describe('the value written for each plot symbol', () => {
+  it('starts with the usual values, is saved with the file, and comes back', () => {
+    const doc = sample();
+    expect(docToFile(doc, '0.1.0', NOW).symbol_values).toEqual({ two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' });
+    const changed = { ...doc, symbolValues: { ...doc.symbolValues, one: '1.5 t' } };
+    expect(docToFile(changed, '0.1.0', NOW).symbol_values.one).toBe('1.5 t');
+    expect(roundTrip(changed).doc.symbolValues).toEqual(changed.symbolValues);
+  });
+
+  it('is saved as the usual value when the field was left blank', () => {
+    const doc = { ...sample(), symbolValues: { two: '  ', one: '1 t', half: '0.5 t', quarter: '0.25 t' } };
+    expect(docToFile(doc, '0.1.0', NOW).symbol_values.two).toBe('2 t');
+  });
+
+  it('is not counted as unsaved after opening, and a change is', () => {
+    const opened = roundTrip({ ...sample(), symbolValues: { ...sample().symbolValues, half: '0.4 t' } }).doc;
+    expect(editKey(opened)).toBe(opened.savedKey);
+    expect(editKey({ ...opened, symbolValues: { ...opened.symbolValues, half: '0.5 t' } })).not.toBe(opened.savedKey);
+  });
+
+  it('is refused when it is blank, too long, not text or holds a control character', () => {
+    const bad = (change: (f: any) => void, message: RegExp) => {
+      const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW));
+      change(f);
+      expect(() => openFileText(JSON.stringify(f), null)).toThrow(message);
+    };
+    bad((f) => (f.symbol_values.one = ''), /cannot be blank/);
+    bad((f) => (f.symbol_values.one = 'x'.repeat(13)), /longer than 12 characters/);
+    bad((f) => (f.symbol_values.one = 7), /must be text/);
+    bad((f) => (f.symbol_values.two = 'a\nb'), /cannot hold line breaks or control characters/);
+    bad((f) => delete f.symbol_values, /symbol_values|Required|expected object/i);
   });
 });
 

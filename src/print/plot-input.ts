@@ -1,6 +1,6 @@
 // What the rigging plot draws for a document: the arrays chosen for printing and their numbered pickups.
 
-import type { PickupSide } from '../engine/markers';
+import { SHAPES, symbolValue, type PickupSide, type SymbolValues } from '../engine/markers';
 import { numberPickups, plotArrays } from '../engine/plot';
 import { markerOf, type Doc } from '../files/doc';
 import type { SheetModel } from '../ui/sheet-model';
@@ -30,6 +30,7 @@ export function plotContent(doc: Doc, model: SheetModel): PlotContent | null {
     notDrawn,
     origin: doc.job.origin,
     sideLabels: doc.job.sideLabels,
+    symbolValues: Object.fromEntries(SHAPES.map((shape) => [shape, symbolValue(doc.symbolValues, shape)])) as SymbolValues,
     venue: visibleLayers(doc.underlay),
     subtitle: riggingSubtitle(doc.job),
     status: panelHeader(doc).status,

@@ -673,16 +673,16 @@ test('the plot preview and the print view carry the credit line', async ({ page 
   await expect(page.getByTestId('print-plot').getByText(credit)).toHaveCount(1);
 });
 
-test('picking a pickup symbol and typing a value shows on the plot preview, in the print view, in Download PDF and in the saved file', async ({ page }) => {
+test('picking a pickup symbol and writing a value for the 1 t symbol in Settings shows on the plot preview, in the print view, in Download PDF, in the DXF and in the saved file', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('c'));
   const front = page.getByRole('group', { name: 'Plot symbol, front pickup' }).first();
-  const rear = page.getByRole('group', { name: 'Plot symbol, rear pickup' }).first();
   await front.getByRole('combobox').selectOption('two');
-  await rear.getByLabel('Typed value, instead of the rating (optional)').fill('1.5 t');
+  await inSettings(page, (d) => d.getByLabel('Symbol, circle with a cross').fill('1.5 t'));
   const preview = page.getByTestId('plot-preview');
   await expect(preview.getByText('1.5 t', { exact: true }).first()).toBeVisible();
   await expect(preview.getByText('2 t', { exact: true }).first()).toBeVisible();
+  await expect(preview.getByText('1 t', { exact: true })).toHaveCount(0);
 
   // The print view draws the same text on the turned plot page.
   await page.emulateMedia({ media: 'print' });
@@ -693,14 +693,22 @@ test('picking a pickup symbol and typing a value shows on the plot preview, in t
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
   const text = items.map((i) => i.text);
   expect(text).toContain('1.5 t');
-  expect(text).toContain('Pickup symbols, nominal rating, a guide only');
+  expect(text).toContain('Pickup symbols, a guide only');
+  expect(text).not.toContain('Custom value noted on plot');
 
-  // The choice is saved with the file, in the new format.
+  // The DXF names the value in its notes, and has no layer for custom symbols.
+  const [dxf] = await Promise.all([page.waitForEvent('download'), preview.getByRole('button', { name: 'Download DXF' }).click()]);
+  const dxfText = readFileSync(await dxf.path(), 'ascii');
+  expect(dxfText).toContain('Pickup symbols, a guide only: square 2 t, circle 1.5 t, triangle 0.5 t, diamond 0.25 t.');
+  expect(dxfText).not.toContain('PICKUPS_CUSTOM');
+
+  // The choices are saved with the file, in the new format: the shapes on the pickups, the values for the job.
   const { json } = await save(page);
-  const markers = json['markers'] as { front: { shape: string; text: string }; rear: { shape: string; text: string } }[];
-  expect(json['format']).toBe('arraysheet/13');
+  const markers = json['markers'] as { front: { shape: string }; rear: { shape: string } }[];
+  expect(json['format']).toBe('arraysheet/14');
   expect(markers.some((m) => m.front.shape === 'two')).toBe(true);
-  expect(markers.some((m) => m.rear.text === '1.5 t')).toBe(true);
+  expect(markers.every((m) => !('text' in m.front) && !('text' in m.rear))).toBe(true);
+  expect(json['symbol_values']).toEqual({ two: '2 t', one: '1.5 t', half: '0.5 t', quarter: '0.25 t' });
 });
 
 // The cable patch on the pocket cards: the two columns come last, show a colour chip with the digit (or an empty pencil box when

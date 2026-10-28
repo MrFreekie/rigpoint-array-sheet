@@ -4,7 +4,7 @@
 // plot page gave them, scaled up to full size, so they clash no more than they do on the page.
 // The file is plain ASCII in the old R12 layout, which every CAD program reads. It has no library behind it.
 
-import { markerPrims } from '../engine/markers';
+import { markerPrims, symbolValue, type Shape } from '../engine/markers';
 import { dotRadiusMm, layoutPlotPages, MARKER_REAL_M, type PlotInput, type PlotPlan } from './plot-layout';
 import type { Measure } from './array-image';
 import { PT_PER_MM } from './pdf-layout';
@@ -12,6 +12,9 @@ import { PLOT_SMALL_PRINT } from './small-print';
 
 export const DXF_UNITS_NOTE = 'DXF units are millimetres at full size (1:1).';
 export const DXF_MIME = 'application/dxf';
+
+/** The four symbols as the note in the file names them. */
+const SYMBOL_WORDS: readonly (readonly [Shape, string])[] = [['two', 'square'], ['one', 'circle'], ['half', 'triangle'], ['quarter', 'diamond']];
 
 interface Layer {
   name: string;
@@ -27,7 +30,6 @@ const LAYERS: Layer[] = [
   { name: 'STACK_DIAGONALS', colour: 8, linetype: 'CONTINUOUS' },
   { name: 'POSITIONS', colour: 7, linetype: 'CONTINUOUS' },
   { name: 'PICKUPS', colour: 7, linetype: 'CONTINUOUS' },
-  { name: 'PICKUPS_CUSTOM', colour: 8, linetype: 'CONTINUOUS' },
   { name: 'PICKUP_LINKS', colour: 8, linetype: 'CONTINUOUS' },
   { name: 'LABELS', colour: 7, linetype: 'CONTINUOUS' },
   { name: 'LEADERS', colour: 8, linetype: 'CONTINUOUS' },
@@ -266,8 +268,8 @@ export function plotDxf(input: PlotInput, measure: Measure, options: { venue?: b
   for (const p of input.points) {
     const x = mm(p.at.x);
     const y = mm(p.at.y);
-    // The symbol the person chose, at full size: 250 mm across. One with typed text is on its own layer.
-    const layer = p.custom ? 'PICKUPS_CUSTOM' : 'PICKUPS';
+    // The symbol the person chose, at full size: 250 mm across.
+    const layer = 'PICKUPS';
     for (const m of markerPrims(p.marker.shape, half * 2)) {
       if (m.kind === 'circle') w.circle(layer, x + m.cx, y + m.cy, m.r);
       else w.line(layer, x + m.x1, y + m.y1, x + m.x2, y + m.y2);
@@ -314,6 +316,7 @@ export function plotDxf(input: PlotInput, measure: Measure, options: { venue?: b
   const notes: string[] = [
     input.subtitle.trim() ? `Rigging plot, ${input.subtitle.trim()}`.slice(0, 160) : 'Rigging plot',
     `${DXF_UNITS_NOTE} The origin 0,0 is the Soundvision origin${origin ? `, ${origin}` : ''}. +X is towards house left and +Y towards the audience.`,
+    `Pickup symbols, a guide only: ${SYMBOL_WORDS.map(([shape, word]) => `${word} ${symbolValue(input.symbolValues, shape)}`).join(', ')}.`,
     ...(input.notDrawn.length > 0 ? [`Not drawn, no position, size or azimuth in the report: ${input.notDrawn.join(', ')}`] : []),
     ...wrapChars(PLOT_SMALL_PRINT, 110),
   ];

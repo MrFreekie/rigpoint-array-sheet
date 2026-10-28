@@ -1,5 +1,5 @@
-// The pickup symbols of the rigging plot: four shapes that stand for a nominal rating, picked for each pickup, with
-// optional typed text in place of the rating. A symbol is a guide only. Nothing here works out a load.
+// The pickup symbols of the rigging plot: four shapes, picked for each pickup. Each shape has a value written for it, such
+// as "1 t", set once for the whole job in Settings. A symbol is a guide only. Nothing here works out a load.
 
 import { matchByName } from './compare';
 import type { Report } from './types';
@@ -8,10 +8,8 @@ import type { Report } from './types';
 export const SHAPES = ['two', 'one', 'half', 'quarter'] as const;
 export type Shape = (typeof SHAPES)[number];
 
-/** The nominal rating of each symbol, in kilograms. */
-export const RATING_KG: Record<Shape, number> = { two: 2000, one: 1000, half: 500, quarter: 250 };
-/** How each rating is written on the plot, in the table and in the picker. */
-export const RATING_LABEL: Record<Shape, string> = { two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' };
+/** The value written for each symbol until the person changes it in Settings, in metric tonnes. */
+export const DEFAULT_SYMBOL_VALUES: Readonly<Record<Shape, string>> = { two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' };
 /** What each shape looks like, for the picker and the legend. */
 export const SHAPE_NAME: Record<Shape, string> = {
   two: 'square with a cross',
@@ -20,13 +18,30 @@ export const SHAPE_NAME: Record<Shape, string> = {
   quarter: 'diamond with a cross',
 };
 
-/** The longest typed value for a symbol. */
-export const MARKER_TEXT_MAX = 12;
+/** The longest value for a symbol. */
+export const SYMBOL_VALUE_MAX = 12;
+
+/** The value written for each of the four shapes. Set once for the job. */
+export type SymbolValues = Record<Shape, string>;
+
+export const defaultSymbolValues = (): SymbolValues => ({ ...DEFAULT_SYMBOL_VALUES });
+
+/** A value is one line of plain text, at most SYMBOL_VALUE_MAX characters. */
+export function cleanSymbolValue(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, SYMBOL_VALUE_MAX);
+}
+
+/** The value of a shape. A blank one falls back to the default. */
+export function symbolValue(values: Readonly<Record<Shape, string>>, shape: Shape): string {
+  return cleanSymbolValue(values[shape]).trim() || DEFAULT_SYMBOL_VALUES[shape];
+}
+
+export const sameSymbolValues = (a: Readonly<Record<Shape, string>>, b: Readonly<Record<Shape, string>>): boolean =>
+  SHAPES.every((shape) => symbolValue(a, shape) === symbolValue(b, shape));
 
 export interface Marker {
   shape: Shape;
-  /** Typed text shown in place of the rating, such as "1.5 t". Blank means the rating of the shape. */
-  text: string;
 }
 
 /** The choice for the front and the rear pickup of one array. A single pickup uses the one that matches its side. */
@@ -37,25 +52,12 @@ export interface MarkerPair {
 
 export type PickupSide = keyof MarkerPair;
 
-export const DEFAULT_MARKER: Marker = { shape: 'one', text: '' };
+export const DEFAULT_MARKER: Marker = { shape: 'one' };
 
 export const defaultPair = (): MarkerPair => ({ front: { ...DEFAULT_MARKER }, rear: { ...DEFAULT_MARKER } });
 
-export const sameMarker = (a: Marker, b: Marker): boolean => a.shape === b.shape && a.text.trim() === b.text.trim();
-export const isDefaultMarker = (m: Marker): boolean => sameMarker(m, DEFAULT_MARKER);
+export const isDefaultMarker = (m: Marker): boolean => m.shape === DEFAULT_MARKER.shape;
 export const isDefaultPair = (p: MarkerPair): boolean => isDefaultMarker(p.front) && isDefaultMarker(p.rear);
-
-/** Typed text is one line of plain text, at most MARKER_TEXT_MAX characters. */
-export function cleanMarkerText(text: string): string {
-  // eslint-disable-next-line no-control-regex
-  return text.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, MARKER_TEXT_MAX);
-}
-
-/** True when the symbol carries typed text of its own. */
-export const isCustom = (m: Marker): boolean => m.text.trim() !== '';
-
-/** What a symbol is worth as written: the typed text, else the rating of its shape. */
-export const markerValue = (m: Marker): string => (isCustom(m) ? m.text.trim() : RATING_LABEL[m.shape]);
 
 export interface MarkerLine {
   kind: 'line';
@@ -100,7 +102,7 @@ export function markerPrims(shape: Shape, size: number): MarkerPrim[] {
 /** What follows from Update from PDF: the choices that carry over, by position in the new report, and the ones that cannot. */
 export interface TrackedMarkers {
   kept: Record<number, MarkerPair>;
-  reset: { array: string; side: PickupSide; value: string }[];
+  reset: { array: string; side: PickupSide; shape: Shape }[];
 }
 
 /**
@@ -123,7 +125,7 @@ export function trackMarkers(saved: Report, next: Report, markers: Readonly<Reco
       const was = old?.pickups.find((p) => p.which === side);
       const is = now?.pickups.find((p) => p.which === side);
       if (was && is && was.position === is.position) out[side] = { ...m };
-      else reset.push({ array: old?.name ?? '', side, value: markerValue(m) });
+      else reset.push({ array: old?.name ?? '', side, shape: m.shape });
     }
     if (j !== undefined && !isDefaultPair(out)) kept[j] = out;
   }

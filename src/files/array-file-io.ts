@@ -1,7 +1,7 @@
 // Turning a document into a saved file and back. Opening is strict: the text is untrusted until
 // it has passed the size limit, the format check, any upgrade steps and the schema.
 
-import { defaultPair, isDefaultPair, type MarkerPair } from '../engine/markers';
+import { defaultPair, isDefaultPair, SHAPES, symbolValue, type MarkerPair, type SymbolValues } from '../engine/markers';
 import { fitPatch, patchUsed, type PatchRow } from '../engine/patch';
 import { packEdges, unpackEdges, type Underlay } from '../engine/underlay';
 import { ArrayFileSchema, FORMAT, type ArrayFile } from '../schema/array-file';
@@ -43,6 +43,7 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
       return { front: { ...pair.front }, rear: { ...pair.rear } };
     }),
     patch: Array.from({ length: count }, (_, i) => fitPatch(doc.patches[i], doc.result.report.sources[i]?.cabinets.length ?? 0)),
+    symbol_values: { two: symbolValue(doc.symbolValues, 'two'), one: symbolValue(doc.symbolValues, 'one'), half: symbolValue(doc.symbolValues, 'half'), quarter: symbolValue(doc.symbolValues, 'quarter') },
     cart_sizes: doc.cartSizes.map((c) => ({ type: c.type, size: c.size })),
     carts: Array.from({ length: count }, (_, i) => {
       const c = cartsOf(doc, i);
@@ -154,6 +155,7 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
     plotPrintOverride: null,
     markers,
     markerOverride: null,
+    symbolValues: Object.fromEntries(SHAPES.map((shape) => [shape, f.symbol_values[shape]])) as SymbolValues,
     patches,
     underlay,
     cartSizes: f.cart_sizes.map((c) => ({ type: c.type, size: c.size })),

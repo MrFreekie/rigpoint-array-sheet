@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import { compareReports, type Change } from '../engine/compare';
 import { trackCarts } from '../engine/carts';
 import { trackPatches, type PatchField, type PatchValue } from '../engine/patch';
-import { trackMarkers, type Marker, type PickupSide } from '../engine/markers';
+import { symbolValue, trackMarkers, type Marker, type PickupSide } from '../engine/markers';
 import { riggingFixations, riggingRows } from '../engine/sheet';
 import type { ParseResult, Problem } from '../engine/types';
 import { openFileText, serialiseDoc } from '../files/array-file-io';
@@ -27,8 +27,9 @@ import { PrintSheet } from '../print/PrintSheet';
 import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
 import type { CartSize } from '../engine/carts';
+import type { Shape } from '../engine/markers';
 import type { Underlay } from '../engine/underlay';
-import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withCartBreak, withCartReset, withCartSizes, withDeleted, withPatch, withLayerHidden, withMarker, withNote, withOnPlot, withPlotPrinted, withPrinted, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
+import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, markerOf, withCartBreak, withCartReset, withCartSizes, withDeleted, withPatch, withLayerHidden, withMarker, withNote, withOnPlot, withPlotPrinted, withPrinted, withSymbolValue, withSymbolValuesReset, withTitle, withUnderlay, type Doc, type Job, type Status } from './document';
 import { JobForm } from './JobForm';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -348,7 +349,7 @@ export function App() {
         setError(`The new PDF cannot be relied on, so nothing was changed. ${first?.message ?? ''}`.trim());
         return;
       }
-      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles, trackMarkers(doc.result.report, fresh.report, doc.markers).reset, trackPatches(doc.result.report, fresh.report, doc.patches).reset, trackCarts(doc.result.report, fresh.report, doc.carts).reset);
+      const changes = compareReports(doc.result.report, fresh.report, new Set(deletedList(doc)), doc.titles, trackMarkers(doc.result.report, fresh.report, doc.markers).reset.map((r) => ({ array: r.array, side: r.side, value: symbolValue(doc.symbolValues, r.shape), fallback: symbolValue(doc.symbolValues, 'one') })), trackPatches(doc.result.report, fresh.report, doc.patches).reset, trackCarts(doc.result.report, fresh.report, doc.carts).reset);
       if (changes.length === 0) setNotice(`${file.name} matches this file. There is nothing to update.`);
       else setCompare({ fresh, sourceName: file.name, changes });
     } catch (e) {
@@ -396,6 +397,8 @@ export function App() {
   const setCartBreak = (index: number, row: number) => setDoc((d) => (d ? withCartBreak(d, index, row) : d));
   const resetCarts = (index: number) => setDoc((d) => (d ? withCartReset(d, index) : d));
   const setCartSizes = (sizes: CartSize[]) => setDoc((d) => (d ? withCartSizes(d, sizes) : d));
+  const setSymbolValue = (shape: Shape, text: string) => setDoc((d) => (d ? withSymbolValue(d, shape, text) : d));
+  const resetSymbolValues = () => setDoc((d) => (d ? withSymbolValuesReset(d) : d));
   const setPatch = (index: number, row: number, field: PatchField, value: PatchValue) => setDoc((d) => (d ? withPatch(d, index, row, field, value) : d));
   const deleteArray = (index: number) => {
     if (!doc || doc.locked) return;
@@ -677,6 +680,8 @@ export function App() {
           locked={locked}
           onJob={patchJob}
           onCartSizes={setCartSizes}
+          onSymbolValue={setSymbolValue}
+          onSymbolValuesReset={resetSymbolValues}
           onUnderlay={setUnderlay}
           onLayer={setLayerHidden}
           showMirrors={showMirrors}
@@ -822,6 +827,7 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                   onNote={(t) => onNote(entry.index, t)}
                   markers={{ front: markerOf(doc, entry.index, 'front'), rear: markerOf(doc, entry.index, 'rear') }}
                   onMarker={(side, m) => onMarker(entry.index, side, m)}
+                  symbolValues={doc.symbolValues}
                   patch={entry.patch}
                   onPatch={(row, field, value) => onPatch(entry.index, row, field, value)}
                   carts={entry.carts}

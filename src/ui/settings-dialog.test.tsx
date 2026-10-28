@@ -9,7 +9,7 @@ const noop = () => {};
 const docOf = (name: 'a' | 'b' | 'c' | 'e'): Doc => newDoc(parseFixture(name), `${name}.pdf`);
 const html = (d: Doc, locked = false, showMirrors = false) =>
   renderToStaticMarkup(
-    <SettingsDialog doc={d} model={sheetModel(d, showMirrors)} locked={locked} onJob={noop} onCartSizes={noop} onUnderlay={noop} onLayer={noop} showMirrors={showMirrors} onShowMirrors={noop} onClose={noop} />,
+    <SettingsDialog doc={d} model={sheetModel(d, showMirrors)} locked={locked} onJob={noop} onCartSizes={noop} onSymbolValue={noop} onSymbolValuesReset={noop} onUnderlay={noop} onLayer={noop} showMirrors={showMirrors} onShowMirrors={noop} onClose={noop} />,
   );
 
 describe('Settings', () => {
@@ -60,6 +60,25 @@ describe('Settings', () => {
     expect(reportTypes(sheetModel(d, false))).not.toContain('SB18');
   });
 
+  it('has a Symbols section with one field for each of the four shapes, holding the usual values', () => {
+    const out = html(docOf('a'));
+    expect(out).toContain('>Symbols</h4>');
+    for (const [shape, value] of [['square with a cross', '2 t'], ['circle with a cross', '1 t'], ['triangle with a cross', '0.5 t'], ['diamond with a cross', '0.25 t']] as const) {
+      expect(out).toContain(`Symbol, ${shape}`);
+      expect(out).toContain(`value="${value}"`);
+    }
+    expect(out.match(/class="symbol-icon"/g)).toHaveLength(4);
+    expect(out).toContain('maxLength="12"');
+    expect(out).toContain('Reset the symbols to the usual values');
+  });
+
+  it('shows the values the person set, and not the usual ones', () => {
+    const d = { ...docOf('a'), symbolValues: { two: '2.5 t', one: '1.5 t', half: '0.4 t', quarter: '0.2 t' } };
+    const out = html(d);
+    for (const v of ['2.5 t', '1.5 t', '0.4 t', '0.2 t']) expect(out).toContain(`value="${v}"`);
+    expect(out).not.toContain('value="0.25 t"');
+  });
+
   it('has a Reset to the usual sizes button', () => {
     expect(html(docOf('a'))).toContain('Reset to the usual sizes');
   });
@@ -72,8 +91,8 @@ describe('Settings', () => {
     const buttons = out.match(/<button[^>]*disabled=""[^>]*>[^<]*</g) ?? [];
     expect(buttons.map((b) => b.replace(/<[^>]*>/g, '').replace('<', ''))).toEqual(expect.arrayContaining(['Reset to the usual sizes', 'Import venue (SU4SV text file)']));
     const inputs = out.match(/<input[^>]*disabled=""/g) ?? [];
-    // Every size field (the report's types and the saved ones) and the side labels tick. The venue file is chosen with a button, which is disabled too, and the mirrors tick stays on: it is a view choice.
-    expect(inputs.length).toBe(fields + 1);
+    // Every size field (the report's types and the saved ones), the four symbol fields and the side labels tick. The venue file is chosen with a button, which is disabled too, and the mirrors tick stays on: it is a view choice.
+    expect(inputs.length).toBe(fields + 4 + 1);
     expect(out).not.toMatch(/<input type="checkbox"(?![^>]*disabled)[^>]*>(?=<span>Show side labels)/);
   });
 });

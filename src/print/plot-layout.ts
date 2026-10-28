@@ -2,7 +2,7 @@
 // the print view, the on-screen preview and the PDF draw the same thing. The page is printed turned a quarter turn
 // anticlockwise onto the portrait sheet; the renderers do that turn, nothing here knows about it.
 
-import { markerPrims, markerValue, RATING_LABEL, SHAPES, isCustom, type Shape } from '../engine/markers';
+import { markerPrims, SHAPES, symbolValue, type Shape, type SymbolValues } from '../engine/markers';
 import { type PlotArray, type PlotPoint, type Pt2 } from '../engine/plot';
 import { UNDERLAY_STEPS, type UnderlayLayer } from '../engine/underlay';
 import { NOT_STATED } from '../ui/format';
@@ -14,7 +14,7 @@ import { PLOT_SMALL_PRINT } from './small-print';
 export const PLOT_W_MM = 284;
 export const PLOT_H_MM = 198;
 
-export type PlotColor = 'ink' | 'grey' | 'faint' | 'grid' | 'dot' | 'axisX' | 'axisY' | 'under0' | 'under1' | 'under2' | 'under3';
+export type PlotColor = 'ink' | 'grey' | 'grid' | 'dot' | 'axisX' | 'axisY' | 'under0' | 'under1' | 'under2' | 'under3';
 
 export type PlotOp =
   | { op: 'line'; x1: number; y1: number; x2: number; y2: number; width: number; color: PlotColor; dash?: number[] }
@@ -26,9 +26,9 @@ export type PlotOp =
 export type PlotPalette = Record<PlotColor, string>;
 
 /** On screen the axes are red and green and the array Position is red. */
-export const SCREEN_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', faint: '#9a9a9a', grid: '#d6d6d6', dot: '#d00000', axisX: '#d00000', axisY: '#0a8a0a', under0: '#8c8c8c', under1: '#a6a6a6', under2: '#c0c0c0', under3: '#d8d8d8' };
+export const SCREEN_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', grid: '#d6d6d6', dot: '#d00000', axisX: '#d00000', axisY: '#0a8a0a', under0: '#8c8c8c', under1: '#a6a6a6', under2: '#c0c0c0', under3: '#d8d8d8' };
 /** On paper the axes are black and grey and the dot is black. */
-export const PRINT_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', faint: '#a0a0a0', grid: '#d0d0d0', dot: '#000000', axisX: '#000000', axisY: '#555555', under0: '#8c8c8c', under1: '#a6a6a6', under2: '#c0c0c0', under3: '#d8d8d8' };
+export const PRINT_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', grid: '#d0d0d0', dot: '#000000', axisX: '#000000', axisY: '#555555', under0: '#8c8c8c', under1: '#a6a6a6', under2: '#c0c0c0', under3: '#d8d8d8' };
 
 /** The standard ratios, 1:n, the plot may use. The largest drawing that fits is chosen. */
 export const STANDARD_RATIOS = [50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 2500];
@@ -72,6 +72,8 @@ export interface PlotInput {
   origin: string;
   /** Name the sides of the plan (House left, House right, Stage, Audience). Off for a show in the round. */
   sideLabels: boolean;
+  /** The value written for each of the four symbols, such as "1 t". */
+  symbolValues: Readonly<SymbolValues>;
   /** The line under the heading: show, venue and Z-axis zero. */
   subtitle: string;
   /** e.g. "Draft Rev B". */
@@ -349,8 +351,8 @@ function footerOps(input: PlotInput, page: number, measure: Measure): PlotOp[] {
 }
 
 /** The table rows as strings. */
-export function tableRow(p: PlotPoint): string[] {
-  return [p.label, p.source, p.single ? 'Single' : p.which === 'front' ? 'Front' : 'Rear', p.load === null ? NOT_STATED : String(p.load), markerValue(p.marker), p.at.x.toFixed(2), p.at.y.toFixed(2), p.spacing === null ? '' : p.spacing.toFixed(2)];
+export function tableRow(p: PlotPoint, values: Readonly<SymbolValues>): string[] {
+  return [p.label, p.source, p.single ? 'Single' : p.which === 'front' ? 'Front' : 'Rear', p.load === null ? NOT_STATED : String(p.load), symbolValue(values, p.marker.shape), p.at.x.toFixed(2), p.at.y.toFixed(2), p.spacing === null ? '' : p.spacing.toFixed(2)];
 }
 
 /** The array name on at most two lines, cut in the middle of the second if it is still too long. */
@@ -361,7 +363,7 @@ export function tableNameLines(name: string, measure: Measure): string[] {
   return [lines[0] as string, clipMiddle(lines.slice(1).join(' '), TABLE_PT, false, max * PT_PER_MM, measure)];
 }
 
-function tableOps(rows: readonly PlotPoint[], x0: number, y0: number, measure: Measure): { ops: PlotOp[]; bottom: number } {
+function tableOps(rows: readonly PlotPoint[], values: Readonly<SymbolValues>, x0: number, y0: number, measure: Measure): { ops: PlotOp[]; bottom: number } {
   const ops: PlotOp[] = [];
   const xs = COLUMN_WIDTHS.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? x0) + w], [x0]);
   const right = (i: number) => i >= 3;
@@ -376,7 +378,7 @@ function tableOps(rows: readonly PlotPoint[], x0: number, y0: number, measure: M
   ops.push(line(x0, y, x0 + COLUMN.w, y, 0.3, 'ink'));
   for (const p of rows) {
     const names = tableNameLines(p.source, measure);
-    tableRow(p).forEach((t, i) => {
+    tableRow(p, values).forEach((t, i) => {
       if (i !== 1) cell(i, t, y, i === 0);
     });
     names.forEach((n, k) => ops.push(text((xs[1] ?? 0) + 0.6, y + 0.9 + k * TABLE_LINE_MM, n, TABLE_PT)));
@@ -612,17 +614,13 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
       segments.push({ x1: X(f.at.x), y1: Y(f.at.y), x2: X(r.at.x), y2: Y(r.at.y) });
     }
   }
-  for (const p of points) marker(ops, p.marker.shape, X(p.at.x), Y(p.at.y), d, p.custom ? 'faint' : 'ink');
+  for (const p of points) marker(ops, p.marker.shape, X(p.at.x), Y(p.at.y), d);
 
   // Labels: pickups first, then the arrays.
   const requests: LabelRequest[] = points.map((p, i) => ({
     anchor: markerRects[i] as Rect,
     ignore: [boxRects.get(p.arrayIndex)].filter((r): r is Rect => !!r),
-    // Text typed in place of the rating goes on its own line under the load.
-    lines: [
-      { text: `${p.label}  ${p.load === null ? 'load not stated' : `${p.load} kg`}`, bold: true },
-      ...(isCustom(p.marker) ? [{ text: markerValue(p.marker), bold: false }] : []),
-    ],
+    lines: [{ text: `${p.label}  ${p.load === null ? 'load not stated' : `${p.load} kg`}`, bold: true }],
   }));
   const pointLabels = placeLabels(requests, occupied, softRects, segments, bounds, measure);
   const spacings = new Map<number, number>();
@@ -716,7 +714,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   }
 
   // ---- The side column: table, legend, small print ----
-  const tbl = tableOps(first, COLUMN.x0, FRAME.y0, measure);
+  const tbl = tableOps(first, input.symbolValues, COLUMN.x0, FRAME.y0, measure);
   ops.push(...tbl.ops);
   let y = tbl.bottom + 4;
   const sw = 6;
@@ -736,19 +734,15 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
     ops.push(text(COLUMN.x0 + sw + 2, y + 0.2, clipToWidth(label, 5, false, (COLUMN.w - sw - 2) * PT_PER_MM, measure), 5));
     y += 4;
   }
-  // The pickup symbols, each with the rating it stands for, then what a grey symbol means.
-  ops.push(text(COLUMN.x0, y + 0.2, 'Pickup symbols, nominal rating, a guide only', 5));
+  // The pickup symbols, each with the value written for it in Settings.
+  ops.push(text(COLUMN.x0, y + 0.2, 'Pickup symbols, a guide only', 5));
   y += 4;
   const cellW = COLUMN.w / SHAPES.length;
   SHAPES.forEach((shape, k) => {
     marker(ops, shape, COLUMN.x0 + k * cellW + 1.4, y + 1.2, 2.4);
-    ops.push(text(COLUMN.x0 + k * cellW + 3.4, y + 0.2, RATING_LABEL[shape], 5));
+    ops.push(text(COLUMN.x0 + k * cellW + 3.4, y + 0.2, clipToWidth(symbolValue(input.symbolValues, shape), 5, false, (cellW - 4) * PT_PER_MM, measure), 5));
   });
   y += 4;
-  marker(ops, 'one', COLUMN.x0 + 1.4, y + 1.2, 2.4, 'faint');
-  const symbolNotes = wrap('Custom value noted on plot', 5, false, (COLUMN.w - 4) * PT_PER_MM, measure);
-  symbolNotes.forEach((t, k) => ops.push(text(COLUMN.x0 + 3.4, y + 0.2 + k * ((5 / PT_PER_MM) * 1.2), t, 5)));
-  y += 1 + symbolNotes.length * ((5 / PT_PER_MM) * 1.2);
   const small = wrap(PLOT_SMALL_PRINT, 5, false, COLUMN.w * PT_PER_MM, measure);
   const smallLine = (5 / PT_PER_MM) * 1.2;
   const smallTop = PLOT_H_MM - 6 - small.length * smallLine - 1;
@@ -763,7 +757,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
     const rows = more.slice(i, i + CONTINUED_ROWS);
     const page = pages.length;
     const cont: PlotOp[] = [...headerOps(input, 'Rigging plot (continued)', 0, measure)];
-    cont.push(...tableOps(rows, 0, FRAME.y0, measure).ops);
+    cont.push(...tableOps(rows, input.symbolValues, 0, FRAME.y0, measure).ops);
     cont.push(...footerOps(input, page, measure));
     pages.push({ ops: cont, ratio: 0, overflow: false });
   }

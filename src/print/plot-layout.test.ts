@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultSymbolValues } from '../engine/markers';
 import { numberPickups, plotArrays } from '../engine/plot';
 import { parseFixture } from '../testing/fixtures';
 import { newDoc, withDeleted, withPlotPrinted } from '../ui/document';
@@ -156,9 +157,9 @@ describe('the plot page', () => {
     const ops = p[0]!.ops;
     const flown = content.arrays.filter((a) => a.kind === 'flown');
     const stacks = content.arrays.filter((a) => a.kind === 'stacked');
-    // Every array has one Position dot, a stack the same as any other, and the key repeats a dot. The key draws the 1 ton circle twice: among the four symbols and as the grey example.
+    // Every array has one Position dot, a stack the same as any other, and the key repeats a dot. The key draws the 1 ton circle once, among the four symbols.
     expect(ops.filter((o) => o.op === 'circle' && o.fill)).toHaveLength(flown.length + stacks.length + 1);
-    expect(ops.filter((o) => o.op === 'circle' && !o.fill)).toHaveLength(content.points.length + 2);
+    expect(ops.filter((o) => o.op === 'circle' && !o.fill)).toHaveLength(content.points.length + 1);
     expect(ops.filter((o) => o.op === 'line' && o.dash?.length === 2)).toHaveLength(flown.filter((a) => a.pickups.length > 0).length * 4 + 4);
     expect(ops.filter((o) => o.op === 'line' && !o.dash && o.width === 0.25)).toHaveLength((flown.filter((a) => a.pickups.length === 0).length + stacks.length) * 4 + 8);
   });
@@ -522,12 +523,13 @@ describe('what is on the rigging plot', () => {
 });
 
 describe('the Pickup column of the table', () => {
-  const point = { label: 'PA1', number: 1, arrayIndex: 0, source: 'A', which: 'front' as const, single: false, pickupPosition: 6, at: { x: 1, y: 2, z: 3 }, load: 100, spacing: null, marker: { shape: 'one' as const, text: '' }, custom: false };
+  const point = { label: 'PA1', number: 1, arrayIndex: 0, source: 'A', which: 'front' as const, single: false, pickupPosition: 6, at: { x: 1, y: 2, z: 3 }, load: 100, spacing: null, marker: { shape: 'one' as const } };
   it('says Single for an array with one pickup, whichever side it is, and Front or Rear for a pair', () => {
-    expect(tableRow({ ...point, single: true })[2]).toBe('Single');
-    expect(tableRow({ ...point, single: true, which: 'rear' })[2]).toBe('Single');
-    expect(tableRow(point)[2]).toBe('Front');
-    expect(tableRow({ ...point, which: 'rear' })[2]).toBe('Rear');
+    const values = defaultSymbolValues();
+    expect(tableRow({ ...point, single: true }, values)[2]).toBe('Single');
+    expect(tableRow({ ...point, single: true, which: 'rear' }, values)[2]).toBe('Single');
+    expect(tableRow(point, values)[2]).toBe('Front');
+    expect(tableRow({ ...point, which: 'rear' }, values)[2]).toBe('Rear');
   });
 });
 
@@ -552,7 +554,7 @@ describe('the credit line', () => {
 });
 
 describe('pickup symbols on the plot', () => {
-  const choose = (shape: 'two' | 'one' | 'half' | 'quarter', text = '') => ({ shape, text });
+  const choose = (shape: 'two' | 'one' | 'half' | 'quarter') => ({ shape });
 
   it('are drawn in the shape chosen for each pickup, centred on it, at the marker size', () => {
     const { content, pages: p } = pages('c', (d) => {
@@ -574,65 +576,63 @@ describe('pickup symbols on the plot', () => {
     expect(ops.filter((o) => o.op === 'circle' && !o.fill && Math.abs(o.cx - px(front!.at.x)) < 0.01 && Math.abs(o.cy - py(front!.at.y)) < 0.01)).toHaveLength(0);
   });
 
-  it('are drawn in black whatever the weight of the array, and in the faint grey only when they carry typed text', () => {
-    const { content, pages: p } = pages('c', (d) => {
-      d.markers = Object.fromEntries(d.result.report.sources.map((_, i) => [i, { front: choose('one', '1.5 t'), rear: choose('one') }]));
-    });
-    const plan = p[0]!.plan!;
-    const px = (x: number) => plan.ox + x * plan.mmPerM;
-    const py = (y: number) => plan.oy - y * plan.mmPerM;
-    const circleOf = (q: (typeof content.points)[number]) => p[0]!.ops.find((o) => o.op === 'circle' && !o.fill && Math.abs(o.cx - px(q.at.x)) < 0.01 && Math.abs(o.cy - py(q.at.y)) < 0.01);
-    const custom = content.points.filter((q) => q.custom);
-    const plain = content.points.filter((q) => !q.custom);
-    expect(custom.length).toBeGreaterThan(0);
-    expect(plain.length).toBeGreaterThan(0);
-    expect(custom.every((q) => q.marker.text === '1.5 t')).toBe(true);
-    for (const q of custom) expect(circleOf(q)).toMatchObject({ color: 'faint' });
-    for (const q of plain) expect(circleOf(q)).toMatchObject({ color: 'ink' });
-    expect(PRINT_PALETTE.faint).not.toBe(PRINT_PALETTE.ink);
-    expect(SCREEN_PALETTE.faint).not.toBe(SCREEN_PALETTE.grey);
-  });
-
-  it('are never greyed for being below the weight of the array: a quarter ton symbol on every array stays black', () => {
+  it('are always drawn in black, whatever the weight of the array: a quarter ton symbol on every array stays black', () => {
     const { content, pages: p } = pages('c', (d) => {
       d.markers = Object.fromEntries(d.result.report.sources.map((_, i) => [i, { front: choose('quarter'), rear: choose('quarter') }]));
     });
-    expect(content.points.every((q) => !q.custom)).toBe(true);
-    // Only the grey example in the key is left, which is outside the plan.
-    expect(p[0]!.ops.filter((o) => o.op === 'line' && o.color === 'faint' && o.x1 < 212)).toHaveLength(0);
+    expect(content.points.length).toBeGreaterThan(0);
+    const plan = p[0]!.plan!;
+    const px = (x: number) => plan.ox + x * plan.mmPerM;
+    const py = (y: number) => plan.oy - y * plan.mmPerM;
+    const near = (o: PlotOp, q: (typeof content.points)[number]) => o.op === 'line' && Math.abs(o.x1 - px(q.at.x)) < 3 && Math.abs(o.y1 - py(q.at.y)) < 3;
+    for (const q of content.points) {
+      const strokes = p[0]!.ops.filter((o) => near(o, q) && o.op === 'line' && o.width === 0.22);
+      expect(strokes.length).toBeGreaterThan(0);
+      expect(strokes.every((o) => o.op === 'line' && o.color === 'ink')).toBe(true);
+    }
+    expect(JSON.stringify(p[0]!.ops)).not.toContain('faint');
   });
 
-  it('show their value in the Symbol column: the rating, or the text typed', () => {
-    const { content } = pages('c', (d) => {
+  it('show the value written for their shape in the Symbol column: the usual one, or the one set in Settings', () => {
+    const usual = pages('c', (d) => {
       const i = d.result.report.sources.findIndex((s) => s.pickups.length === 2);
-      d.markers = { [i]: { front: choose('half'), rear: choose('one', '1.5 t') } };
+      d.markers = { [i]: { front: choose('half'), rear: choose('one') } };
     });
-    const values = content.points.map((q) => tableRow(q)[4]);
+    const values = usual.content.points.map((q) => tableRow(q, usual.content.symbolValues)[4]);
     expect(values).toContain('0.5 t');
-    expect(values).toContain('1.5 t');
     expect(values).toContain('1 t');
-  });
-
-  it('put typed text on its own line under the pickup label, and nothing extra when there is none', () => {
-    const typed = pages('c', (d) => {
+    const set = pages('c', (d) => {
+      d.symbolValues = { ...d.symbolValues, one: '1.5 t', half: '0.4 t' };
       const i = d.result.report.sources.findIndex((s) => s.pickups.length === 2);
-      d.markers = { [i]: { front: choose('one', '1.5 t'), rear: choose('one') } };
+      d.markers = { [i]: { front: choose('half'), rear: choose('one') } };
     });
-    // The label and the table row of each pickup that carries the text (a collapsed mirror image shares it).
-    const withText = typed.content.points.filter((q) => q.marker.text === '1.5 t').length;
-    expect(withText).toBeGreaterThan(0);
-    expect(texts(typed.pages[0]!.ops).filter((t) => t === '1.5 t')).toHaveLength(withText * 2);
-    const plain = pages('c');
-    expect(texts(plain.pages[0]!.ops).filter((t) => /^\d(\.\d+)? t$/.test(t))).toHaveLength(plain.content.points.length + 4);
+    const changed = set.content.points.map((q) => tableRow(q, set.content.symbolValues)[4]);
+    expect(changed).toContain('0.4 t');
+    expect(changed).toContain('1.5 t');
+    expect(changed).not.toContain('1 t');
+    expect(changed).not.toContain('0.5 t');
   });
 
-  it('are explained in the key: the four shapes with their ratings and a note that a custom value is on the plot', () => {
+  it('are explained in the key: each of the four shapes with the value written for it', () => {
     const t = texts(pages('c').pages[0]!.ops).join(' ');
     for (const label of ['2 t', '1 t', '0.5 t', '0.25 t']) expect(t).toContain(label);
-    expect(t).toContain('Pickup symbols, nominal rating, a guide only');
-    expect(t).toContain('Custom value noted on plot');
-    expect(t).not.toContain('never grey');
+    expect(t).toContain('Pickup symbols, a guide only');
+    expect(t).not.toContain('Custom value');
     expect(t).not.toContain('Pickup, 1 t symbol');
+    const set = pages('c', (d) => {
+      d.symbolValues = { two: '2.5 t', one: '1.5 t', half: '0.4 t', quarter: '0.2 t' };
+    });
+    const keyed = texts(set.pages[0]!.ops);
+    for (const label of ['2.5 t', '1.5 t', '0.4 t', '0.2 t']) expect(keyed).toContain(label);
+  });
+
+  it('put nothing under the pickup label beyond the number and the load', () => {
+    const { content, pages: p } = pages('c', (d) => {
+      d.symbolValues = { ...d.symbolValues, one: '1.5 t' };
+    });
+    const labelled = content.points.length;
+    // The value is in the table, one row for each pickup, and in the key once: never on the plan.
+    expect(texts(p[0]!.ops).filter((t) => t === '1.5 t')).toHaveLength(labelled + 1);
   });
 
   it('give a collapsed mirror image the symbol of the card that stands for it', () => {

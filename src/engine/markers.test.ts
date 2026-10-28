@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { compareReports } from './compare';
 import {
-  cleanMarkerText,
+  cleanSymbolValue,
+  DEFAULT_SYMBOL_VALUES,
   defaultPair,
-  isCustom,
+  defaultSymbolValues,
   isDefaultMarker,
   isDefaultPair,
   markerPrims,
-  markerValue,
-  MARKER_TEXT_MAX,
-  RATING_KG,
-  RATING_LABEL,
   SHAPES,
+  sameSymbolValues,
+  SYMBOL_VALUE_MAX,
+  symbolValue,
   trackMarkers,
   type MarkerPair,
 } from './markers';
@@ -19,11 +19,10 @@ import { numberPickups, plotArrays } from './plot';
 import { parseFixture } from '../testing/fixtures';
 
 describe('the four pickup symbols', () => {
-  it('stand for 2 ton, 1 ton, half ton and quarter ton in metric tonnes, and the default is 1 ton', () => {
+  it('start with the values 2 t, 1 t, 0.5 t and 0.25 t in metric tonnes, and the default is the second shape', () => {
     expect(SHAPES).toEqual(['two', 'one', 'half', 'quarter']);
-    expect(SHAPES.map((s) => RATING_KG[s])).toEqual([2000, 1000, 500, 250]);
-    expect(SHAPES.map((s) => RATING_LABEL[s])).toEqual(['2 t', '1 t', '0.5 t', '0.25 t']);
-    expect(defaultPair().front).toEqual({ shape: 'one', text: '' });
+    expect(SHAPES.map((s) => DEFAULT_SYMBOL_VALUES[s])).toEqual(['2 t', '1 t', '0.5 t', '0.25 t']);
+    expect(defaultPair().front).toEqual({ shape: 'one' });
     expect(isDefaultPair(defaultPair())).toBe(true);
   });
 
@@ -60,34 +59,41 @@ describe('the four pickup symbols', () => {
   });
 });
 
-describe('what a symbol is worth', () => {
-  it('is its typed text, else the rating of its shape', () => {
-    expect(markerValue({ shape: 'half', text: '' })).toBe('0.5 t');
-    expect(markerValue({ shape: 'one', text: ' 1.5 t ' })).toBe('1.5 t');
-    expect(isCustom({ shape: 'one', text: '  ' })).toBe(false);
-    expect(isDefaultMarker({ shape: 'one', text: ' ' })).toBe(true);
+describe('the value written for a symbol', () => {
+  it('is the one set for its shape, and a blank one falls back to the usual value', () => {
+    const values = { ...defaultSymbolValues(), one: ' 1.5 t ', half: '   ' };
+    expect(symbolValue(values, 'one')).toBe('1.5 t');
+    expect(symbolValue(values, 'half')).toBe('0.5 t');
+    expect(symbolValue(values, 'two')).toBe('2 t');
+    expect(isDefaultMarker({ shape: 'one' })).toBe(true);
+    expect(isDefaultMarker({ shape: 'two' })).toBe(false);
   });
 
   it('is one line of plain text of at most 12 characters', () => {
-    expect(MARKER_TEXT_MAX).toBe(12);
-    expect(cleanMarkerText('1.5\n t\u0000')).toBe('1.5 t');
-    expect(cleanMarkerText('x'.repeat(30))).toHaveLength(12);
+    expect(SYMBOL_VALUE_MAX).toBe(12);
+    expect(cleanSymbolValue('1.5\n t\u0000')).toBe('1.5 t');
+    expect(cleanSymbolValue('x'.repeat(30))).toHaveLength(12);
+  });
+
+  it('compares equal when the written values are the same, whatever blanks stand for the usual ones', () => {
+    expect(sameSymbolValues(defaultSymbolValues(), { ...defaultSymbolValues(), two: ' ' })).toBe(true);
+    expect(sameSymbolValues(defaultSymbolValues(), { ...defaultSymbolValues(), two: '3 t' })).toBe(false);
   });
 });
 
 describe('numbering gives each pickup its symbol', () => {
-  it('uses the symbol asked for, and marks it custom only when it carries typed text', () => {
+  it('uses the symbol asked for', () => {
     const { drawn } = plotArrays(parseFixture('c').report.sources);
     const heavy = drawn.find((a) => a.pickups.length > 0 && (a.totalWeight ?? 0) > 1000)!;
-    const points = numberPickups(drawn, undefined, (i, side) => (i === heavy.index && side === 'front' ? { shape: 'two', text: '' } : { shape: 'one', text: '' }));
+    const points = numberPickups(drawn, undefined, (i, side) => (i === heavy.index && side === 'front' ? { shape: 'two' } : { shape: 'one' }));
     const mine = points.filter((p) => p.arrayIndex === heavy.index);
-    expect(mine.find((p) => p.which === 'front')).toMatchObject({ marker: { shape: 'two' }, custom: false });
-    for (const p of mine.filter((q) => q.which === 'rear')) expect(p).toMatchObject({ marker: { shape: 'one' }, custom: false });
+    expect(mine.find((p) => p.which === 'front')).toMatchObject({ marker: { shape: 'two' } });
+    for (const p of mine.filter((q) => q.which === 'rear')) expect(p).toMatchObject({ marker: { shape: 'one' } });
   });
 
   it('gives the default 1 ton symbol everywhere when no choice is made', () => {
     const { drawn } = plotArrays(parseFixture('a').report.sources);
-    for (const p of numberPickups(drawn)) expect(p.marker).toEqual({ shape: 'one', text: '' });
+    for (const p of numberPickups(drawn)) expect(p.marker).toEqual({ shape: 'one' });
   });
 });
 
@@ -96,18 +102,18 @@ describe('Update from PDF keeps a symbol only for the same pickup', () => {
   const withPickups = saved.sources.map((s, i) => ({ s, i })).filter(({ s }) => s.pickups.length > 0);
   const { s: pair, i: pairIndex } = withPickups.find(({ s }) => s.pickups.length === 2)!;
 
-  const choice = (front: string, rear: string): MarkerPair => ({ front: { shape: 'two', text: front }, rear: { shape: 'half', text: rear } });
+  const choice = (): MarkerPair => ({ front: { shape: 'two' }, rear: { shape: 'half' } });
 
   it('keeps both when the array and both pickups are still there', () => {
-    const t = trackMarkers(saved, structuredClone(saved), { [pairIndex]: choice('1.5 t', '') });
+    const t = trackMarkers(saved, structuredClone(saved), { [pairIndex]: choice() });
     expect(t.reset).toEqual([]);
-    expect(t.kept[pairIndex]).toEqual(choice('1.5 t', ''));
+    expect(t.kept[pairIndex]).toEqual(choice());
   });
 
   it('moves a symbol to the new position of the array, matched by name', () => {
     const next = structuredClone(saved);
     next.sources.reverse();
-    const t = trackMarkers(saved, next, { [pairIndex]: choice('', '') });
+    const t = trackMarkers(saved, next, { [pairIndex]: choice() });
     const newIndex = next.sources.findIndex((s) => s.name === pair.name);
     expect(Object.keys(t.kept)).toEqual([String(newIndex)]);
   });
@@ -117,17 +123,17 @@ describe('Update from PDF keeps a symbol only for the same pickup', () => {
     const target = next.sources[pairIndex]!;
     const rear = target.pickups.find((p) => p.which === 'rear')!;
     rear.position += 1;
-    const t = trackMarkers(saved, next, { [pairIndex]: choice('', '') });
-    expect(t.kept[pairIndex]).toEqual({ front: { shape: 'two', text: '' }, rear: { shape: 'one', text: '' } });
-    expect(t.reset).toEqual([{ array: pair.name, side: 'rear', value: '0.5 t' }]);
+    const t = trackMarkers(saved, next, { [pairIndex]: choice() });
+    expect(t.kept[pairIndex]).toEqual({ front: { shape: 'two' }, rear: { shape: 'one' } });
+    expect(t.reset).toEqual([{ array: pair.name, side: 'rear', shape: 'half' }]);
   });
 
   it('resets the symbols of an array that is not in the new PDF, and says which', () => {
     const next = structuredClone(saved);
     next.sources.splice(pairIndex, 1);
-    const t = trackMarkers(saved, next, { [pairIndex]: choice('1.5 t', '') });
+    const t = trackMarkers(saved, next, { [pairIndex]: choice() });
     expect(t.kept).toEqual({});
-    expect(t.reset.map((r) => `${r.side}:${r.value}`)).toEqual(['front:1.5 t', 'rear:0.5 t']);
+    expect(t.reset.map((r) => `${r.side}:${r.shape}`)).toEqual(['front:two', 'rear:half']);
   });
 
   it('does not list a symbol that is the default, since nothing is lost', () => {
@@ -136,7 +142,7 @@ describe('Update from PDF keeps a symbol only for the same pickup', () => {
   });
 
   it('is told to the person in the comparison, one line for each symbol that cannot be followed', () => {
-    const changes = compareReports(saved, saved, new Set(), {}, [{ array: pair.name, side: 'rear', value: '0.5 t' }]);
+    const changes = compareReports(saved, saved, new Set(), {}, [{ array: pair.name, side: 'rear', value: '0.5 t', fallback: '1 t' }]);
     expect(changes).toEqual([
       { kind: 'changed', array: pair.name, what: 'Plot symbol, rear pickup', saved: '0.5 t', now: 'back to 1 t, because the new PDF has no such pickup for this array' },
     ]);

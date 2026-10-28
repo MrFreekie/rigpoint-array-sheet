@@ -629,6 +629,16 @@ td.n {
   font-size: 1.05rem;
 }
 
+.settings-subhead {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 1rem;
+}
+
+.symbol-icon {
+  vertical-align: middle;
+  flex: none;
+}
+
 .settings-sizes {
   display: grid;
   gap: 0.4rem;

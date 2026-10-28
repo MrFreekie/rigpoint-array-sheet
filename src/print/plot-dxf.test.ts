@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultSymbolValues } from '../engine/markers';
 import { suggestedDxfName } from '../files/file-name';
 import { parseFixture } from '../testing/fixtures';
 import { newDoc, withOnPlot } from '../ui/document';
@@ -131,18 +132,17 @@ describe('plot DXF', () => {
     expect(dot).toBeDefined();
   });
 
-  it('draws a 250 mm pickup marker at each pickup, at full size, and puts the ones with typed text on their own layer', () => {
+  it('draws a 250 mm pickup marker at each pickup, at full size, all on the pickups layer', () => {
     for (const name of ['a', 'c', 'e'] as const) {
       const { content, text } = build(name);
       const f = read(text);
-      const onLayer = (type: string) => f.entities.filter((e) => e.type === type && (e.layer === 'PICKUPS' || e.layer === 'PICKUPS_CUSTOM'));
+      const onLayer = (type: string) => f.entities.filter((e) => e.type === type && e.layer === 'PICKUPS');
       const circles = onLayer('CIRCLE');
       expect(circles).toHaveLength(content.points.length);
       for (const p of content.points) {
         const c = circles.find((e) => Math.abs(n(e, 10) - p.at.x * 1000) < 0.01 && Math.abs(n(e, 20) - p.at.y * 1000) < 0.01);
         expect(c, p.label).toBeDefined();
         expect(n(c as Entity, 40)).toBe(125);
-        expect((c as Entity).layer, p.label).toBe(p.custom ? 'PICKUPS_CUSTOM' : 'PICKUPS');
       }
       // A cross: two lines for every circle.
       expect(onLayer('LINE')).toHaveLength(content.points.length * 2);
@@ -152,7 +152,7 @@ describe('plot DXF', () => {
   it('draws each shape at full size: a square, a triangle or a diamond in place of the circle', () => {
     const shapes = ['two', 'half', 'quarter'] as const;
     const input = build('c').content;
-    const points = input.points.map((p, i) => ({ ...p, marker: { shape: shapes[i % 3] as (typeof shapes)[number], text: '' }, custom: false }));
+    const points = input.points.map((p, i) => ({ ...p, marker: { shape: shapes[i % 3] as (typeof shapes)[number] } }));
     const f = read(plotDxf({ ...input, points, footer: () => '' } as never, estimateWidth) as string);
     const pickupLines = f.entities.filter((e) => e.type === 'LINE' && e.layer === 'PICKUPS');
     expect(f.entities.filter((e) => e.type === 'CIRCLE' && e.layer === 'PICKUPS')).toHaveLength(0);
@@ -164,6 +164,15 @@ describe('plot DXF', () => {
     const near = (e: Entity) => [10, 11].every((c) => Math.abs(n(e, c) - first.at.x * 1000) <= 125.01) && [20, 21].every((c) => Math.abs(n(e, c) - first.at.y * 1000) <= 125.01);
     const xs = pickupLines.filter(near).flatMap((e) => [n(e, 10), n(e, 11)]);
     expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(250, 1);
+  });
+
+  it('has no layer for custom symbols, and names the value written for each symbol in the notes', () => {
+    const input = build('c').content;
+    const usual = plotDxf({ ...input, footer: () => '' }, estimateWidth) as string;
+    expect(usual).not.toContain('PICKUPS_CUSTOM');
+    expect(usual).toContain('Pickup symbols, a guide only: square 2 t, circle 1 t, triangle 0.5 t, diamond 0.25 t.');
+    const set = plotDxf({ ...input, symbolValues: { two: '2 t', one: '1.5 t', half: '0.4 t', quarter: '0.25 t' }, footer: () => '' }, estimateWidth) as string;
+    expect(set).toContain('circle 1.5 t, triangle 0.4 t');
   });
 
   it('labels each pickup and array with the same words as the plot page', () => {
@@ -254,6 +263,6 @@ describe('plot DXF', () => {
   });
 
   it('is null when nothing can be drawn', () => {
-    expect(plotDxf({ arrays: [], points: [], notDrawn: [], origin: '', sideLabels: true, subtitle: '', status: '', footer: () => '' }, estimateWidth)).toBeNull();
+    expect(plotDxf({ arrays: [], points: [], notDrawn: [], origin: '', sideLabels: true, symbolValues: defaultSymbolValues(), subtitle: '', status: '', footer: () => '' }, estimateWidth)).toBeNull();
   });
 });

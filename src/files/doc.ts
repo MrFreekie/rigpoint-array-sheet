@@ -3,7 +3,7 @@
 
 import { autoBreaks, cartRows, defaultCartSizes, forcedBreaks, groupsOf, normaliseBreaks, sizeFor, toggleBreak, trackCarts, type CartSize } from '../engine/carts';
 import { matchByName } from '../engine/compare';
-import { defaultPair, isDefaultPair, trackMarkers, type Marker, type MarkerPair, type PickupSide } from '../engine/markers';
+import { cleanSymbolValue, defaultPair, defaultSymbolValues, isDefaultPair, SHAPES, sameSymbolValues, symbolValue, trackMarkers, type Marker, type MarkerPair, type PickupSide, type Shape, type SymbolValues } from '../engine/markers';
 import { fitPatch, patchUsed, trackPatches, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
 import type { ParseResult, Problem } from '../engine/types';
 import type { Underlay } from '../engine/underlay';
@@ -82,6 +82,8 @@ export interface Doc {
   markers: Record<number, MarkerPair>;
   /** The same choices while the file is read-only. Never saved. Null when there is nothing to override. */
   markerOverride: Record<number, MarkerPair> | null;
+  /** The value written for each of the four plot symbols, such as "1 t". One for the whole job. Saved in the file. */
+  symbolValues: SymbolValues;
   /**
    * The cable patch of an array, by position in the report: one feeder and way for each enclosure row. Arrays not listed have
    * nothing set. Notes only. Saved in the file.
@@ -119,6 +121,7 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     plotPrintOverride: null,
     markers: {},
     markerOverride: null,
+    symbolValues: defaultSymbolValues(),
     patches: {},
     underlay: null,
     cartSizes: defaultCartSizes(),
@@ -175,7 +178,7 @@ export function editKey(doc: Doc): string {
     Object.entries(r)
       .filter(([, text]) => text.trim() !== '')
       .sort(([a], [b]) => Number(a) - Number(b));
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc), offPlot, doc.plotPrintOff]);
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), SHAPES.map((shape) => symbolValue(doc.symbolValues, shape)), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc), offPlot, doc.plotPrintOff]);
 }
 
 /** The plot symbols that are not the default, by position, in order. Only what is saved counts, not a read-only file's override. */
@@ -237,6 +240,23 @@ export function withCartReset(doc: Doc, index: number): Doc {
 /** Replace the table of cart sizes. A read-only file cannot change. */
 export function withCartSizes(doc: Doc, sizes: CartSize[]): Doc {
   return doc.locked ? doc : { ...doc, cartSizes: sizes };
+}
+
+/** The value written for a plot symbol. */
+export function symbolValueOf(doc: Doc, shape: Shape): string {
+  return symbolValue(doc.symbolValues, shape);
+}
+
+/** Set the value written for one plot symbol. A blank value goes back to the usual one. A read-only file cannot change. */
+export function withSymbolValue(doc: Doc, shape: Shape, text: string): Doc {
+  if (doc.locked) return doc;
+  const value = cleanSymbolValue(text).trim() || defaultSymbolValues()[shape];
+  return { ...doc, symbolValues: { ...doc.symbolValues, [shape]: value } };
+}
+
+/** Put the values of all four plot symbols back to the usual ones. A read-only file cannot change. */
+export function withSymbolValuesReset(doc: Doc): Doc {
+  return doc.locked || sameSymbolValues(doc.symbolValues, defaultSymbolValues()) ? doc : { ...doc, symbolValues: defaultSymbolValues() };
 }
 
 /** The cable patch of an array, one row for each enclosure. */

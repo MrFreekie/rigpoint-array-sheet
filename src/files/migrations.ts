@@ -2,6 +2,7 @@
 // the app is refused, because it may hold things this version would silently lose.
 
 import { defaultCartSizes } from '../engine/carts';
+import { defaultSymbolValues } from '../engine/markers';
 import { FORMAT_NAME, FORMAT_VERSION } from '../schema/array-file';
 
 export class FileError extends Error {}
@@ -92,6 +93,25 @@ export const MIGRATIONS: Record<number, Migration> = {
     const report = file['report'];
     const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
     return { ...file, plot: Array.isArray(sources) ? sources.map(() => true) : [], print_plot: true };
+  },
+  // Version 14 moved the value written for each plot symbol (such as "1 t") to Settings, one value for each of the four shapes
+  // for the whole job. Earlier files could type a value on a single pickup: that text is dropped and every symbol starts with
+  // its usual value. An older copy of the app would drop the values when it saved, so it refuses version 14 files.
+  13: (file) => {
+    const markers = file['markers'];
+    const shapeOf = (side: unknown): { shape: unknown } => ({ shape: typeof side === 'object' && side !== null ? (side as { shape?: unknown }).shape : undefined });
+    return {
+      ...file,
+      ...(Array.isArray(markers)
+        ? {
+            markers: markers.map((pair) => {
+              const p = typeof pair === 'object' && pair !== null ? (pair as { front?: unknown; rear?: unknown }) : {};
+              return { front: shapeOf(p.front), rear: shapeOf(p.rear) };
+            }),
+          }
+        : {}),
+      symbol_values: defaultSymbolValues(),
+    };
   },
 };
 

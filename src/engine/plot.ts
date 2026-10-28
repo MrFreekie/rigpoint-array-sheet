@@ -3,7 +3,7 @@
 // Nothing here works out a load, an angle or a height. The one figure it derives is the plan distance between an array's
 // front and rear pickups, from their X and Y only.
 
-import { DEFAULT_MARKER, isCustom, type Marker, type PickupSide } from './markers';
+import { DEFAULT_MARKER, type Marker, type PickupSide } from './markers';
 import type { ArraySource, Pickup, Point3 } from './types';
 
 export interface Pt2 {
@@ -48,8 +48,6 @@ export interface PlotPoint {
   spacing: number | null;
   /** The symbol chosen for this pickup. */
   marker: Marker;
-  /** True when the symbol carries typed text of its own, so it is drawn grey. */
-  custom: boolean;
 }
 
 /** The distance between two pickups on the plan, from X and Y only (never Z), rounded to 2 decimals. */
@@ -168,7 +166,6 @@ export function numberPickups(
           load: p.which === 'front' ? a.frontMotorLoad : a.rearMotorLoad,
           spacing: p === front && rear ? planSpacing(front.at, rear.at) : null,
           marker,
-          custom: isCustom(marker),
         });
       }
     }

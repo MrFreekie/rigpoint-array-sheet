@@ -12,6 +12,7 @@ import {
   markerOf,
   newDoc,
   plotPrintChosen,
+  symbolValueOf,
   updatedDoc,
   visibleProblems,
   withDeleted,
@@ -20,6 +21,8 @@ import {
   withOnPlot,
   withPlotPrinted,
   withPrinted,
+  withSymbolValue,
+  withSymbolValuesReset,
   withTitle,
   type Doc,
 } from './doc';
@@ -231,16 +234,56 @@ describe('visibleProblems', () => {
   });
 });
 
+describe('the value written for each plot symbol', () => {
+  it('starts with the usual values, and a change is kept for that shape only', () => {
+    const doc = fresh();
+    expect(symbolValueOf(doc, 'one')).toBe('1 t');
+    const set = withSymbolValue(doc, 'one', ' 1.5 t ');
+    expect(symbolValueOf(set, 'one')).toBe('1.5 t');
+    expect(symbolValueOf(set, 'two')).toBe('2 t');
+  });
+
+  it('is one line of at most 12 characters, and a blank one goes back to the usual value', () => {
+    const doc = withSymbolValue(fresh(), 'quarter', 'x'.repeat(30) + '\n');
+    expect(symbolValueOf(doc, 'quarter')).toBe('x'.repeat(12));
+    expect(symbolValueOf(withSymbolValue(doc, 'quarter', '   '), 'quarter')).toBe('0.25 t');
+  });
+
+  it('counts as a change to save, and changing back puts it right again', () => {
+    const doc = fresh();
+    doc.savedKey = editKey(doc);
+    const set = withSymbolValue(doc, 'two', '3 t');
+    expect(editKey(set)).not.toBe(doc.savedKey);
+    expect(editKey(withSymbolValue(set, 'two', '2 t'))).toBe(doc.savedKey);
+  });
+
+  it('cannot change in a read-only file', () => {
+    const locked = { ...fresh(), locked: true };
+    expect(withSymbolValue(locked, 'one', '1.5 t')).toBe(locked);
+    expect(withSymbolValuesReset({ ...locked, symbolValues: { ...locked.symbolValues, one: '1.5 t' } }).symbolValues.one).toBe('1.5 t');
+  });
+
+  it('go back to the usual values together, and stay through Update from PDF', () => {
+    const set = withSymbolValue(withSymbolValue(fresh(), 'one', '1.5 t'), 'half', '0.4 t');
+    const updated = updatedDoc(set, parseFixture('c'), 'c2.pdf');
+    expect(symbolValueOf(updated, 'one')).toBe('1.5 t');
+    expect(symbolValueOf(updated, 'half')).toBe('0.4 t');
+    const reset = withSymbolValuesReset(set);
+    expect(reset.symbolValues).toEqual({ two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' });
+    expect(withSymbolValuesReset(reset)).toBe(reset);
+  });
+});
+
 describe('plot symbols', () => {
-  const choose = { shape: 'two', text: '' } as const;
+  const choose = { shape: 'two' } as const;
 
   it('are the 1 ton circle until one is chosen, and a choice is kept for the front and the rear separately', () => {
     const doc = fresh();
-    expect(markerOf(doc, 3, 'front')).toEqual({ shape: 'one', text: '' });
+    expect(markerOf(doc, 3, 'front')).toEqual({ shape: 'one' });
     const set = withMarker(doc, 3, 'rear', choose);
     expect(markerOf(set, 3, 'rear')).toEqual(choose);
-    expect(markerOf(set, 3, 'front')).toEqual({ shape: 'one', text: '' });
-    expect(markerOf(set, 4, 'rear')).toEqual({ shape: 'one', text: '' });
+    expect(markerOf(set, 3, 'front')).toEqual({ shape: 'one' });
+    expect(markerOf(set, 4, 'rear')).toEqual({ shape: 'one' });
   });
 
   it('count as a change to save, and changing back puts it right again', () => {
@@ -248,7 +291,7 @@ describe('plot symbols', () => {
     doc.savedKey = editKey(doc);
     const set = withMarker(doc, 3, 'front', choose);
     expect(editKey(set)).not.toBe(doc.savedKey);
-    expect(editKey(withMarker(set, 3, 'front', { shape: 'one', text: '' }))).toBe(doc.savedKey);
+    expect(editKey(withMarker(set, 3, 'front', { shape: 'one' }))).toBe(doc.savedKey);
   });
 
   it('on a read-only file are kept for this session only, like the print choice', () => {
@@ -258,23 +301,23 @@ describe('plot symbols', () => {
     expect(markerOf(set, 3, 'front')).toEqual(choose);
     expect(set.markers).toEqual({});
     expect(editKey(set)).toBe(locked.savedKey);
-    const again = withMarker(set, 5, 'rear', { shape: 'half', text: '' });
+    const again = withMarker(set, 5, 'rear', { shape: 'half' });
     expect(markerOf(again, 3, 'front')).toEqual(choose);
-    expect(markerOf(again, 5, 'rear')).toEqual({ shape: 'half', text: '' });
+    expect(markerOf(again, 5, 'rear')).toEqual({ shape: 'half' });
   });
 
   it('go with an array through Update from PDF when its pickup is still there, and are reset when it is not', () => {
     const doc = newDoc(parseFixture('c'), 'c.pdf');
     const sources = doc.result.report.sources;
     const i = sources.findIndex((s) => s.pickups.some((p) => p.which === 'front') && s.pickups.some((p) => p.which === 'rear'));
-    const set = withMarker(withMarker(doc, i, 'front', choose), i, 'rear', { shape: 'half', text: '1.5 t' });
+    const set = withMarker(withMarker(doc, i, 'front', choose), i, 'rear', { shape: 'half' });
     const same = updatedDoc(set, parseFixture('c'), 'c2.pdf');
     expect(markerOf(same, i, 'front')).toEqual(choose);
-    expect(markerOf(same, i, 'rear')).toEqual({ shape: 'half', text: '1.5 t' });
+    expect(markerOf(same, i, 'rear')).toEqual({ shape: 'half' });
     const changed = structuredClone(parseFixture('c'));
     changed.report.sources[i]!.pickups.find((p) => p.which === 'rear')!.position += 1;
     const next = updatedDoc(set, changed, 'c3.pdf');
     expect(markerOf(next, i, 'front')).toEqual(choose);
-    expect(markerOf(next, i, 'rear')).toEqual({ shape: 'one', text: '' });
+    expect(markerOf(next, i, 'rear')).toEqual({ shape: 'one' });
   });
 });

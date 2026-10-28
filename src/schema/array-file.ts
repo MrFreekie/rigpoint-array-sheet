@@ -1,9 +1,9 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/10").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/14").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
 import { CART_SIZE_MAX, CART_SIZES_MAX, CART_TYPE_MAX } from '../engine/carts';
-import { MARKER_TEXT_MAX, SHAPES } from '../engine/markers';
+import { SHAPES, SYMBOL_VALUE_MAX } from '../engine/markers';
 import { PATCH_DIGITS } from '../engine/patch';
 import { UNDERLAY_MAX_EDGES, UNDERLAY_MAX_LAYERS, UNDERLAY_NAME_MAX, UNDERLAY_STEPS, unpackEdges } from '../engine/underlay';
 import { STATUSES } from '../files/doc';
@@ -21,7 +21,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 13;
+export const FORMAT_VERSION = 14;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -33,9 +33,13 @@ export const NOTES_MAX = 300;
 export const SHOW_NOTES_MAX = 500;
 
 const MarkerSchema = z.object({
-  shape: z.enum(SHAPES, { error: 'A pickup symbol must be 2 t, 1 t, 0.5 t or 0.25 t' }),
-  text: z.string({ error: 'The symbol value must be text' }).max(MARKER_TEXT_MAX, { error: 'The symbol value is too long' }),
+  shape: z.enum(SHAPES, { error: 'A pickup symbol must be one of the four shapes' }),
 });
+
+const SymbolValueSchema = z
+  .string({ error: 'The value of a symbol must be text' })
+  .min(1, { error: 'The value of a symbol cannot be blank' })
+  .max(SYMBOL_VALUE_MAX, { error: `The value of a symbol is longer than ${SYMBOL_VALUE_MAX} characters` });
 
 const CartSizeSchema = z.object({
   type: z
@@ -113,6 +117,7 @@ export const ArrayFileSchema = z
     plot: z.array(z.boolean({ error: 'Include on the rigging plot must be true or false' }), { error: 'The choices of what is on the rigging plot must be a list' }),
     print_plot: z.boolean({ error: 'Print rigging plot must be true or false' }),
     markers: z.array(z.object({ front: MarkerSchema, rear: MarkerSchema }), { error: 'Pickup symbols must be a list' }),
+    symbol_values: z.object({ two: SymbolValueSchema, one: SymbolValueSchema, half: SymbolValueSchema, quarter: SymbolValueSchema }),
     patch: z.array(z.array(PatchRowSchema, { error: 'The cable patch of an array must be a list' }), { error: 'Cable patches must be a list' }),
     cart_sizes: z.array(CartSizeSchema, { error: 'Cart sizes must be a list' }).max(CART_SIZES_MAX, { error: `There are more than ${CART_SIZES_MAX} cart sizes` }),
     carts: z.array(CartSchema, { error: 'Carts must be a list' }),
@@ -175,12 +180,10 @@ export const ArrayFileSchema = z
         });
       });
     }
-    file.markers.forEach((pair, i) => {
-      for (const side of ['front', 'rear'] as const) {
-        // eslint-disable-next-line no-control-regex
-        if (/[\u0000-\u001f\u007f]/.test(pair[side].text)) ctx.addIssue({ code: 'custom', path: ['markers', i, side, 'text'], message: 'A symbol value cannot hold line breaks or control characters' });
-      }
-    });
+    for (const shape of SHAPES) {
+      // eslint-disable-next-line no-control-regex
+      if (/[\u0000-\u001f\u007f]/.test(file.symbol_values[shape])) ctx.addIssue({ code: 'custom', path: ['symbol_values', shape], message: 'The value of a symbol cannot hold line breaks or control characters' });
+    }
     if (file.underlay) {
       let edges = 0;
       file.underlay.layers.forEach((layer, li) =>
