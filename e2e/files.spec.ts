@@ -64,7 +64,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/14', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/15', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -614,7 +614,7 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
 
   // It is saved in the file and comes back with the layer still off.
   const saved = await save(page);
-  expect((saved.json['format'] as string)).toBe('arraysheet/14');
+  expect((saved.json['format'] as string)).toBe('arraysheet/15');
   expect(saved.text).not.toContain('Label');
   await openJson(page, 'venue.arraysheet.json', saved.text);
   const again = (await openVenue(page)).getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });

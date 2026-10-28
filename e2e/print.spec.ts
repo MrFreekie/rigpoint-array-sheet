@@ -705,7 +705,7 @@ test('picking a pickup symbol and writing a value for the 1 t symbol in Settings
   // The choices are saved with the file, in the new format: the shapes on the pickups, the values for the job.
   const { json } = await save(page);
   const markers = json['markers'] as { front: { shape: string }; rear: { shape: string } }[];
-  expect(json['format']).toBe('arraysheet/14');
+  expect(json['format']).toBe('arraysheet/15');
   expect(markers.some((m) => m.front.shape === 'two')).toBe(true);
   expect(markers.every((m) => !('text' in m.front) && !('text' in m.rear))).toBe(true);
   expect(json['symbol_values']).toEqual({ two: '2 t', one: '1.5 t', half: '0.5 t', quarter: '0.25 t' });

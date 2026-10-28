@@ -78,6 +78,10 @@ export interface Doc {
   plotPrintOff: boolean;
   /** The same choice while the file is read-only: true for off. Never saved. Null when there is nothing to override. */
   plotPrintOverride: boolean | null;
+  /** Whether the rigging plot shows the Position dots and the array outlines. Saved in the file. */
+  plotShow: PlotShow;
+  /** The same choices while the file is read-only. Never saved. Null when there is nothing to override. */
+  plotShowOverride: PlotShow | null;
   /** The plot symbol chosen for the front and rear pickup of an array, by position in the report. Arrays not listed use the default. Saved in the file. */
   markers: Record<number, MarkerPair>;
   /** The same choices while the file is read-only. Never saved. Null when there is nothing to override. */
@@ -96,6 +100,14 @@ export interface Doc {
   /** The carts of an array the person cut by hand, by position in the report: the index of the first row of every cart after the first. Arrays not listed are automatic. Saved in the file. */
   carts: Record<number, number[]>;
 }
+
+/** What the rigging plot draws besides the pickups: the Position dot of every array, and the outline of every array. */
+export interface PlotShow {
+  position: boolean;
+  outlines: boolean;
+}
+
+export const SHOW_ALL: PlotShow = { position: true, outlines: true };
 
 export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true, notes: '', showDate: '' };
 
@@ -119,6 +131,8 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     plotOverride: null,
     plotPrintOff: false,
     plotPrintOverride: null,
+    plotShow: { ...SHOW_ALL },
+    plotShowOverride: null,
     markers: {},
     markerOverride: null,
     symbolValues: defaultSymbolValues(),
@@ -178,7 +192,7 @@ export function editKey(doc: Doc): string {
     Object.entries(r)
       .filter(([, text]) => text.trim() !== '')
       .sort(([a], [b]) => Number(a) - Number(b));
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), SHAPES.map((shape) => symbolValue(doc.symbolValues, shape)), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc), offPlot, doc.plotPrintOff]);
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), SHAPES.map((shape) => symbolValue(doc.symbolValues, shape)), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc), offPlot, doc.plotPrintOff, doc.plotShow.position, doc.plotShow.outlines]);
 }
 
 /** The plot symbols that are not the default, by position, in order. Only what is saved counts, not a read-only file's override. */
@@ -414,6 +428,18 @@ export function plotPrintChosen(doc: Doc): boolean {
 export function withPlotPrinted(doc: Doc, printed: boolean): Doc {
   if (doc.locked) return { ...doc, plotPrintOverride: !printed };
   return { ...doc, plotPrintOff: !printed, plotPrintOverride: null };
+}
+
+/** What the rigging plot shows now: the saved choice, or this session's choice on a read-only file. */
+export function plotShown(doc: Doc): PlotShow {
+  return doc.plotShowOverride ?? doc.plotShow;
+}
+
+/** Show or hide the Position dots and the array outlines. A read-only file keeps the choice for this session only. */
+export function withPlotShow(doc: Doc, patch: Partial<PlotShow>): Doc {
+  const next = { ...plotShown(doc), ...patch };
+  if (doc.locked) return { ...doc, plotShowOverride: next };
+  return { ...doc, plotShow: next, plotShowOverride: null };
 }
 
 /** True when the document has never been saved, or has changed since it was. */

@@ -19,7 +19,9 @@ import {
   withMarker,
   withNote,
   withOnPlot,
+  plotShown,
   withPlotPrinted,
+  withPlotShow,
   withPrinted,
   withSymbolValue,
   withSymbolValuesReset,
@@ -111,6 +113,25 @@ describe('the rigging plot choices', () => {
     expect(isOnPlot(doc, 1)).toBe(true);
     const off = withOnPlot(fresh(), 1, false);
     expect(off.noPrint).toEqual({});
+  });
+
+  it('show the Position dots and the outlines until the person hides them, and a change counts as an edit', () => {
+    const doc = fresh();
+    expect(plotShown(doc)).toEqual({ position: true, outlines: true });
+    const hidden = withPlotShow(doc, { position: false });
+    expect(plotShown(hidden)).toEqual({ position: false, outlines: true });
+    expect(editKey(hidden)).not.toBe(editKey(doc));
+    const both = withPlotShow(hidden, { outlines: false });
+    expect(plotShown(both)).toEqual({ position: false, outlines: false });
+    expect(editKey(withPlotShow(both, { position: true, outlines: true }))).toBe(editKey(doc));
+  });
+
+  it('keep the choice of what the plot shows for this session only on a read-only file', () => {
+    const locked = { ...fresh(), locked: true };
+    const off = withPlotShow(locked, { outlines: false });
+    expect(plotShown(off)).toEqual({ position: true, outlines: false });
+    expect(off.plotShow).toEqual({ position: true, outlines: true });
+    expect(editKey(off)).toBe(editKey(locked));
   });
 
   it('turn Print rigging plot off by choice, and off by themselves when no array is on the plot', () => {

@@ -72,6 +72,10 @@ export interface PlotInput {
   origin: string;
   /** Name the sides of the plan (House left, House right, Stage, Audience). Off for a show in the round. */
   sideLabels: boolean;
+  /** Draw the Position dot of every array. On when left out. Hiding it moves nothing else. */
+  showPosition?: boolean;
+  /** Draw the outline of every array. On when left out. Hiding it moves nothing else. */
+  showOutlines?: boolean;
   /** The value written for each of the four symbols, such as "1 t". */
   symbolValues: Readonly<SymbolValues>;
   /** The line under the heading: show, venue and Z-axis zero. */
@@ -569,11 +573,15 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   // Array boxes and their Position dots.
   const d = markerSizeMm(ratio);
   const dotR = dotRadiusMm(ratio);
+  const showOutlines = input.showOutlines !== false;
+  const showPosition = input.showPosition !== false;
   const boxRects = new Map<number, Rect>();
   for (const a of arrays) {
     const pts = a.corners.map((c) => ({ x: X(c.x), y: Y(c.y) }));
-    if (a.kind === 'stacked') stackBox(ops, pts);
-    else dashedBox(ops, pts, a.pickups.length === 0);
+    if (showOutlines) {
+      if (a.kind === 'stacked') stackBox(ops, pts);
+      else dashedBox(ops, pts, a.pickups.length === 0);
+    }
     pts.forEach((p, i) => {
       const q = pts[(i + 1) % pts.length] as Pt2;
       segments.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y });
@@ -585,7 +593,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
       y1: Math.max(...pts.map((p) => p.y)),
     };
     boxRects.set(a.index, rect);
-    ops.push({ op: 'circle', cx: X(a.position.x), cy: Y(a.position.y), r: dotR, width: 0.1, color: 'dot', fill: true });
+    if (showPosition) ops.push({ op: 'circle', cx: X(a.position.x), cy: Y(a.position.y), r: dotR, width: 0.1, color: 'dot', fill: true });
     occupied.push(rectAround(X(a.position.x), Y(a.position.y), dotR + 0.35));
   }
   const markerRects: Rect[] = [];
@@ -721,10 +729,14 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const swatch = () => [{ x: COLUMN.x0, y: y }, { x: COLUMN.x0 + sw, y: y }, { x: COLUMN.x0 + sw, y: y + 2.4 }, { x: COLUMN.x0, y: y + 2.4 }];
   const hasStacks = arrays.some((a) => a.kind === 'stacked');
   const legend: [() => void, string][] = [
-    [() => dashedBox(ops, swatch(), false), 'Array with pickups: width and depth from the report'],
-    [() => dashedBox(ops, swatch(), true), 'Array with no pickup: support not stated in the report'],
-    [() => ops.push({ op: 'circle', cx: COLUMN.x0 + sw / 2, cy: y + 1.2, r: dotR, width: 0.1, color: 'dot', fill: true }), 'Position'],
-    ...(hasStacks ? ([[() => stackBox(ops, swatch()), 'Stacked array on the ground']] as [() => void, string][]) : []),
+    ...(showOutlines
+      ? ([
+          [() => dashedBox(ops, swatch(), false), 'Array with pickups: width and depth from the report'],
+          [() => dashedBox(ops, swatch(), true), 'Array with no pickup: support not stated in the report'],
+        ] as [() => void, string][])
+      : []),
+    ...(showPosition ? ([[() => ops.push({ op: 'circle', cx: COLUMN.x0 + sw / 2, cy: y + 1.2, r: dotR, width: 0.1, color: 'dot', fill: true }), 'Position']] as [() => void, string][]) : []),
+    ...(showOutlines && hasStacks ? ([[() => stackBox(ops, swatch()), 'Stacked array on the ground']] as [() => void, string][]) : []),
     [() => ops.push(line(COLUMN.x0, y + 1.2, COLUMN.x0 + sw, y + 1.2, 0.2, 'grey')), 'Front to rear pickup'],
   ];
   ops.push(text(COLUMN.x0, y, 'Key', 5.5, { bold: true }));

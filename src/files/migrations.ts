@@ -113,6 +113,9 @@ export const MIGRATIONS: Record<number, Migration> = {
       symbol_values: defaultSymbolValues(),
     };
   },
+  // Version 15 added the choices to show the Position dots and the array outlines on the rigging plot. Earlier files showed both.
+  // An older copy of the app would drop the choices when it saved, so it refuses version 15 files.
+  14: (file) => ({ ...file, show_position: true, show_outlines: true }),
 };
 
 export function migrate(

@@ -2,7 +2,7 @@
 
 import { SHAPES, symbolValue, type PickupSide, type SymbolValues } from '../engine/markers';
 import { numberPickups, plotArrays } from '../engine/plot';
-import { markerOf, type Doc } from '../files/doc';
+import { markerOf, plotShown, type Doc } from '../files/doc';
 import type { SheetModel } from '../ui/sheet-model';
 import { panelHeader } from './panel-header';
 import { riggingSubtitle } from './pdf-layout';
@@ -30,6 +30,8 @@ export function plotContent(doc: Doc, model: SheetModel): PlotContent | null {
     notDrawn,
     origin: doc.job.origin,
     sideLabels: doc.job.sideLabels,
+    showPosition: plotShown(doc).position,
+    showOutlines: plotShown(doc).outlines,
     symbolValues: Object.fromEntries(SHAPES.map((shape) => [shape, symbolValue(doc.symbolValues, shape)])) as SymbolValues,
     venue: visibleLayers(doc.underlay),
     subtitle: riggingSubtitle(doc.job),

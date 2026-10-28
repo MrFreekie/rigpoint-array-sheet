@@ -19,9 +19,11 @@ export {
   newDoc,
   patchOf,
   plotPrintChosen,
+  plotShown,
   withOnPlot,
   withPatch,
   withPlotPrinted,
+  withPlotShow,
   STATUS_LABELS,
   STATUSES,
   updatedDoc,
@@ -39,7 +41,7 @@ export {
   withSymbolValuesReset,
   withTitle,
 } from '../files/doc';
-export type { Doc, Job, Status } from '../files/doc';
+export type { Doc, Job, PlotShow, Status } from '../files/doc';
 
 export interface EffectiveOffset {
   /** The offset to use, or null when what was typed is not a number. */

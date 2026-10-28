@@ -164,6 +164,47 @@ describe('the plot page', () => {
     expect(ops.filter((o) => o.op === 'line' && !o.dash && o.width === 0.25)).toHaveLength((flown.filter((a) => a.pickups.length === 0).length + stacks.length) * 4 + 8);
   });
 
+  it('leaves out the Position dots and the key entry for them when Show position is off, and moves nothing else', () => {
+    const on = pages('a');
+    const off = pages('a', (d) => (d.plotShow = { position: false, outlines: true }));
+    const dots = (ops: PlotOp[]) => ops.filter((o) => o.op === 'circle' && o.fill);
+    expect(dots(on.pages[0]!.ops)).toHaveLength(on.content.arrays.length + 1);
+    expect(dots(off.pages[0]!.ops)).toHaveLength(0);
+    expect(texts(on.pages[0]!.ops)).toContain('Position');
+    expect(texts(off.pages[0]!.ops)).not.toContain('Position');
+    // The scale and the labels are where they were.
+    expect(off.pages[0]!.ratio).toBe(on.pages[0]!.ratio);
+    expect(off.content.points).toEqual(on.content.points);
+    const labels = (ops: PlotOp[]) => ops.filter((o) => o.op === 'text' && o.x < 212).map((o) => (o.op === 'text' ? [o.text, o.x, o.y] : []));
+    expect(labels(off.pages[0]!.ops)).toEqual(labels(on.pages[0]!.ops));
+  });
+
+  it('leaves out the array boxes, the stack corner lines and their key entries when Show outlines is off, and moves nothing else', () => {
+    const on = pages('a');
+    const off = pages('a', (d) => (d.plotShow = { position: true, outlines: false }));
+    const dashed = (ops: PlotOp[]) => ops.filter((o) => o.op === 'line' && o.dash?.length === 2);
+    const solid = (ops: PlotOp[]) => ops.filter((o) => o.op === 'line' && !o.dash && o.width === 0.25);
+    const flown = on.content.arrays.filter((a) => a.kind === 'flown');
+    const stacks = on.content.arrays.filter((a) => a.kind === 'stacked');
+    // Boxes: four dashed lines for each array with pickups and four solid for each other array, and the same again in the key.
+    expect(dashed(on.pages[0]!.ops)).toHaveLength(flown.filter((a) => a.pickups.length > 0).length * 4 + 4);
+    expect(dashed(off.pages[0]!.ops)).toHaveLength(0);
+    expect(solid(on.pages[0]!.ops).length - solid(off.pages[0]!.ops).length).toBe((flown.filter((a) => a.pickups.length === 0).length + stacks.length) * 4 + 8);
+    // The corner lines of the stacks and of the key swatch.
+    const corners = (ops: PlotOp[]) => ops.filter((o) => o.op === 'line' && o.width === 0.15 && o.color === 'grey');
+    expect(corners(on.pages[0]!.ops).length - corners(off.pages[0]!.ops).length).toBe(stacks.length * 2 + 2);
+    const t = texts(off.pages[0]!.ops);
+    expect(t).not.toContain('Array with pickups: width and depth from the report');
+    expect(t).not.toContain('Array with no pickup: support not stated in the report');
+    expect(t).not.toContain('Stacked array on the ground');
+    expect(t).toContain('Position');
+    expect(off.pages[0]!.ratio).toBe(on.pages[0]!.ratio);
+    expect(off.content.points).toEqual(on.content.points);
+    // The Position dots and every pickup symbol are still drawn.
+    expect(off.pages[0]!.ops.filter((o) => o.op === 'circle' && o.fill)).toHaveLength(on.pages[0]!.ops.filter((o) => o.op === 'circle' && o.fill).length);
+    expect(off.pages[0]!.ops.filter((o) => o.op === 'circle' && !o.fill)).toHaveLength(on.pages[0]!.ops.filter((o) => o.op === 'circle' && !o.fill).length);
+  });
+
   it('draws a ground stack as a solid box with crossed corners and the same Position dot as any array, with no number and no pickup marker', () => {
     const { content, pages: p } = pages('a');
     const ops = p[0]!.ops;

@@ -220,6 +220,23 @@ describe('plot DXF', () => {
     expect(f.entities.filter((e) => e.type === 'CIRCLE' && e.layer === 'POSITIONS')).toHaveLength(content.arrays.length);
   });
 
+  it('leaves out the Position circles when Show position is off and the array lines when Show outlines is off, and keeps the pickups and the layer table', () => {
+    const on = read(build('a').text);
+    const noPos = read(buildUncached('a', (d) => (d.plotShow = { position: false, outlines: true })).text);
+    const noBox = read(buildUncached('a', (d) => (d.plotShow = { position: true, outlines: false })).text);
+    const count = (f: ReturnType<typeof read>, layers: string[]) => f.entities.filter((e) => layers.includes(e.layer)).length;
+    const boxLayers = ['ARRAYS', 'ARRAYS_NO_PICKUP', 'STACKS', 'STACK_DIAGONALS'];
+    expect(count(on, ['POSITIONS'])).toBeGreaterThan(0);
+    expect(count(noPos, ['POSITIONS'])).toBe(0);
+    expect(count(noPos, boxLayers)).toBe(count(on, boxLayers));
+    expect(count(noBox, boxLayers)).toBe(0);
+    expect(count(noBox, ['POSITIONS'])).toBe(count(on, ['POSITIONS']));
+    for (const f of [noPos, noBox]) {
+      expect(f.layers).toEqual(on.layers);
+      expect(count(f, ['PICKUPS'])).toBe(count(on, ['PICKUPS']));
+    }
+  });
+
   it('writes plain ASCII with other characters escaped', () => {
     expect(dxfText('Kara ° café')).toBe('Kara \\U+00B0 caf\\U+00E9');
     for (const name of ['a', 'c', 'e'] as const) expect(Array.from(build(name).text).every((ch) => (ch.codePointAt(0) as number) < 128)).toBe(true);

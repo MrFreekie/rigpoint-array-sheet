@@ -60,9 +60,42 @@ test('the choices are saved with the file and come back', async ({ page }) => {
   await onPlot(page, OUT).uncheck();
   await printPlot(page).uncheck();
   const saved = await save(page);
-  expect(saved.json['format']).toBe('arraysheet/14');
+  expect(saved.json['format']).toBe('arraysheet/15');
   expect((saved.json['plot'] as boolean[]).filter((p) => !p)).toHaveLength(1);
   expect(saved.json['print_plot']).toBe(false);
+});
+
+const showPosition = (page: Page) => plotControls(page).getByLabel(/Show position/);
+const showOutlines = (page: Page) => plotControls(page).getByLabel(/Show outlines/);
+const keyEntry = (page: Page, text: string | RegExp) => preview(page).getByTestId('plot-svg').locator('text', { hasText: text });
+const POSITION_KEY = /^Position$/;
+const BOX_KEY = 'Array with pickups: width and depth from the report';
+
+test('Show position and Show outlines take the dots, the boxes and their key entries off the preview, and are saved with the file', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await expect(showPosition(page)).toBeChecked();
+  await expect(showOutlines(page)).toBeChecked();
+  await expect(keyEntry(page, POSITION_KEY)).toHaveCount(1);
+  await expect(keyEntry(page, BOX_KEY)).toHaveCount(1);
+  const dots = () => preview(page).getByTestId('plot-svg').locator('circle[fill]:not([fill="none"])').count();
+  const before = await dots();
+  expect(before).toBeGreaterThan(1);
+  await showPosition(page).uncheck();
+  await expect(keyEntry(page, POSITION_KEY)).toHaveCount(0);
+  await expect(keyEntry(page, BOX_KEY)).toHaveCount(1);
+  expect(await dots()).toBeLessThan(before);
+  await expect(page.getByText('● Unsaved changes')).toBeVisible();
+  await showOutlines(page).uncheck();
+  await expect(keyEntry(page, BOX_KEY)).toHaveCount(0);
+  await expect(preview(page)).toContainText(OUT);
+  const saved = await save(page);
+  expect(saved.json['show_position']).toBe(false);
+  expect(saved.json['show_outlines']).toBe(false);
+  await showPosition(page).check();
+  await showOutlines(page).check();
+  await expect(keyEntry(page, POSITION_KEY)).toHaveCount(1);
+  await expect(keyEntry(page, BOX_KEY)).toHaveCount(1);
 });
 
 test('the row under the plot keeps the origin, the ground offset, Print rigging plot and Download DXF together, inside the page, with the plot still in its white frame', async ({ page }) => {
@@ -131,6 +164,35 @@ test.describe('printing', () => {
     await page.emulateMedia({ media: 'screen' });
     const [dxf] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download DXF' }).click()]);
     expect(dxf.suggestedFilename()).toMatch(/\.dxf$/);
+  });
+
+  test('Show position and Show outlines are followed by the print view and by Download PDF', async ({ page }) => {
+    await start(page);
+    await openPdf(page, samplePdf('a'));
+    expect(await downloadedText(page)).toContain('Position');
+    await showPosition(page).uncheck();
+    await showOutlines(page).uncheck();
+    const text = await downloadedText(page);
+    expect(text).not.toContain('Position');
+    expect(text.some((t) => t.startsWith('Array with pickups'))).toBe(false);
+    expect(text.some((t) => t.includes(OUT))).toBe(true);
+    await page.emulateMedia({ media: 'print' });
+    const plotPage = page.getByTestId('print-page').filter({ hasText: 'Rigging plot' });
+    await expect(plotPage).toHaveCount(1);
+    await expect(plotPage).not.toContainText('Array with pickups');
+  });
+
+  test('on a read-only file Show position and Show outlines work for this session, and are not saved', async ({ page }) => {
+    await start(page);
+    await openPdf(page, samplePdf('a'));
+    await page.getByLabel('Status').selectOption('approved');
+    const approved = await save(page);
+    await expect(showPosition(page)).toBeEnabled();
+    await expect(showOutlines(page)).toBeEnabled();
+    await showOutlines(page).uncheck();
+    await expect(keyEntry(page, BOX_KEY)).toHaveCount(0);
+    expect(approved.json['show_position']).toBe(true);
+    expect(approved.json['show_outlines']).toBe(true);
   });
 
   test('on a read-only file the choices still work for this session, and are not saved', async ({ page }) => {

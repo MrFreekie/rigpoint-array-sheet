@@ -252,17 +252,19 @@ export function plotDxf(input: PlotInput, measure: Measure, options: { venue?: b
   // Array boxes, their Positions, then the pickups and the lines joining them.
   const dotR = real(dotRadiusMm(plan.ratio));
   for (const a of input.arrays) {
-    const layer = a.kind === 'stacked' ? 'STACKS' : a.pickups.length === 0 ? 'ARRAYS_NO_PICKUP' : 'ARRAYS';
-    a.corners.forEach((c, i) => {
-      const n = a.corners[(i + 1) % a.corners.length] as { x: number; y: number };
-      w.line(layer, mm(c.x), mm(c.y), mm(n.x), mm(n.y));
-    });
-    const [p0, p1, p2, p3] = a.corners;
-    if (a.kind === 'stacked') {
-      w.line('STACK_DIAGONALS', mm(p0.x), mm(p0.y), mm(p2.x), mm(p2.y));
-      w.line('STACK_DIAGONALS', mm(p1.x), mm(p1.y), mm(p3.x), mm(p3.y));
+    if (input.showOutlines !== false) {
+      const layer = a.kind === 'stacked' ? 'STACKS' : a.pickups.length === 0 ? 'ARRAYS_NO_PICKUP' : 'ARRAYS';
+      a.corners.forEach((c, i) => {
+        const n = a.corners[(i + 1) % a.corners.length] as { x: number; y: number };
+        w.line(layer, mm(c.x), mm(c.y), mm(n.x), mm(n.y));
+      });
+      const [p0, p1, p2, p3] = a.corners;
+      if (a.kind === 'stacked') {
+        w.line('STACK_DIAGONALS', mm(p0.x), mm(p0.y), mm(p2.x), mm(p2.y));
+        w.line('STACK_DIAGONALS', mm(p1.x), mm(p1.y), mm(p3.x), mm(p3.y));
+      }
     }
-    w.circle('POSITIONS', mm(a.position.x), mm(a.position.y), dotR);
+    if (input.showPosition !== false) w.circle('POSITIONS', mm(a.position.x), mm(a.position.y), dotR);
   }
   const half = (MARKER_REAL_M * 1000) / 2;
   for (const p of input.points) {

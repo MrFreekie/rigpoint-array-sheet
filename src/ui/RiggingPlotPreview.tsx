@@ -8,7 +8,7 @@ import { plotContent } from '../print/plot-input';
 import { layoutPlotPages, SCREEN_PALETTE } from '../print/plot-layout';
 import { ORIGIN_MAX } from '../schema/array-file';
 import type { Underlay } from '../engine/underlay';
-import { effectiveOffset, showTitle, type Doc, type Job } from './document';
+import { effectiveOffset, plotShown, showTitle, type Doc, type Job, type PlotShow } from './document';
 import type { SheetModel } from './sheet-model';
 import { VenueDialog, venueButtonLabel } from './VenueDialog';
 
@@ -23,11 +23,12 @@ interface Props {
   locked: boolean;
   onJob: (patch: Partial<Job>) => void;
   onPlotPrinted: (printed: boolean) => void;
+  onPlotShow: (patch: Partial<PlotShow>) => void;
   onUnderlay: (underlay: Underlay | null) => void;
   onLayer: (name: string, hidden: boolean) => void;
 }
 
-export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, onUnderlay, onLayer }: Props) {
+export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, onPlotShow, onUnderlay, onLayer }: Props) {
   const hintId = useId();
   const badDefault = effectiveOffset({ ...doc, offsets: {} }, 0).value === null;
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +110,14 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, o
           </button>
           <span className="field-hint">A grey drawing of the venue under the plot.</span>
         </div>
+        <label className="check-field">
+          <input type="checkbox" checked={plotShown(doc).position} onChange={(e) => onPlotShow({ position: e.target.checked })} />
+          <span>Show position (the dot at the Position of each array)</span>
+        </label>
+        <label className="check-field">
+          <input type="checkbox" checked={plotShown(doc).outlines} onChange={(e) => onPlotShow({ outlines: e.target.checked })} />
+          <span>Show outlines (the box of each array)</span>
+        </label>
         <label className="check-field">
           <input type="checkbox" checked={model.printsPlot} disabled={!model.hasPlot} onChange={(e) => onPlotPrinted(e.target.checked)} />
           <span>Print rigging plot (the plot is the page before the rigging summary)</span>

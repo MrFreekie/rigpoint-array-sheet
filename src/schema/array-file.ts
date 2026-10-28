@@ -1,4 +1,4 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/14").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/15").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
@@ -21,7 +21,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 14;
+export const FORMAT_VERSION = 15;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -116,6 +116,8 @@ export const ArrayFileSchema = z
     deleted: z.array(z.boolean({ error: 'Deleted must be true or false' }), { error: 'Deleted choices must be a list' }),
     plot: z.array(z.boolean({ error: 'Include on the rigging plot must be true or false' }), { error: 'The choices of what is on the rigging plot must be a list' }),
     print_plot: z.boolean({ error: 'Print rigging plot must be true or false' }),
+    show_position: z.boolean({ error: 'Show position must be true or false' }),
+    show_outlines: z.boolean({ error: 'Show outlines must be true or false' }),
     markers: z.array(z.object({ front: MarkerSchema, rear: MarkerSchema }), { error: 'Pickup symbols must be a list' }),
     symbol_values: z.object({ two: SymbolValueSchema, one: SymbolValueSchema, half: SymbolValueSchema, quarter: SymbolValueSchema }),
     patch: z.array(z.array(PatchRowSchema, { error: 'The cable patch of an array must be a list' }), { error: 'Cable patches must be a list' }),

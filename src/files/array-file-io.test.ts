@@ -169,6 +169,39 @@ describe('rigging plot choices', () => {
   });
 });
 
+describe('what the rigging plot shows', () => {
+  it('shows the Position dots and the outlines for a new document, and saves a choice to hide them', () => {
+    const file = docToFile(sample(), '0.1.0', NOW);
+    expect(file.show_position).toBe(true);
+    expect(file.show_outlines).toBe(true);
+    const doc = sample();
+    doc.plotShow = { position: false, outlines: true };
+    const saved = docToFile(doc, '0.1.0', NOW);
+    expect(saved.show_position).toBe(false);
+    expect(saved.show_outlines).toBe(true);
+    const back = roundTrip(doc).doc;
+    expect(back.plotShow).toEqual({ position: false, outlines: true });
+    expect(back.plotShowOverride).toBeNull();
+  });
+
+  it("does not save a read-only file's session choice", () => {
+    const doc = sample();
+    doc.locked = true;
+    doc.plotShowOverride = { position: false, outlines: false };
+    const file = docToFile(doc, '0.1.0', NOW);
+    expect(file.show_position).toBe(true);
+    expect(file.show_outlines).toBe(true);
+  });
+
+  it('refuses a choice that is not true or false', () => {
+    for (const key of ['show_position', 'show_outlines']) {
+      const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as Record<string, unknown>;
+      f[key] = 'yes';
+      expect(() => openFileText(JSON.stringify(f), 'name.arraysheet.json')).toThrow(FileError);
+    }
+  });
+});
+
 describe('print choices', () => {
   it('are saved with the file and come back', () => {
     const doc = sample();
@@ -296,7 +329,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/14');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/15');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -342,7 +375,7 @@ describe('opening a bad file', () => {
   });
 
   it('refuses a file from a newer version', () => {
-    expect(() => open(edited((f) => (f.format = 'arraysheet/15')))).toThrow(/newer version/);
+    expect(() => open(edited((f) => (f.format = 'arraysheet/16')))).toThrow(/newer version/);
   });
 
   it('refuses a file over the size limit', () => {
