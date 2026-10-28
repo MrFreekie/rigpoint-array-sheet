@@ -97,9 +97,6 @@ export function markerPrims(shape: Shape, size: number): MarkerPrim[] {
   }
 }
 
-/** The side of a pickup an array's choice applies to. */
-export const pickupSide = (which: 'front' | 'rear'): PickupSide => which;
-
 /** What follows from Update from PDF: the choices that carry over, by position in the new report, and the ones that cannot. */
 export interface TrackedMarkers {
   kept: Record<number, MarkerPair>;

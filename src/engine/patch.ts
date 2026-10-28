@@ -21,8 +21,6 @@ export type PatchField = keyof PatchRow;
 
 export const EMPTY_PATCH_ROW: PatchRow = { feeder: '', way: '' };
 
-export const emptyPatchRow = (): PatchRow => ({ ...EMPTY_PATCH_ROW });
-
 export const isPatchValue = (v: unknown): v is PatchValue => v === '' || (typeof v === 'string' && (PATCH_DIGITS as readonly string[]).includes(v));
 
 /** True when a row has a feeder or a way. */
@@ -65,9 +63,6 @@ export function printerLuma(hex: string): number {
 
 /** The digits ordered from the darkest chip to the lightest. */
 export const PATCH_LUMA_ORDER: readonly PatchDigit[] = ['0', '1', '6', '7', '2', '5', '3', '8', '4', '9'];
-
-/** The patch of an array that has nothing set: one empty row per enclosure. */
-export const blankPatch = (rows: number): PatchRow[] => Array.from({ length: rows }, emptyPatchRow);
 
 /** A saved patch fitted to `rows` enclosures: short lists are padded with blanks, long ones cut. Used only for display. */
 export function fitPatch(patch: readonly PatchRow[] | undefined, rows: number): PatchRow[] {

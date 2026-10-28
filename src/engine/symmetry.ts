@@ -151,12 +151,11 @@ function isMirrorFrontBack(a: ArraySource, b: ArraySource): boolean {
  * Pairs each array with its mirror image, the first in report order being the one to show.
  * Returns a map from the index of the array to show to the index of its mirror. Each array
  * is in at most one pair. Left-right pairs are found first over every array, then front-back pairs among
- * those still free. Positions in `skip` are left out, and `canPair` can veto a pair.
+ * those still free. Positions in `skip` are left out.
  */
 export function findMirrors(
   sources: readonly ArraySource[],
   skip: ReadonlySet<number> = new Set(),
-  canPair: (a: number, b: number) => boolean = () => true,
 ): Map<number, number> {
   const pairs = new Map<number, number>();
   // An array left out (deleted) is never paired, so its partner stands alone.
@@ -168,7 +167,7 @@ export function findMirrors(
       if (!a) continue;
       for (let j = i + 1; j < sources.length; j++) {
         const b = sources[j];
-        if (taken.has(j) || !b || !canPair(i, j) || !isMirror(a, b, across)) continue;
+        if (taken.has(j) || !b || !isMirror(a, b, across)) continue;
         pairs.set(i, j);
         taken.add(i);
         taken.add(j);

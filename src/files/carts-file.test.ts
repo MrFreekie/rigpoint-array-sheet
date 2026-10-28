@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { defaultCartSizes } from '../engine/carts';
+import { withCartSize } from '../testing/carts';
 import { parseFixture } from '../testing/fixtures';
 import { docToFile, openFileText, serialiseDoc } from './array-file-io';
 import {
@@ -11,7 +12,6 @@ import {
   updatedDoc,
   withCartBreak,
   withCartReset,
-  withCartSize,
   withCartSizes,
   type Doc,
 } from './doc';

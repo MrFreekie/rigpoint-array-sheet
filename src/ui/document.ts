@@ -24,7 +24,6 @@ export {
   visibleProblems,
   withCartBreak,
   withCartReset,
-  withCartSize,
   withCartSizes,
   withDeleted,
   withLayerHidden,

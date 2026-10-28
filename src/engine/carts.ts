@@ -33,9 +33,6 @@ export function sizeFor(sizes: readonly CartSize[], type: string): number | unde
   return sizes.find((s) => sameType(s.type, type))?.size;
 }
 
-/** True when `size` is a whole number a cart can be. */
-export const isCartSize = (size: unknown): size is number => typeof size === 'number' && Number.isInteger(size) && size >= 1 && size <= CART_SIZE_MAX;
-
 /** What the carts need to know of one enclosure row. */
 export interface CartRow {
   type: string;

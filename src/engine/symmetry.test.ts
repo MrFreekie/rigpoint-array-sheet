@@ -198,11 +198,6 @@ describe('findMirrors with arrays left out', () => {
     expect(skipped.size).toBe(base.size - 1);
   });
 
-  it('lets the caller refuse a pair', () => {
-    const refused = findMirrors(list(), new Set(), (i, j) => !(i === 0 && j === 1));
-    expect(refused.has(0)).toBe(false);
-    expect(refused.size).toBe(findMirrors(list()).size - 1);
-  });
 });
 
 /** The front-back mirror image of an array: Y negated, azimuth 180 less the original, everything else as it was. */
@@ -292,11 +287,10 @@ describe('front-back mirrors', () => {
     expect(names(b).length).toBe(8);
   });
 
-  it('honours the skip set and the veto for front-back pairs too', () => {
+  it('honours the skip set for front-back pairs too', () => {
     const one = kara();
     const list = [one, frontBackOf(one)];
     expect(findMirrors(list, new Set([0])).size).toBe(0);
-    expect(findMirrors(list, new Set(), () => false).size).toBe(0);
   });
 });
 

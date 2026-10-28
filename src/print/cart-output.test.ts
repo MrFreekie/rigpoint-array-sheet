@@ -4,8 +4,9 @@
 import { describe, expect, it } from 'vitest';
 import { CART_SHADE } from '../engine/carts';
 import { printerLuma } from '../engine/patch';
+import { withCartSize } from '../testing/carts';
 import { parseFixture } from '../testing/fixtures';
-import { cartsOf, newDoc, withCartBreak, withCartSize, withCartSizes, type Doc } from '../ui/document';
+import { cartsOf, newDoc, withCartBreak, withCartSizes, type Doc } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
 import { estimateWidth, layoutCardImage, type DrawOp } from './array-image';
 import { cardContent, CARD_TABLE_WIDTHS_MM } from './card-content';
