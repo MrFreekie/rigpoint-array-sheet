@@ -7,8 +7,10 @@ import { DXF_MIME, DXF_UNITS_NOTE, plotDxf } from '../print/plot-dxf';
 import { plotContent } from '../print/plot-input';
 import { layoutPlotPages, SCREEN_PALETTE } from '../print/plot-layout';
 import { ORIGIN_MAX } from '../schema/array-file';
+import type { Underlay } from '../engine/underlay';
 import { effectiveOffset, showTitle, type Doc, type Job } from './document';
 import type { SheetModel } from './sheet-model';
+import { VenueDialog, venueButtonLabel } from './VenueDialog';
 
 export const PLOT_DEVELOPMENT_NOTE = 'The rigging plot is under development and may include errors. Check it against the Soundvision report.';
 
@@ -21,14 +23,17 @@ interface Props {
   locked: boolean;
   onJob: (patch: Partial<Job>) => void;
   onPlotPrinted: (printed: boolean) => void;
+  onUnderlay: (underlay: Underlay | null) => void;
+  onLayer: (name: string, hidden: boolean) => void;
 }
 
-export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted }: Props) {
+export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, onUnderlay, onLayer }: Props) {
   const hintId = useId();
   const badDefault = effectiveOffset({ ...doc, offsets: {} }, 0).value === null;
   const [error, setError] = useState<string | null>(null);
   // Whether the DXF carries the venue. A choice for this download, not saved.
   const [venueInDxf, setVenueInDxf] = useState(false);
+  const [venueOpen, setVenueOpen] = useState(false);
   const pages = useMemo(() => {
     const content = plotContent(doc, model);
     return content ? layoutPlotPages({ ...content, footer: () => '' }, measure()) : [];
@@ -50,7 +55,7 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted }:
     <section className="panel" aria-labelledby="plot-heading" data-testid="plot-preview">
       <h2 id="plot-heading">Rigging plot</h2>
       <p className="muted">{PLOT_DEVELOPMENT_NOTE}</p>
-      <p className="muted">The side labels and the venue under the plot are in Settings.</p>
+      <p className="muted">The side labels are in Settings.</p>
       {pages.length === 0 ? (
         <p className="muted">
           {model.hasPlot
@@ -98,6 +103,12 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted }:
             {badDefault ? 'Enter a number of metres, such as 0.3.' : 'Taken off the report heights. Each array can have its own.'}
           </span>
         </label>
+        <div className="plot-venue">
+          <button type="button" className="button" data-testid="venue-button" onClick={() => setVenueOpen(true)}>
+            {venueButtonLabel(doc.underlay)}
+          </button>
+          <span className="field-hint">A grey drawing of the venue under the plot.</span>
+        </div>
         <label className="check-field">
           <input type="checkbox" checked={model.printsPlot} disabled={!model.hasPlot} onChange={(e) => onPlotPrinted(e.target.checked)} />
           <span>Print rigging plot (the plot is the page before the rigging summary)</span>
@@ -118,6 +129,7 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted }:
         ) : null}
         {error ? <p role="alert">{error}</p> : null}
       </div>
+      {venueOpen ? <VenueDialog underlay={doc.underlay} locked={locked} onUnderlay={onUnderlay} onLayer={onLayer} onClose={() => setVenueOpen(false)} /> : null}
     </section>
   );
 }

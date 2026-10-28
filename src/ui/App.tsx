@@ -659,6 +659,8 @@ export function App() {
             onPrinted={setPrinted}
             onOnPlot={setOnPlot}
             onPlotPrinted={setPlotPrinted}
+            onUnderlay={setUnderlay}
+            onLayer={setLayerHidden}
             onImage={(entry) => void saveImages([entry])}
             onAllImages={() => model && void saveImages(model.entries.filter((e) => e.print))}
           />
@@ -682,8 +684,6 @@ export function App() {
           onCartSizes={setCartSizes}
           onSymbolValue={setSymbolValue}
           onSymbolValuesReset={resetSymbolValues}
-          onUnderlay={setUnderlay}
-          onLayer={setLayerHidden}
           showMirrors={showMirrors}
           onShowMirrors={setShowMirrors}
           onClose={() => setSettingsOpen(false)}
@@ -741,11 +741,13 @@ interface ReportProps {
   onPrinted: (i: number, printed: boolean) => void;
   onOnPlot: (i: number, on: boolean) => void;
   onPlotPrinted: (printed: boolean) => void;
+  onUnderlay: (underlay: Underlay | null) => void;
+  onLayer: (name: string, hidden: boolean) => void;
   onImage: (entry: SheetEntry) => void;
   onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, onUnderlay, onLayer, onImage, onAllImages }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -843,7 +845,7 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
               ))}
             </div>
           </section>
-          <RiggingPlotPreview doc={doc} model={model} locked={locked} onJob={onJob} onPlotPrinted={onPlotPrinted} />
+          <RiggingPlotPreview doc={doc} model={model} locked={locked} onJob={onJob} onPlotPrinted={onPlotPrinted} onUnderlay={onUnderlay} onLayer={onLayer} />
           <RiggingSummary rows={riggingRows(model.sources, model.live)} fixations={riggingFixations(model.sources, model.live)} notes={riggingNotes(doc.job)} />
         </>
       ) : null}

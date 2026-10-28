@@ -41,7 +41,6 @@ export function VenuePanel({ underlay, locked, onUnderlay, onLayer }: Props) {
 
   return (
     <div className="venue-panel" data-testid="venue-panel">
-      <h3>Venue under the plot</h3>
       <p className="field-hint">
         An optional grey drawing of the venue from an SU4SV text file (the SketchUp to Soundvision converter), in metres. Only the plan is kept, darker where it is lower. It never changes the scale of the plot.
       </p>

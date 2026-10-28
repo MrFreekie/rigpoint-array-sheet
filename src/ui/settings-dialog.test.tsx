@@ -9,7 +9,7 @@ const noop = () => {};
 const docOf = (name: 'a' | 'b' | 'c' | 'e'): Doc => newDoc(parseFixture(name), `${name}.pdf`);
 const html = (d: Doc, locked = false, showMirrors = false) =>
   renderToStaticMarkup(
-    <SettingsDialog doc={d} model={sheetModel(d, showMirrors)} locked={locked} onJob={noop} onCartSizes={noop} onSymbolValue={noop} onSymbolValuesReset={noop} onUnderlay={noop} onLayer={noop} showMirrors={showMirrors} onShowMirrors={noop} onClose={noop} />,
+    <SettingsDialog doc={d} model={sheetModel(d, showMirrors)} locked={locked} onJob={noop} onCartSizes={noop} onSymbolValue={noop} onSymbolValuesReset={noop} showMirrors={showMirrors} onShowMirrors={noop} onClose={noop} />,
   );
 
 describe('Settings', () => {
@@ -19,11 +19,11 @@ describe('Settings', () => {
     expect(out).not.toContain('>Defaults</h');
   });
 
-  it('holds the side labels tick and the venue box, and no longer the Origin (P0) note or the ground offset', () => {
+  it('holds the side labels tick, and no longer the venue, the Origin (P0) note or the ground offset', () => {
     const out = html(docOf('a'));
     expect(out).toContain('Show side labels on the rigging plot');
-    expect(out).toContain('data-testid="venue-panel"');
-    expect(out).toContain('Import venue (SU4SV text file)');
+    expect(out).not.toContain('data-testid="venue-panel"');
+    expect(out).not.toContain('Import venue');
     expect(out).not.toContain('Origin (P0)');
     expect(out).not.toContain('Ground offset for every array');
   });
@@ -87,11 +87,11 @@ describe('Settings', () => {
     const d = docOf('a');
     const fields = new Set([...reportTypes(sheetModel(d, false)), ...d.cartSizes.map((c) => c.type)].map((t) => t.toLowerCase())).size;
     const out = html(d, true);
-    // Venue import and replace, side labels, every size field and the reset button.
+    // The reset buttons for the cart sizes and the symbols are disabled too.
     const buttons = out.match(/<button[^>]*disabled=""[^>]*>[^<]*</g) ?? [];
-    expect(buttons.map((b) => b.replace(/<[^>]*>/g, '').replace('<', ''))).toEqual(expect.arrayContaining(['Reset to the usual sizes', 'Import venue (SU4SV text file)']));
+    expect(buttons.map((b) => b.replace(/<[^>]*>/g, '').replace('<', ''))).toEqual(expect.arrayContaining(['Reset to the usual sizes']));
     const inputs = out.match(/<input[^>]*disabled=""/g) ?? [];
-    // Every size field (the report's types and the saved ones), the four symbol fields and the side labels tick. The venue file is chosen with a button, which is disabled too, and the mirrors tick stays on: it is a view choice.
+    // Every size field (the report's types and the saved ones), the four symbol fields and the side labels tick. The mirrors tick stays on: it is a view choice.
     expect(inputs.length).toBe(fields + 4 + 1);
     expect(out).not.toMatch(/<input type="checkbox"(?![^>]*disabled)[^>]*>(?=<span>Show side labels)/);
   });

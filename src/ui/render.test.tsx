@@ -229,7 +229,7 @@ describe('rigging plot', () => {
   });
 
   it('shows the under development note above the plot', () => {
-    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} locked={false} onJob={() => {}} onPlotPrinted={() => {}} />);
+    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} locked={false} onJob={() => {}} onPlotPrinted={() => {}} onUnderlay={() => {}} onLayer={() => {}} />);
     expect(html).toContain(PLOT_DEVELOPMENT_NOTE);
     expect(html).toContain('data-testid="plot-svg"');
   });
@@ -237,7 +237,7 @@ describe('rigging plot', () => {
 
 describe('the controls under the rigging plot', () => {
   const preview = (d: Doc, locked = false) =>
-    renderToStaticMarkup(<RiggingPlotPreview doc={d} model={sheetModel(d, false)} locked={locked} onJob={() => {}} onPlotPrinted={() => {}} />);
+    renderToStaticMarkup(<RiggingPlotPreview doc={d} model={sheetModel(d, false)} locked={locked} onJob={() => {}} onPlotPrinted={() => {}} onUnderlay={() => {}} onLayer={() => {}} />);
 
   it('hold the Origin (P0) note with its limit', () => {
     const d = newDoc(parseFixture('a'), 'a.pdf');
@@ -260,6 +260,15 @@ describe('the controls under the rigging plot', () => {
     expect(preview(d)).toContain('Enter a number of metres, such as 0.3.');
   });
 
+  it('hold a Venue button that opens the venue box, and say what is on', () => {
+    const d = newDoc(parseFixture('a'), 'a.pdf');
+    const out = preview(d);
+    expect(out).toContain('data-testid="venue-button"');
+    expect(out).toMatch(/data-testid="venue-button"[^>]*>Venue</);
+    expect(out).toContain('The side labels are in Settings.');
+    expect(out).not.toContain('and the venue under the plot are in Settings');
+  });
+
   it('switch the two fields off on a read-only file, and keep Print rigging plot and Download DXF with them', () => {
     const d = newDoc(parseFixture('a'), 'a.pdf');
     const open = preview(d);
@@ -273,7 +282,7 @@ describe('the controls under the rigging plot', () => {
   it('are still there, with Print rigging plot switched off, when no array is on the plot', () => {
     let d = newDoc(parseFixture('a'), 'a.pdf');
     d.result.report.sources.forEach((_, i) => (d = withOnPlot(d, i, false)));
-    const out = renderToStaticMarkup(<RiggingPlotPreview doc={d} model={sheetModel(d, true)} locked={false} onJob={() => {}} onPlotPrinted={() => {}} />);
+    const out = renderToStaticMarkup(<RiggingPlotPreview doc={d} model={sheetModel(d, true)} locked={false} onJob={() => {}} onPlotPrinted={() => {}} onUnderlay={() => {}} onLayer={() => {}} />);
     expect(out).toContain('No array is on the plot');
     expect(out).toContain('Origin (P0)');
     expect(out).toContain('Ground offset for every array (m)');

@@ -1,16 +1,14 @@
 // Settings: the choices that apply to the whole job rather than to one card. The cart sizes, the side labels, the value written
-// for each plot symbol and the venue of the rigging plot, and whether the exact mirror images are shown. Each keeps its saved behaviour and is switched off in a read-only
-// file. The Origin (P0) note and the ground offset every array uses sit under the rigging plot preview.
+// for each plot symbol, and whether the exact mirror images are shown. Each keeps its saved behaviour and is switched off in a read-only
+// file. The Origin (P0) note, the ground offset every array uses and the venue sit under the rigging plot preview.
 
 import { useId, useState } from 'react';
 import { CART_SIZE_MAX, defaultCartSizes, sizeFor, type CartSize } from '../engine/carts';
 import { cleanSymbolValue, DEFAULT_SYMBOL_VALUES, SHAPE_NAME, SHAPES, SYMBOL_VALUE_MAX, symbolValue, type Shape } from '../engine/markers';
-import type { Underlay } from '../engine/underlay';
 import { Dialog } from './Dialog';
 import type { Doc, Job } from './document';
 import type { SheetModel } from './sheet-model';
 import { SymbolIcon } from './SymbolIcon';
-import { VenuePanel } from './VenuePanel';
 
 interface Props {
   doc: Doc;
@@ -20,8 +18,6 @@ interface Props {
   onCartSizes: (sizes: CartSize[]) => void;
   onSymbolValue: (shape: Shape, text: string) => void;
   onSymbolValuesReset: () => void;
-  onUnderlay: (underlay: Underlay | null) => void;
-  onLayer: (name: string, hidden: boolean) => void;
   showMirrors: boolean;
   onShowMirrors: (show: boolean) => void;
   onClose: () => void;
@@ -133,7 +129,7 @@ function SymbolRow({ shape, value, disabled, onValue }: { shape: Shape; value: s
   );
 }
 
-export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onSymbolValue, onSymbolValuesReset, onUnderlay, onLayer, showMirrors, onShowMirrors, onClose }: Props) {
+export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onSymbolValue, onSymbolValuesReset, showMirrors, onShowMirrors, onClose }: Props) {
   const types = reportTypes(model);
   const inReport = new Set(types.map((t) => t.toLowerCase()));
   const elsewhere = doc.cartSizes.filter((c) => !inReport.has(c.type.trim().toLowerCase()));
@@ -194,7 +190,6 @@ export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onSymbo
               </button>
             </p>
           </div>
-          <VenuePanel underlay={doc.underlay} locked={locked} onUnderlay={onUnderlay} onLayer={onLayer} />
         </section>
 
         <section aria-labelledby="settings-display">

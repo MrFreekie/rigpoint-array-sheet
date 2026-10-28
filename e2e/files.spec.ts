@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { changedPdf, closeSettings, inSettings, openJson, openPdf, openSettings, plotControls, samplePdf, save, savedName, start } from './helpers';
+import { changedPdf, closeSettings, closeVenue, inSettings, inVenue, openJson, openPdf, openSettings, openVenue, plotControls, samplePdf, save, savedName, start } from './helpers';
 
 test('opens a Soundvision PDF and shows one card per array without sideways scrolling', async ({ page }) => {
   await start(page);
@@ -593,7 +593,8 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
   const before = await scale();
   await expect(svg.locator('path')).toHaveCount(0);
 
-  const settings = await openSettings(page);
+  await expect(page.getByTestId('venue-button')).toHaveText('Venue');
+  const settings = await openVenue(page);
   await settings.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
   await expect(settings.getByText('Imported 5 lines in 2 layers.')).toBeVisible();
   const layers = settings.getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });
@@ -607,7 +608,8 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
   const all = await drawn();
   await layers.getByLabel(/Roof/).uncheck();
   expect(await drawn()).toBeLessThan(all);
-  await closeSettings(page);
+  await closeVenue(page);
+  await expect(page.getByTestId('venue-button')).toHaveText('Venue: 1 of 2 layers on');
   await expect(page.getByText('● Unsaved changes')).toBeVisible();
 
   // It is saved in the file and comes back with the layer still off.
@@ -615,12 +617,12 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
   expect((saved.json['format'] as string)).toBe('arraysheet/14');
   expect(saved.text).not.toContain('Label');
   await openJson(page, 'venue.arraysheet.json', saved.text);
-  const again = (await openSettings(page)).getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });
+  const again = (await openVenue(page)).getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });
   await expect(again.getByLabel(/Roof/)).not.toBeChecked();
   await expect(again.getByLabel(/Walls/)).toBeChecked();
 
   // Replacing starts with every layer on.
-  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  const dialog = page.getByRole('dialog', { name: 'Venue under the plot' });
   await dialog.getByTestId('venue-file').setInputFiles(venueFile(VENUE_OTHER));
   await expect(dialog.getByText('Imported 1 line in 1 layer.')).toBeVisible();
   await expect(dialog.getByTestId('venue-panel').getByLabel(/Balcony/)).toBeChecked();
@@ -630,16 +632,30 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
   await dialog.getByRole('button', { name: 'Remove venue' }).click();
   await expect(plot.getByTestId('plot-svg').first().locator('path')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: 'Import venue (SU4SV text file)' })).toBeVisible();
-  await closeSettings(page);
+  await closeVenue(page);
 });
 
 test('a venue file that is not in metres is refused with a plain message', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  const settings = await openSettings(page);
+  const settings = await openVenue(page);
   await settings.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT.replace('"m"', '"ft"')));
   await expect(settings.getByRole('alert')).toContainText('in ft');
   await expect(settings.getByRole('button', { name: 'Remove venue' })).toHaveCount(0);
+});
+
+test('the Venue box is a pop-out from the button under the plot, and Escape shuts it', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const dialog = await openVenue(page);
+  await expect(dialog.getByRole('button', { name: 'Import venue (SU4SV text file)' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  // The venue is no longer in Settings.
+  const settings = await openSettings(page);
+  await expect(settings.getByTestId('venue-panel')).toHaveCount(0);
+  await closeSettings(page);
 });
 
 test('Download DXF can include the venue, one DXF layer for each SketchUp layer', async ({ page }) => {
@@ -647,7 +663,7 @@ test('Download DXF can include the venue, one DXF layer for each SketchUp layer'
   await openPdf(page, samplePdf('a'));
   const plot = page.getByTestId('plot-preview');
   await expect(plot.getByLabel(/Include venue in the DXF/)).toHaveCount(0);
-  await inSettings(page, async (d) => {
+  await inVenue(page, async (d) => {
     await d.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
     await expect(d.getByText('Imported 5 lines in 2 layers.')).toBeVisible();
   });
@@ -665,11 +681,11 @@ test('Download DXF can include the venue, one DXF layer for each SketchUp layer'
 test('an approved file offers no venue changes', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  await inSettings(page, (d) => d.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT)));
+  await inVenue(page, (d) => d.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT)));
   await page.getByLabel('Status').selectOption('approved');
   const saved = await save(page);
   await openJson(page, 'approved.arraysheet.json', saved.text);
-  const panel = (await openSettings(page)).getByTestId('venue-panel');
+  const panel = (await openVenue(page)).getByTestId('venue-panel');
   await expect(panel.getByRole('button', { name: 'Replace venue (SU4SV text file)' })).toBeDisabled();
   await expect(panel.getByRole('button', { name: 'Remove venue' })).toBeDisabled();
   await expect(panel.getByLabel(/Walls/)).toBeDisabled();
@@ -679,7 +695,7 @@ test('the on-screen plot has white space around it, stays on white, and does not
   await start(page);
   await openPdf(page, samplePdf('a'));
   const plot = page.getByTestId('plot-preview');
-  await inSettings(page, async (d) => {
+  await inVenue(page, async (d) => {
     await d.getByTestId('venue-file').setInputFiles(venueFile(VENUE_TEXT));
     await expect(d.getByText('Imported 5 lines in 2 layers.')).toBeVisible();
   });

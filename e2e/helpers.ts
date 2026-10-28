@@ -69,6 +69,29 @@ export async function inSettings<T>(page: Page, fn: (dialog: Locator) => Promise
   return result;
 }
 
+/** Open the Venue under the plot box from the button under the rigging plot, and return the dialog. */
+export async function openVenue(page: Page): Promise<Locator> {
+  await page.getByTestId('venue-button').click();
+  const dialog = page.getByRole('dialog', { name: 'Venue under the plot' });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** Close the Venue box with its Close button. */
+export async function closeVenue(page: Page) {
+  const dialog = page.getByRole('dialog', { name: 'Venue under the plot' });
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(dialog).toBeHidden();
+}
+
+/** Open the Venue box, run `fn` with the dialog, close it again. */
+export async function inVenue<T>(page: Page, fn: (dialog: Locator) => Promise<T>): Promise<T> {
+  const dialog = await openVenue(page);
+  const result = await fn(dialog);
+  await closeVenue(page);
+  return result;
+}
+
 export async function openPdf(page: Page, pdf: Buffer, name = 'report.pdf') {
   await page.getByTestId('open-file').setInputFiles({ name, mimeType: 'application/pdf', buffer: pdf });
 }
