@@ -100,17 +100,21 @@ test('save, reopen, approve and lock', async ({ page }) => {
   expect(next.json).toMatchObject({ status: 'draft', revision: 'C' });
 });
 
-test('notes for the show are typed in Show details, shown on the rigging summary, saved, and read-only when locked', async ({ page }) => {
+test('notes for the show are typed in their own Notes panel below the rigging summary, saved, and read-only when locked', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  const showNotes = () => page.getByRole('region', { name: 'Show details' }).getByRole('textbox', { name: /^Notes/ });
+  const showNotes = () => page.getByRole('region', { name: 'Notes', exact: true }).getByRole('textbox', { name: 'Notes for the show' });
   const notes = showNotes();
   await expect(page.getByText('0 of 500 characters')).toBeVisible();
   await notes.fill('Load in at 08:00.\nCall Sam first.');
   await expect(page.getByText('33 of 500 characters')).toBeVisible();
+  // The panel is below the rigging summary, and the Show details form no longer has a Notes box.
   const summary = page.locator('section', { has: page.getByRole('heading', { name: 'Rigging summary' }) });
-  await expect(summary.getByTestId('show-notes')).toContainText('Load in at 08:00.');
-  await expect(summary.getByTestId('show-notes')).toContainText('Call Sam first.');
+  await expect(summary.getByTestId('show-notes')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Show details' }).getByRole('textbox', { name: /^Notes/ })).toHaveCount(0);
+  const summaryBox = await summary.boundingBox();
+  const notesBox = await page.getByTestId('show-notes-panel').boundingBox();
+  expect(notesBox!.y).toBeGreaterThan(summaryBox!.y + summaryBox!.height - 1);
 
   // The box stops at 500 characters, and a pasted control character is dropped.
   await notes.fill('x'.repeat(520));
@@ -123,11 +127,11 @@ test('notes for the show are typed in Show details, shown on the rigging summary
   await openJson(page, 'saved.arraysheet.json', draft.text);
   await expect(showNotes()).toHaveValue('Bring ear plugs.');
 
-  // Approved and saved: the box is read-only, and the notes still show.
+  // Approved and saved: the box is read-only, and the notes stay.
   await page.getByLabel('Status').selectOption('approved');
   await save(page);
   await expect(showNotes()).toBeDisabled();
-  await expect(summary.getByTestId('show-notes')).toContainText('Bring ear plugs.');
+  await expect(showNotes()).toHaveValue('Bring ear plugs.');
 });
 
 test('the show date is picked in Show details, saved as YYYY-MM-DD, printed UK style, and read-only when locked', async ({ page }) => {

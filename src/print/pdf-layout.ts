@@ -176,10 +176,14 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
   return { width: W, height: y, ops };
 }
 
-export const RIGGING_PICKUP_COLUMNS = ['Array', 'Pickup', 'Position no.', 'X (m)', 'Y (m)', 'Z (m)', 'Load (kg)', 'To front (m)', 'To rear (m)'];
+export const RIGGING_PICKUP_COLUMNS = ['Point', 'Array', 'Pickup', 'Position no.', 'X (m)', 'Y (m)', 'Z (m)', 'Load (kg)', 'To front (m)', 'To rear (m)'];
 export const RIGGING_FIXATION_COLUMNS = ['Array', 'Fixation', 'X (m)', 'Y (m)', 'Z (m)'];
 /** Column widths on the 192 mm rigging page; the print stylesheet's tables use the same shares. */
-export const RIGGING_PICKUP_WIDTHS_MM = [52, 14, 21, 15, 15, 15, 18, 21, 21];
+export const RIGGING_PICKUP_WIDTHS_MM = [12, 46, 14, 21, 13, 13, 13, 18, 21, 21];
+/** The columns of the Rigging Points table that are left aligned: Array and Pickup. Every other column is centred. */
+export const RIGGING_PICKUP_LEFT_COLUMNS = [1, 2];
+/** Where the Array column sits in the Rigging Points table. */
+export const RIGGING_PICKUP_ARRAY_COLUMN = 1;
 export const RIGGING_FIXATION_WIDTHS_MM = [80, 40, 24, 24, 24];
 /** What a cell keeps free of text: its padding on both sides and the border (1.2 mm each side, as the stylesheet pads). */
 export const RIGGING_CELL_PAD_PT = mm(2.4) + 2;
@@ -199,6 +203,11 @@ export function riggingNotes(job: { notes: string }): string {
   return job.notes.trim() === '' ? '' : job.notes.replace(/\s+$/, '');
 }
 
+/** The lines of the show notes: each line break the person typed starts a new line, a blank line stays blank, long lines wrap. */
+export function showNoteLines(notes: string, size: number, max: number, measure: Measure): string[] {
+  return notes.split(/\r?\n/).flatMap((segment) => (segment.trim() === '' ? [''] : wrap(segment, size, false, max, measure)));
+}
+
 export interface RiggingInput {
   rows: readonly RiggingRow[];
   /** The weights of each array with a pickup: the report's total and, when typed, the additional weight. */
@@ -206,7 +215,7 @@ export interface RiggingInput {
   fixations: readonly FixationRow[];
   /** Show and venue line under the heading. */
   subtitle: string;
-  /** Notes for the whole show, or blank. Printed under the subtitle. */
+  /** Notes for the whole show, or blank. Printed at the end of the page content, above the small print. */
   notes: string;
   /** Dark squares of the QR code, and the address it holds. */
   qr: boolean[][];
@@ -227,19 +236,9 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
 
   y += 8 * 1.5 + mm(3);
 
-  if (input.notes) {
-    const size = 8;
-    const leadW = measure('Notes: ', size, true);
-    for (const line of noteLines(input.notes, size, W, measure, 'Notes: ')) {
-      if (line.lead) ops.push(textOp(0, y, 'Notes:', size, { bold: true }));
-      if (line.text) ops.push(textOp(line.lead ? leadW : 0, y, line.text, size));
-      y += size * 1.3;
-    }
-    y += mm(3);
-  }
-
-  /** A table whose first two columns are text and the rest numbers. Text that does not fit its column is cut with an ellipsis. */
-  const table = (heads: string[], widthsMm: number[], body: string[][], compact = false, leftCols = 2) => {
+  /** A table whose first columns are text (left) and the rest numbers (centred in their column). Text that does not fit its column is cut with an ellipsis. */
+  const table = (heads: string[], widthsMm: number[], body: string[][], compact = false, leftCols: number | readonly number[] = 2) => {
+    const isLeft = (i: number) => (typeof leftCols === 'number' ? i < leftCols : leftCols.includes(i));
     const xs = widthsMm.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? 0) + mm((w * widthMm) / 192)], [0]);
     // The fixation table uses a pocket card's rows (7 pt text, 10.5 pt high) so the long list costs the page little scale.
     const size = compact ? FONT_SIZES.body : 8;
@@ -247,9 +246,9 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     const row = (cells: string[], header: boolean) => {
       if (header) ops.push({ op: 'rect', x: 0, y, w: W, h: rowH, fill: '#e4e4e4', stroke: null, lineWidth: 0 });
       cells.forEach((text, i) => {
-        const left = i < leftCols;
+        const left = isLeft(i);
         const shown = clipRiggingCell(text, ((xs[i + 1] ?? W) - (xs[i] ?? 0)) / PT_PER_MM, header, measure, size);
-        ops.push(textOp(left ? (xs[i] ?? 0) + 3 : (xs[i + 1] ?? W) - 3, y + (compact ? 0.5 : 2), shown, size, { bold: header, align: left ? 'left' : 'right' }));
+        ops.push(textOp(left ? (xs[i] ?? 0) + 3 : ((xs[i] ?? 0) + (xs[i + 1] ?? W)) / 2, y + (compact ? 0.5 : 2), shown, size, { bold: header, align: left ? 'left' : 'center' }));
       });
       ops.push({ op: 'line', x1: 0, y1: y + rowH, x2: W, y2: y + rowH, width: 0.4, color: '#777777' });
       xs.forEach((x) => ops.push({ op: 'line', x1: x, y1: y, x2: x, y2: y + rowH, width: 0.4, color: '#777777' }));
@@ -265,10 +264,14 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     ops.push(textOp(0, y, 'No flown array in this report has a pickup position.', 7));
     y += 7 * 1.5;
   } else {
+    ops.push(textOp(0, y, 'Rigging Points', 7, { bold: true }));
+    y += 7 * 1.4;
     table(
       RIGGING_PICKUP_COLUMNS,
       RIGGING_PICKUP_WIDTHS_MM,
-      input.rows.map((r) => [r.source, r.location, String(r.pickupPosition), String(r.x), String(r.y), String(r.z), r.load === null ? NOT_STATED : String(r.load), edgeText(r, 'toFront', NOT_STATED), edgeText(r, 'toRear', NOT_STATED)]),
+      input.rows.map((r) => [r.point, r.source, r.location, String(r.pickupPosition), String(r.x), String(r.y), String(r.z), r.load === null ? NOT_STATED : String(r.load), edgeText(r, 'toFront', NOT_STATED), edgeText(r, 'toRear', NOT_STATED)]),
+      false,
+      RIGGING_PICKUP_LEFT_COLUMNS,
     );
   }
   const heading = (text: string) => {
@@ -314,6 +317,17 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     for (const line of wrap(edgeNote, 7, false, W, measure)) {
       ops.push(textOp(0, y, line, 7));
       y += 7 * 1.3;
+    }
+  }
+
+  // The show notes, last of the content: a small heading, then the text with the person's line breaks kept.
+  if (input.notes) {
+    y += mm(3);
+    ops.push(textOp(0, y, 'Notes', 7, { bold: true }));
+    y += 7 * 1.4;
+    for (const line of showNoteLines(input.notes, 8, W, measure)) {
+      if (line) ops.push(textOp(0, y, line, 8));
+      y += 8 * 1.3;
     }
   }
 

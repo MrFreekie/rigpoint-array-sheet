@@ -1,19 +1,13 @@
 import { EXTRA_TABLE_COLUMNS, edgeText, extraTableRows, extrasUsed, riggingEdgeNote, riggingNote, riggingWeightsNote, weightTableColumns, weightTableRows, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
 import { NOT_STATED, num } from './format';
 
-export function RiggingSummary({ rows, weights = [], fixations = [], notes = '' }: { rows: readonly RiggingRow[]; weights?: readonly RiggingWeight[]; fixations?: readonly FixationRow[]; notes?: string }) {
+export function RiggingSummary({ rows, weights = [], fixations = [] }: { rows: readonly RiggingRow[]; weights?: readonly RiggingWeight[]; fixations?: readonly FixationRow[] }) {
   const used = extrasUsed(rows);
   const note = riggingNote(rows.length > 0, fixations.length > 0);
   const edgeNote = riggingEdgeNote(rows.length > 0);
   return (
     <section className="panel" aria-labelledby="rigging-heading">
       <h2 id="rigging-heading">Rigging summary</h2>
-      {notes ? (
-        <p className="show-notes" data-testid="show-notes">
-          <strong>Notes: </strong>
-          {notes}
-        </p>
-      ) : null}
       {note ? <p className="muted">{note}</p> : null}
       {edgeNote ? <p className="muted">{edgeNote}</p> : null}
       {rows.length === 0 ? (
@@ -21,23 +15,25 @@ export function RiggingSummary({ rows, weights = [], fixations = [], notes = '' 
       ) : (
         <div className="table-wrap" data-testid="rigging-pickups">
           <table>
-            <caption className="visually-hidden">Pickup positions and motor loads, as listed in the report</caption>
+            <caption>Rigging Points</caption>
             <thead>
               <tr>
+                <th scope="col" className="n">Point</th>
                 <th scope="col">Array</th>
                 <th scope="col">Pickup</th>
-                <th scope="col">Position no.</th>
-                <th scope="col">X (m)</th>
-                <th scope="col">Y (m)</th>
-                <th scope="col">Z (m)</th>
-                <th scope="col">Load (kg)</th>
-                <th scope="col">To front (m)</th>
-                <th scope="col">To rear (m)</th>
+                <th scope="col" className="n">Position no.</th>
+                <th scope="col" className="n">X (m)</th>
+                <th scope="col" className="n">Y (m)</th>
+                <th scope="col" className="n">Z (m)</th>
+                <th scope="col" className="n">Load (kg)</th>
+                <th scope="col" className="n">To front (m)</th>
+                <th scope="col" className="n">To rear (m)</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r, i) => (
                 <tr key={i}>
+                  <td className="n">{r.point}</td>
                   <th scope="row">{r.source}</th>
                   <td>{r.location}</td>
                   <td className="n">{r.pickupPosition}</td>
@@ -59,8 +55,8 @@ export function RiggingSummary({ rows, weights = [], fixations = [], notes = '' 
             <caption>Additional weight, typed in the app</caption>
             <thead>
               <tr>
-                {EXTRA_TABLE_COLUMNS.map((h) => (
-                  <th key={h} scope="col">
+                {EXTRA_TABLE_COLUMNS.map((h, i) => (
+                  <th key={h} scope="col" className={i >= 2 ? 'n' : undefined}>
                     {h}
                   </th>
                 ))}
@@ -88,8 +84,8 @@ export function RiggingSummary({ rows, weights = [], fixations = [], notes = '' 
             <caption>Array weights</caption>
             <thead>
               <tr>
-                {weightTableColumns(used).map((h) => (
-                  <th key={h} scope="col">
+                {weightTableColumns(used).map((h, i) => (
+                  <th key={h} scope="col" className={i >= 1 ? 'n' : undefined}>
                     {h}
                   </th>
                 ))}
@@ -119,9 +115,9 @@ export function RiggingSummary({ rows, weights = [], fixations = [], notes = '' 
               <tr>
                 <th scope="col">Array</th>
                 <th scope="col">Fixation</th>
-                <th scope="col">X (m)</th>
-                <th scope="col">Y (m)</th>
-                <th scope="col">Z (m)</th>
+                <th scope="col" className="n">X (m)</th>
+                <th scope="col" className="n">Y (m)</th>
+                <th scope="col" className="n">Z (m)</th>
               </tr>
             </thead>
             <tbody>

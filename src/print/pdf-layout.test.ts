@@ -5,7 +5,7 @@ import { sheetModel } from '../ui/sheet-model';
 import { canvasMeasurePt, estimateWidth, type DrawOp } from './array-image';
 import { cardContent } from './card-content';
 import { CELL_H_MM, FULL_H_MM, LONG_H_MM, MIN_FULL_SCALE, PX_PER_MM, fitScale, planPages } from './layout';
-import { PT_PER_MM, RIGGING_CELL_PAD_PT, RIGGING_FIXATION_WIDTHS_MM, RIGGING_PICKUP_WIDTHS_MM, clipRiggingCell, layoutPocketCard, layoutRiggingPage, ptToPx, riggingNotes, riggingSubtitle } from './pdf-layout';
+import { PT_PER_MM, RIGGING_CELL_PAD_PT, RIGGING_FIXATION_WIDTHS_MM, RIGGING_PICKUP_ARRAY_COLUMN, RIGGING_PICKUP_WIDTHS_MM, clipRiggingCell, layoutPocketCard, layoutRiggingPage, ptToPx, riggingNotes, riggingSubtitle } from './pdf-layout';
 import { qrMatrix } from './qr';
 import { riggingFixations, riggingRows } from '../engine/sheet';
 import { SMALL_PRINT } from './small-print';
@@ -112,6 +112,27 @@ describe('layoutRiggingPage', () => {
     expect(t).toContain('Rear');
   });
 
+  it('keeps Array and Pickup left aligned and centres every other column, in the middle of its column, header included', () => {
+    const laid = layoutRiggingPage(input(), estimateWidth);
+    const textOps = laid.ops.filter((o): o is Extract<DrawOp, { op: 'text' }> => o.op === 'text');
+    const at = (t: string) => textOps.filter((o) => o.text === t);
+    // The first two columns are left aligned, so the same names are never centred or right aligned.
+    for (const o of [...at('Array'), ...at('Pickup'), ...at('FL KARA II L'), ...at('Front')]) expect(o.align).toBe('left');
+    // The numeric headers and values are centred, and nothing on the page is right aligned except a pocket-card fact (none here).
+    for (const t of ['X (m)', 'Y (m)', 'Z (m)', '182.7']) {
+      const found = at(t);
+      expect(found.length).toBeGreaterThan(0);
+      for (const o of found) expect(o.align).toBe('center');
+    }
+    expect(textOps.filter((o) => o.align === 'right')).toEqual([]);
+    // A centred value sits in the middle of its column: between the column's two lines.
+    const cell = at('182.7')[0]!;
+    const lines = laid.ops.filter((o): o is Extract<DrawOp, { op: 'line' }> => o.op === 'line' && o.x1 === o.x2 && cell.y >= o.y1 - 0.01 && cell.y <= o.y2 + 0.01).map((o) => o.x1).sort((p, q) => p - q);
+    const left = [...lines].reverse().find((x) => x < cell.x)!;
+    const right = lines.find((x) => x > cell.x)!;
+    expect(cell.x).toBeCloseTo((left + right) / 2, 1);
+  });
+
   it('draws the QR code as squares, one run at a time, in a 30 mm box in the middle at the bottom, under the small print', () => {
     const laid = layoutRiggingPage(input(), estimateWidth);
     const squares = laid.ops.filter((o) => o.op === 'rect' && o.fill === '#000000');
@@ -176,11 +197,11 @@ describe('layoutRiggingPage', () => {
       expect(t).toContain('Every fixation is listed, including those of mirrored arrays, because their positions differ.');
     });
 
-    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.912 (the QR code now stands under the small print and the edge distance note costs a line; fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
+    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.901 (the QR code stands under the small print, the edge distance note and the Rigging Points heading cost a line each; fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
       const laid = layoutRiggingPage(withFixations(), estimateWidth);
       const fit = fitScale(pxHeight(laid.height), FULL_H_MM, MIN_FULL_SCALE);
       expect(fit.overflow).toBe(false);
-      expect(fit.scale).toBe(0.912);
+      expect(fit.scale).toBe(0.901);
     });
 
     it('sets the fixation table in 7 pt text and keeps the pickup table at 8 pt', () => {
@@ -200,7 +221,7 @@ describe('layoutRiggingPage', () => {
       const limit = (mmWidth: number) => mmWidth * PT_PER_MM - 3;
       // Pickup array names come first in the ops, then each fixation row's array and fixation name.
       names.forEach((o, i) => {
-        const column = i < rows.length ? RIGGING_PICKUP_WIDTHS_MM[0]! : RIGGING_FIXATION_WIDTHS_MM[(i - rows.length) % 2]!;
+        const column = i < rows.length ? RIGGING_PICKUP_WIDTHS_MM[RIGGING_PICKUP_ARRAY_COLUMN]! : RIGGING_FIXATION_WIDTHS_MM[(i - rows.length) % 2]!;
         expect(o.text).toContain('…');
         expect(o.text.endsWith('W')).toBe(true);
         expect(estimateWidth(o.text, o.size, o.bold)).toBeLessThanOrEqual(limit(column));
@@ -249,35 +270,37 @@ describe('layoutRiggingPage', () => {
   });
 
   describe('show notes on the rigging page', () => {
-    const lines = (notes: string) =>
-      layoutRiggingPage({ ...input(), notes }, estimateWidth).ops.filter((o) => o.op === 'text' && o.size === 8 && o.y > 0 && o.y < 70);
+    const ops = (notes: string) => layoutRiggingPage({ ...input(), notes }, estimateWidth).ops;
+    const y = (all: DrawOp[], text: string) => (all.find((o) => o.op === 'text' && o.text === text) as { y: number }).y;
 
-    it('prints Notes: in bold, then the text, one line per line break, under the subtitle and above the tables', () => {
-      const laid = layoutRiggingPage({ ...input(), notes: 'Load in at 08:00.\nCall Sam first.' }, estimateWidth);
-      const label = laid.ops.filter((o) => o.op === 'text' && o.text === 'Notes:');
-      expect(label).toHaveLength(1);
-      expect(label[0]).toMatchObject({ bold: true });
-      const t = texts(laid.ops);
-      expect(t).toContain('Load in at 08:00.');
-      expect(t).toContain('Call Sam first.');
-      const y = (text: string) => (laid.ops.find((o) => o.op === 'text' && o.text === text) as { y: number }).y;
-      expect(y('Main stage · Grand Hall')).toBeLessThan(y('Notes:'));
-      expect(y('Call Sam first.')).toBeGreaterThan(y('Load in at 08:00.'));
-      expect(y('Call Sam first.')).toBeLessThan(y('Array'));
+    it('prints a small bold Notes heading and the text, one line per line break, after the tables and above the small print', () => {
+      const all = ops('Load in at 08:00.\nCall Sam first.');
+      const heading = all.filter((o) => o.op === 'text' && o.text === 'Notes');
+      expect(heading).toHaveLength(1);
+      expect(heading[0]).toMatchObject({ bold: true, size: 7 });
+      expect(texts(all)).toContain('Load in at 08:00.');
+      expect(texts(all)).toContain('Call Sam first.');
+      expect(texts(all)).not.toContain('Notes:');
+      expect(y(all, 'Call Sam first.')).toBeGreaterThan(y(all, 'Load in at 08:00.'));
+      expect(y(all, 'Notes')).toBeGreaterThan(y(all, 'Array'));
+      const smallPrintTop = Math.min(...all.filter((o) => o.op === 'text' && o.size === 6.5).map((o) => (o as { y: number }).y));
+      expect(y(all, 'Call Sam first.')).toBeLessThan(smallPrintTop);
     });
 
-    it('wraps a long note inside the page width, even a word with no spaces', () => {
+    it('keeps a blank line blank and wraps a long note inside the page width, even a word with no spaces', () => {
+      const blank = ops('One.\n\nThree.');
+      expect(y(blank, 'Three.') - y(blank, 'One.')).toBeCloseTo(2 * 8 * 1.3, 5);
       const laid = layoutRiggingPage({ ...input(), notes: `${'word '.repeat(120)}${'x'.repeat(80)}`.slice(0, 500) }, estimateWidth);
       for (const o of laid.ops) {
         if (o.op === 'text' && o.size === 8 && o.text.startsWith('word')) expect(estimateWidth(o.text, 8, false)).toBeLessThanOrEqual(laid.width + 0.5);
       }
-      expect(lines('word '.repeat(100)).length).toBeGreaterThan(2);
+      expect(laid.ops.filter((o) => o.op === 'text' && o.size === 8 && o.text.startsWith('word')).length).toBeGreaterThan(2);
     });
 
     it('leaves the page exactly as it was when there are no notes', () => {
       const none = layoutRiggingPage(input(), estimateWidth);
       expect(layoutRiggingPage({ ...input(), notes: '' }, estimateWidth)).toEqual(none);
-      expect(texts(none.ops)).not.toContain('Notes:');
+      expect(texts(none.ops)).not.toContain('Notes');
     });
 
     it('makes the page taller by the lines the note takes', () => {

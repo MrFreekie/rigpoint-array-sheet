@@ -14,7 +14,7 @@ import { CREDIT_TEXT, pageFooterText } from './footer';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { qrMatrix, qrPath, qrSize } from './qr';
 import { PlotSvg } from './PlotSvg';
-import { plotForPrint } from './plot-input';
+import { plotForPrint, pointLabelOf } from './plot-input';
 import { layoutPlotPages, plotPageCount, PRINT_PALETTE } from './plot-layout';
 import { SMALL_PRINT } from './small-print';
 import { canvasMeasurePt } from './array-image';
@@ -24,6 +24,8 @@ import {
   RIGGING_FIXATION_WIDTHS_MM,
   RIGGING_PICKUP_COLUMNS,
   RIGGING_PICKUP_WIDTHS_MM,
+  RIGGING_PICKUP_LEFT_COLUMNS,
+  RIGGING_PICKUP_ARRAY_COLUMN,
   clipRiggingCell,
   riggingNotes,
   riggingSubtitle,
@@ -160,7 +162,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
   );
   const contents = useMemo(() => model.entries.filter((e) => e.print).map((e) => ({ index: e.index, content: cardContent(e, ctx) })), [model, ctx]);
   const extraOf = useMemo(() => extraKgFor(doc, model), [doc, model]);
-  const rigging = useMemo(() => riggingRows(model.sources, model.printedSources, extraOf), [model.sources, model.printedSources, extraOf]);
+  const rigging = useMemo(() => riggingRows(model.sources, model.printedSources, extraOf, pointLabelOf(model)), [model, extraOf]);
   const weights = useMemo(() => riggingWeights(model.sources, model.printedSources, extraOf), [model.sources, model.printedSources, extraOf]);
   const extrasOn = extrasUsed(rigging);
   const fixations = useMemo(() => riggingFixations(model.sources, model.printedSources), [model.sources, model.printedSources]);
@@ -257,16 +259,11 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
           </p>
         </div>
       </div>
-      {showNotes ? (
-        <p className="as-rigging-notes" data-testid="print-show-notes">
-          <strong>Notes: </strong>
-          {showNotes}
-        </p>
-      ) : null}
       {rigging.length === 0 ? (
         <p className="as-rigging-note">No flown array in this report has a pickup position.</p>
       ) : (
         <>
+          <p className="as-rigging-heading">Rigging Points</p>
           <table className="as-table" data-testid="print-pickups">
             <colgroup>
               {RIGGING_PICKUP_WIDTHS_MM.map((w, i) => (
@@ -275,15 +272,16 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
             </colgroup>
             <thead>
               <tr>
-                {RIGGING_PICKUP_COLUMNS.map((h) => (
-                  <th key={h}>{h}</th>
+                {RIGGING_PICKUP_COLUMNS.map((h, i) => (
+                  <th key={h} className={RIGGING_PICKUP_LEFT_COLUMNS.includes(i) ? undefined : 'n'}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rigging.map((r, i) => (
                 <tr key={i}>
-                  <td>{cell(r.source, 0, RIGGING_PICKUP_WIDTHS_MM)}</td>
+                  <td className="n">{r.point}</td>
+                  <td>{cell(r.source, RIGGING_PICKUP_ARRAY_COLUMN, RIGGING_PICKUP_WIDTHS_MM)}</td>
                   <td>{r.location}</td>
                   <td className="n">{r.pickupPosition}</td>
                   <td className="n">{r.x}</td>
@@ -309,8 +307,8 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
             </colgroup>
             <thead>
               <tr>
-                {EXTRA_TABLE_COLUMNS.map((h) => (
-                  <th key={h}>{h}</th>
+                {EXTRA_TABLE_COLUMNS.map((h, i) => (
+                  <th key={h} className={i >= 2 ? 'n' : undefined}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -341,8 +339,8 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
             </colgroup>
             <thead>
               <tr>
-                {weightTableColumns(extrasOn).map((h) => (
-                  <th key={h}>{h}</th>
+                {weightTableColumns(extrasOn).map((h, i) => (
+                  <th key={h} className={i >= 1 ? 'n' : undefined}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -370,8 +368,8 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
           </colgroup>
           <thead>
             <tr>
-              {RIGGING_FIXATION_COLUMNS.map((h) => (
-                <th key={h}>{h}</th>
+              {RIGGING_FIXATION_COLUMNS.map((h, i) => (
+                <th key={h} className={i >= 2 ? 'n' : undefined}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -391,6 +389,14 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
       {note ? <p className="as-rigging-note">{note}</p> : null}
       {weights.length > 0 ? <p className="as-rigging-note">{riggingWeightsNote(extrasOn)}</p> : null}
       {edgeNote ? <p className="as-rigging-note">{edgeNote}</p> : null}
+      {showNotes ? (
+        <>
+          <p className="as-rigging-heading">Notes</p>
+          <p className="as-rigging-notes" data-testid="print-show-notes">
+            {showNotes}
+          </p>
+        </>
+      ) : null}
       <div className="as-small-print" data-testid="print-small-print">
         {SMALL_PRINT.map((p, i) => (
           <p key={i}>

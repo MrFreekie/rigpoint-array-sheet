@@ -141,12 +141,6 @@ input {
   white-space: nowrap;
 }
 
-.show-notes {
-  white-space: pre-line;
-  overflow-wrap: anywhere;
-  margin: 0 0 0.75rem;
-}
-
 .muted {
   color: var(--muted);
 }
@@ -528,8 +522,9 @@ tbody th {
   font-weight: 600;
 }
 
-td.n {
-  text-align: right;
+td.n,
+th.n {
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
 

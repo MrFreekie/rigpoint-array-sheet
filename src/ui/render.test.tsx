@@ -186,14 +186,10 @@ describe('RiggingSummary', () => {
     expect(html).toContain('3.08');
   });
 
-  it('shows the notes for the show above the tables, and nothing when there are none', () => {
-    const withNotes = renderToStaticMarkup(<RiggingSummary rows={riggingRows(b)} notes={'Load in at 08:00.\nCall Sam first.'} />);
-    expect(withNotes).toContain('data-testid="show-notes"');
-    expect(withNotes).toContain('Load in at 08:00.');
-    expect(withNotes.indexOf('show-notes')).toBeLessThan(withNotes.indexOf('<table'));
-    const without = renderToStaticMarkup(<RiggingSummary rows={riggingRows(b)} />);
-    expect(without).not.toContain('show-notes');
-    expect(renderToStaticMarkup(<RiggingSummary rows={riggingRows(b)} notes="" />)).not.toContain('Notes:');
+  it('no longer carries the show notes, which have their own panel below the summary', () => {
+    const html = renderToStaticMarkup(<RiggingSummary rows={riggingRows(b)} />);
+    expect(html).not.toContain('show-notes');
+    expect(html).not.toContain('Notes:');
   });
 
   it('names only pickups in its line when the report states no fixations, and shows no fixation table', () => {

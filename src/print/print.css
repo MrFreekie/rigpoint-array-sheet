@@ -378,7 +378,7 @@
 }
 
 .as-rigging-notes {
-  margin: 0 0 3mm;
+  margin: 0.5mm 0 0;
   font-size: 8pt;
   white-space: pre-line;
   overflow-wrap: anywhere;
@@ -420,8 +420,9 @@
   background: #e4e4e4;
 }
 
-.as-table td.n {
-  text-align: right;
+.as-table td.n,
+.as-table th.n {
+  text-align: center;
 }
 
 .as-rigging-head {

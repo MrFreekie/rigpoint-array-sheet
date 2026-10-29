@@ -91,6 +91,8 @@ export function flySheetColumn(source: ArraySource, groundOffset = 0): FlySheetC
 }
 
 export interface RiggingRow {
+  /** The rigging point number as the rigging plot numbers it (PA1, PA2 ...), or blank when the array is not on the plot. */
+  point: string;
   source: string;
   /** 'Single' when the array has only one pickup, so it is not read as the front of a pair. */
   location: 'Front' | 'Rear' | 'Single';
@@ -125,7 +127,12 @@ export function edgeText(row: Pick<RiggingRow, 'edge'>, which: 'toFront' | 'toRe
  * One row per pickup of every flown array, in report order. Give `include` (positions in the report)
  * to list only some of the arrays.
  */
-export function riggingRows(sources: readonly ArraySource[], include?: ReadonlySet<number>, extraOf: ExtraKg = () => null): RiggingRow[] {
+export function riggingRows(
+  sources: readonly ArraySource[],
+  include?: ReadonlySet<number>,
+  extraOf: ExtraKg = () => null,
+  pointOf: PointLabel = () => '',
+): RiggingRow[] {
   const rows: RiggingRow[] = [];
   for (const [index, s] of sources.entries()) {
     if (include && !include.has(index)) continue;
@@ -134,6 +141,7 @@ export function riggingRows(sources: readonly ArraySource[], include?: ReadonlyS
       const d = edgeDistances(s, p.at);
       const single = s.pickups.length === 1;
       rows.push({
+        point: pointOf(index, p.which),
         source: s.name,
         location: single ? 'Single' : p.which === 'front' ? 'Front' : 'Rear',
         pickupPosition: p.position,
@@ -149,6 +157,9 @@ export function riggingRows(sources: readonly ArraySource[], include?: ReadonlyS
   }
   return rows;
 }
+
+/** The rigging point number (PA1 ...) of a pickup of the array at this position in the report, or blank when it has none. */
+export type PointLabel = (arrayIndex: number, side: 'front' | 'rear') => string;
 
 /** The additional weight typed for a pickup of the array at this position in the report, or null for none. */
 export type ExtraKg = (arrayIndex: number, side: 'front' | 'rear') => number | null;

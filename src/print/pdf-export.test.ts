@@ -80,19 +80,23 @@ describe('renderPdf', () => {
     expect(without.pages).toBe(withDate.pages);
   });
 
-  it('prints the show notes under the rigging heading, and nothing when there are none', async () => {
+  it('prints the show notes at the end of the rigging page content, under a Notes heading, and nothing when there are none', async () => {
     const doc = sampleDoc();
     doc.job = { ...doc.job, notes: 'Load in at 08:00.\nCall Sam first.' };
     const withNotes = await make(doc);
     const last = withNotes.text(withNotes.pages);
     expect(last).toContain('Rigging summary');
-    expect(last).toContain('Notes:');
+    expect(last).toContain('Notes');
+    expect(last).not.toContain('Notes:');
+    // After the tables, before the small print.
+    expect(last.indexOf('Call Sam first.')).toBeGreaterThan(last.indexOf('Load (kg)'));
+    expect(last.indexOf('Call Sam first.')).toBeLessThan(last.indexOf('is provided as it is'));
     expect(last).toContain('Load in at 08:00.');
     expect(last).toContain('Call Sam first.');
     // Only the rigging page carries them.
     for (let p = 1; p < withNotes.pages; p++) expect(withNotes.text(p)).not.toContain('Call Sam first.');
     const without = await make(sampleDoc());
-    expect(without.text(without.pages)).not.toContain('Notes:');
+    expect(without.text(without.pages)).not.toContain('Call Sam first.');
     expect(without.pages).toBe(withNotes.pages);
   });
 

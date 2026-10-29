@@ -5,6 +5,7 @@ import { numberPickups, plotArrays } from '../engine/plot';
 import { markerOf, plotShown, type Doc } from '../files/doc';
 import { extraKgFor, type SheetModel } from '../ui/sheet-model';
 import { addKg, sumKg } from '../engine/extra-weight';
+import type { PointLabel } from '../engine/sheet';
 import { panelHeader } from './panel-header';
 import { riggingSubtitle } from './pdf-layout';
 import { visibleLayers } from '../engine/underlay';
@@ -15,6 +16,16 @@ export type PlotContent = Omit<PlotInput, 'footer'>;
 /** What the printout draws: the plot, unless Print rigging plot is off or no array is on it. The screen preview and the DXF use plotContent. */
 export function plotForPrint(doc: Doc, model: SheetModel): PlotContent | null {
   return model.printsPlot ? plotContent(doc, model) : null;
+}
+
+/**
+ * The rigging point number (PA1, PA2 ...) of each pickup on the plot, for the rigging summary: the same arrays and the same
+ * numbering as plotContent, so the two always agree. A pickup of an array that is not on the plot has no number (blank).
+ */
+export function pointLabelOf(model: SheetModel): PointLabel {
+  const { drawn } = plotArrays(model.sources, model.plottedSources);
+  const labels = new Map(numberPickups(drawn).map((p) => [`${p.arrayIndex}:${p.which}`, p.label]));
+  return (arrayIndex, side) => labels.get(`${arrayIndex}:${side}`) ?? '';
 }
 
 /** Null when no array on the plot can be drawn, in which case there is nothing to show. */

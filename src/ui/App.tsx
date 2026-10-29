@@ -23,7 +23,6 @@ import { takeSharedFile } from '../files/share-target';
 import { cardImageBlob } from '../print/array-image';
 import { cardContent } from '../print/card-content';
 import { printFooter } from '../print/footer';
-import { riggingNotes } from '../print/pdf-layout';
 import { PrintSheet } from '../print/PrintSheet';
 import { ArrayCard } from './ArrayCard';
 import { CompareDialog } from './CompareDialog';
@@ -32,8 +31,10 @@ import type { Shape } from '../engine/markers';
 import type { Underlay } from '../engine/underlay';
 import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, extraOf, markerOf, withCartBreak, withCartReset, withCartSizes, withDeleted, withExtra, withPatch, withLayerHidden, withMarker, withNote, plotShown, withOnPlot, withPlotPrinted, withPlotShow, withPrinted, withSymbolValue, withSymbolValuesReset, withTitle, withUnderlay, type Doc, type Job, type PlotShow, type Status } from './document';
 import { JobForm } from './JobForm';
+import { NotesPanel } from './NotesPanel';
 import { reportFromFile } from './load-report';
 import { ProblemsPanel } from './ProblemsPanel';
+import { pointLabelOf } from '../print/plot-input';
 import { RecentFilesDialog } from './RecentFilesDialog';
 import { RiggingPlotPreview } from './RiggingPlotPreview';
 import { RiggingSummary } from './RiggingSummary';
@@ -855,7 +856,8 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
             </div>
           </section>
           <RiggingPlotPreview doc={doc} model={model} locked={locked} onJob={onJob} onPlotPrinted={onPlotPrinted} onPlotShow={onPlotShow} onUnderlay={onUnderlay} onLayer={onLayer} />
-          <RiggingSummary rows={riggingRows(model.sources, model.live, extraKgFor(doc, model))} weights={riggingWeights(model.sources, model.live, extraKgFor(doc, model))} fixations={riggingFixations(model.sources, model.live)} notes={riggingNotes(doc.job)} />
+          <RiggingSummary rows={riggingRows(model.sources, model.live, extraKgFor(doc, model), pointLabelOf(model))} weights={riggingWeights(model.sources, model.live, extraKgFor(doc, model))} fixations={riggingFixations(model.sources, model.live)} />
+          <NotesPanel doc={doc} locked={locked} onJob={onJob} />
         </>
       ) : null}
     </>

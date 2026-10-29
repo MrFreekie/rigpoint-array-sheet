@@ -119,11 +119,17 @@ test('notes for the show print on the rigging page only, in the print view and i
   const before = pdfPages(await printToPdf(page, 'no-notes.pdf'));
 
   await page.emulateMedia({ media: 'screen' });
-  await page.getByRole('region', { name: 'Show details' }).getByRole('textbox', { name: /^Notes/ }).fill('Load in at 08:00.\nCall Sam first.');
+  await page.getByRole('region', { name: 'Notes', exact: true }).getByRole('textbox', { name: 'Notes for the show' }).fill('Load in at 08:00.\nCall Sam first.');
   await page.emulateMedia({ media: 'print' });
   const last = pages(page).last();
-  await expect(last.getByTestId('print-show-notes')).toContainText('Notes: Load in at 08:00.');
+  await expect(last.getByTestId('print-show-notes')).toContainText('Load in at 08:00.');
   await expect(last.getByTestId('print-show-notes')).toContainText('Call Sam first.');
+  // The heading and the text come after the tables and before the small print, as the last of the content.
+  const lastBox = await last.getByText('Load in at 08:00.').boundingBox();
+  const smallBox = await last.getByTestId('print-small-print').boundingBox();
+  const tableBox = await last.getByTestId('print-pickups').boundingBox();
+  expect(lastBox!.y).toBeGreaterThan(tableBox!.y + tableBox!.height - 1);
+  expect(lastBox!.y + lastBox!.height).toBeLessThan(smallBox!.y + 1);
   await expect(pages(page).getByTestId('print-show-notes')).toHaveCount(1); // the rigging page only; another copy is the hidden one used to measure it
   // The two lines stay two lines in the print view.
   expect(await last.getByTestId('print-show-notes').evaluate((el) => getComputedStyle(el).whiteSpace)).toBe('pre-line');
@@ -775,4 +781,64 @@ test('the feeder and way columns print with colour chips, centred, and the card 
   expect(words).toContain('Feeder');
   expect(words).toContain('Way');
   await expectNothingClipped(page);
+});
+
+test('rigging summary tables: Array and Pickup are left aligned and every other column is centred, on screen and in the print view', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('e'));
+  await expect(page.locator('.card')).not.toHaveCount(0);
+  await expect(page.getByTestId('rigging-fixations')).toBeVisible();
+  const aligns = await page.evaluate(() => {
+    const read = (table: HTMLElement) =>
+      [...table.querySelectorAll<HTMLElement>('thead th')].map((th, i) => {
+        const row = table.querySelector<HTMLElement>('tbody tr')!;
+        const body = [...row.children][i] as HTMLElement;
+        return { head: th.textContent, headAlign: getComputedStyle(th).textAlign, bodyAlign: getComputedStyle(body).textAlign };
+      });
+    const byId = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"] table, table[data-testid="${id}"]`);
+    return {
+      screenPickups: read(byId('rigging-pickups')!),
+      screenFixations: read(byId('rigging-fixations')!),
+      printPickups: read(byId('print-pickups')!),
+      printFixations: read(byId('print-fixations')!),
+    };
+  });
+  // The Rigging Points table starts with a centred Point column, then Array and Pickup on the left; the fixation table's first two columns are left.
+  const lefts = new Map([[aligns.screenPickups, [1, 2]], [aligns.printPickups, [1, 2]], [aligns.screenFixations, [0, 1]], [aligns.printFixations, [0, 1]]]);
+  for (const rows of [aligns.screenPickups, aligns.printPickups, aligns.screenFixations, aligns.printFixations]) {
+    rows.forEach((c, i) => {
+      const want = lefts.get(rows)!.includes(i) ? 'left' : 'center';
+      expect(c.headAlign, `${c.head} header`).toBe(want);
+      expect(c.bodyAlign, `${c.head} cells`).toBe(want);
+    });
+  }
+});
+
+test('the Rigging Points table starts with the plot numbers, on screen, in the print view and in Download PDF', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('c'));
+  await expect(page.locator('.card')).not.toHaveCount(0);
+  const screen = page.getByTestId('rigging-pickups');
+  await expect(screen.locator('caption')).toHaveText('Rigging Points');
+  await expect(screen.locator('thead th').first()).toHaveText('Point');
+  const numbers = await screen.locator('tbody tr td:first-child').allInnerTexts();
+  expect(numbers.length).toBeGreaterThan(0);
+  expect(numbers.every((n) => /^PA\d+$/.test(n))).toBe(true);
+  expect(new Set(numbers).size).toBe(numbers.length);
+
+  await page.emulateMedia({ media: 'print' });
+  const last = pages(page).last();
+  await expect(last.locator('.as-rigging-heading', { hasText: 'Rigging Points' })).toBeVisible();
+  await expect(last.getByTestId('print-pickups').locator('thead th').first()).toHaveText('Point');
+  expect(await last.getByTestId('print-pickups').locator('tbody tr td:first-child').allInnerTexts()).toEqual(numbers);
+  await expectNothingClipped(page);
+
+  await page.emulateMedia({ media: 'screen' });
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+  const lastPage = Math.max(...items.map((i) => i.page));
+  const texts = items.filter((i) => i.page === lastPage).map((i) => i.text);
+  expect(texts).toContain('Rigging Points');
+  expect(texts).toContain('Point');
+  for (const n of numbers) expect(texts).toContain(n);
 });

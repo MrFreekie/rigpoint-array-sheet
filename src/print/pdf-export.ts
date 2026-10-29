@@ -26,7 +26,7 @@ import {
 } from './layout';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { PT_PER_MM, layoutPocketCard, layoutRiggingPage, ptToPx, riggingNotes, riggingSubtitle, type Laid } from './pdf-layout';
-import { plotForPrint } from './plot-input';
+import { plotForPrint, pointLabelOf } from './plot-input';
 import { drawPlotOps } from './plot-pdf';
 import { layoutPlotPages, plotPageCount, PRINT_PALETTE } from './plot-layout';
 import { qrMatrix } from './qr';
@@ -240,7 +240,7 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
   // The rigging summary page, last.
   const rigging = layoutRiggingPage(
     {
-      rows: riggingRows(model.sources, model.printedSources, extraKgFor(doc, model)),
+      rows: riggingRows(model.sources, model.printedSources, extraKgFor(doc, model), pointLabelOf(model)),
       weights: riggingWeights(model.sources, model.printedSources, extraKgFor(doc, model)),
       fixations: riggingFixations(model.sources, model.printedSources),
       subtitle: riggingSubtitle(doc.job),

@@ -5,6 +5,7 @@ import { parseFixture } from '../testing/fixtures';
 import { CompareDialog } from './CompareDialog';
 import { newDoc } from './document';
 import { JobForm } from './JobForm';
+import { NotesPanel } from './NotesPanel';
 
 const doc = () => newDoc(parseFixture('a'), 'a.pdf');
 const noop = () => {};
@@ -20,8 +21,8 @@ describe('JobForm status and revision', () => {
 
   it('disables every field of a locked file', () => {
     const html = renderToStaticMarkup(<JobForm doc={doc()} locked onJob={noop} onStatus={noop} onRevision={noop} />);
-    // The origin note, the side labels and the ground offset for every array moved to Settings.
-    expect(html.match(/disabled=""/g)).toHaveLength(9);
+    // The origin note, the side labels and the ground offset moved out of this form, and the show notes have their own panel.
+    expect(html.match(/disabled=""/g)).toHaveLength(8);
   });
 
   it('shows the revision that was typed', () => {
@@ -63,5 +64,22 @@ describe('CompareDialog', () => {
     const big = renderToStaticMarkup(<CompareDialog changes={many} sourceName="n.pdf" onUpdate={noop} onKeep={noop} />);
     expect(big.match(/<li>/g)).toHaveLength(60);
     expect(big).toContain('and 15 more');
+  });
+});
+
+describe('NotesPanel', () => {
+  it('has its own Notes heading, a labelled box and a count, and is not part of the show details', () => {
+    const d = doc();
+    d.job = { ...d.job, notes: 'Load in at 08:00.' };
+    const html = renderToStaticMarkup(<NotesPanel doc={d} locked={false} onJob={noop} />);
+    expect(html).toContain('<h2 id="show-notes-heading">Notes</h2>');
+    expect(html).toContain('Load in at 08:00.');
+    expect(html).toContain('17 of 500 characters');
+    expect(html).not.toContain('disabled');
+    expect(renderToStaticMarkup(<JobForm doc={d} locked={false} onJob={noop} onStatus={noop} onRevision={noop} />)).not.toContain('Load in at 08:00.');
+  });
+
+  it('is read-only on a locked file', () => {
+    expect(renderToStaticMarkup(<NotesPanel doc={doc()} locked onJob={noop} />)).toContain('disabled=""');
   });
 });
