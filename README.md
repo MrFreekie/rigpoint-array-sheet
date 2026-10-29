@@ -6,7 +6,7 @@ RigPoint Array Sheet is the second app in the RigPoint family, after [RigPoint L
 
 ## Where it is
 
-You can open a Soundvision PDF and see a fly sheet card for every array, a rigging plot and a rigging summary. You can type the show details and a ground offset, give an array a title (up to 60 characters) and a note for the crew (up to 300), choose a feeder and a way for each enclosure, group the enclosures of an array into carts, choose which arrays go on the rigging plot and whether it prints, delete an array and bring it back, save the lot as a file, open it again later, print it, save it as a PDF, and save each array as an image. The rigging plot can be downloaded as a DXF, and a venue can be drawn under it. The app installs on a computer or phone and works with no signal once it has been opened once.
+You can open a Soundvision PDF and see a fly sheet card for every array, a rigging plot and a rigging summary. You can type the show details and a ground offset, give an array a title (up to 60 characters) and a note for the crew (up to 300) in the pop-out behind its pencil button, choose a feeder and a way for each enclosure, group the enclosures of an array into carts, choose which arrays go on the rigging plot and whether it prints, delete an array and bring it back, save the lot as a file, open it again later, print it, save it as a PDF, and save each array as an image. The rigging plot can be downloaded as a DXF, and a venue can be drawn under it. The app installs on a computer or phone and works with no signal once it has been opened once.
 
 ## The rigging plot
 

@@ -23,7 +23,7 @@ Show date is optional. Pick it with the date field and it prints day, month, yea
 
 Notes for the whole show have their own Notes panel below the rigging summary, not in Show details. Use it for anything the whole crew needs to know, up to 500 characters, with line breaks kept. It prints under a small Notes heading at the end of the rigging summary page, after the tables and above the small print, and only there. Each array also has its own note on its card. Leave the box blank and the page is unchanged.
 
-Ground offset is how far below the report's heights your floor is. A report height of 9.4 m with an offset of 0.3 m shows as 9.1 m. Set one offset for every array in the row under the rigging plot preview, or type a different one on a single card. If you leave it blank the heights are the report's own.
+Ground offset is how far below the report's heights your floor is. A report height of 9.4 m with an offset of 0.3 m shows as 9.1 m. Set one offset for every array in the row under the rigging plot preview, or type a different one in the Edit box of a single card. If you leave it blank the heights are the report's own.
 
 ## The rigging plot
 
@@ -43,7 +43,7 @@ The page also lists every point with its X and Y, and has a key, the scale and t
 
 ### Pickup symbols
 
-Each pickup is drawn as one of four symbols: a square with a cross, a circle with a cross, a triangle with a cross and a diamond with a cross. The circle is the default. Choose another on the card, under Plot symbol. An array with a front and a rear pickup has one choice for each. All the symbols are the same size.
+Each pickup is drawn as one of four symbols: a square with a cross, a circle with a cross, a triangle with a cross and a diamond with a cross. The circle is the default. Choose another in the card's Edit box, under Plot symbol. An array with a front and a rear pickup has one choice for each. All the symbols are the same size.
 
 Each shape has a value written for it, to start with 2 t for the square, 1 t for the circle, 0.5 t for the triangle and 0.25 t for the diamond. In Settings, under Rigging plot and Symbols, you can change any of them, for example to 1.5 t, up to 12 characters. A blank field goes back to the usual value, and Reset the symbols to the usual values puts all four back. The value is the same for every pickup that uses the shape. It shows in the Symbol column of the table, in the key under the table and in the list of shapes on each card, and it is kept in the saved file. It is a label and nothing more: the plot does not check it against the weight of the array.
 
@@ -73,7 +73,7 @@ The DXF has no scale bar, because it is already full size. It is a design aid an
 
 ## Check the cards
 
-Each card shows what the report states: weights, motor loads, heights, site angles, azimuth, frame, pickups, Soundvision's warnings, the fixation positions of a stacked array when the report lists them (X, Y and Z as the report prints them, with no ground offset taken off), and a row for each enclosure with its Panflex label (for example 90 On). A ground stack that Soundvision lays out in columns or in rows keeps its own labels in the first column, such as `C1 #1` or `R2 #1`, under the heading Col # or Row #.
+Every card has a pencil button beside its name that opens its Edit box. The Edit box holds everything you type for that array: the card title, the notes for the crew, the plot symbol and additional weight of each pickup, and the ground offset. Done or Escape shuts it, and an approved or superseded file shows the boxes switched off, except the plot symbol. The print and plot ticks, the carts and the Feeder and Way dropdowns stay on the card. Each card shows what the report states: weights, motor loads, heights, site angles, azimuth, frame, pickups, Soundvision's warnings, the fixation positions of a stacked array when the report lists them (X, Y and Z as the report prints them, with no ground offset taken off), and a row for each enclosure with its Panflex label (for example 90 On). A ground stack that Soundvision lays out in columns or in rows keeps its own labels in the first column, such as `C1 #1` or `R2 #1`, under the heading Col # or Row #.
 
 Arrays that are exact mirror images of each other show once, whether the mirror runs left to right or front to back. The card has a small line under its title that reads `Also mirrored with: <name>`, with the name of the other array. The wording is the same for both kinds. Choose Show them, in the line above the cards or in Settings, to see both. Only the Soundvision report decides which arrays are mirror images. What you typed on an array, such as its title, note, ground offset, cable patch or carts, never splits a pair. The card that stands for a pair shows and prints its own title, note, offset, patch and carts, and what you typed on the other array is kept in the file but not printed. Choose Show them to see, edit and print the other array on its own card. If the shown card has no ground offset of its own, it uses the one typed on its partner. An azimuth of 180 and an azimuth of -180 are the same heading, so two arrays that both face 180 can be a pair. Soundvision names the copies it makes with YZ Sym of or XZ Sym of in front of a group name, and that prefix is ignored when two arrays are compared. Everything else must match exactly, so two arrays that differ only in the text of their Configuration, such as a left and a right high frequency setting, are not paired. A front to back pair is only found when the arrays have no fixations and the same Panflex figures, because those have not been checked for such a pair.
 
@@ -141,7 +141,7 @@ To change an approved file, press Create new revision. It starts a draft with th
 
 ## Additional weight
 
-Each pickup has an Additional weight (kg) box on its array's card, for something the report leaves out, such as a bridle, a hoist or a lighting bar. An array with two pickups has one box for the front and one for the rear. Leave it blank for none. You can type digits and a point, with at most two decimals and up to 100000 kg. An approved or superseded file cannot be changed, so the boxes are switched off there.
+Each pickup has an Additional weight (kg) box in its array's Edit box, for something the report leaves out, such as a bridle, a hoist or a lighting bar. An array with two pickups has one box for the front and one for the rear. Leave it blank for none. You can type digits and a point, with at most two decimals and up to 100000 kg. An approved or superseded file cannot be changed, so the boxes are switched off there.
 
 The weight is added to that pickup's load on the rigging plot, in the label and in the table, and to the array's Total line. The plot then ends its small print with one more sentence, Loads include any additional weight typed in the app. Without a weight the plot and its small print are as they were. A mirror image that a card stands for takes the weight typed on that card. Tick Show the mirrored arrays too to give each array its own.
 
@@ -149,7 +149,7 @@ The rigging summary never changes what the report states. Its pickup table keeps
 
 ## Card title and notes for the crew
 
-Each card has a Card title box, one line of up to 60 characters. Type a name there and it replaces the array name on the card, the printed sheet, the PDF, the images, the rigging plot, the DXF and the rigging summary. Clear the box to go back to the name in the report. The card then carries a small line, Soundvision name, with the name from the report, so the two can always be matched. The title is kept with the file, and Update from PDF still finds the array by its report name, so the title survives an update.
+The Edit box of each card has a Card title box, one line of up to 60 characters. Type a name there and it replaces the array name on the card, the printed sheet, the PDF, the images, the rigging plot, the DXF and the rigging summary. Clear the box to go back to the name in the report. The card then carries a small line, Soundvision name, with the name from the report, so the two can always be matched. The title is kept with the file, and Update from PDF still finds the array by its report name, so the title survives an update.
 
 Each card also has a Notes for the crew box for instructions, up to 300 characters, with the line breaks you type. The note prints on the card under the mirror line, after the word Note. It is not shown on the rigging plot, the DXF or the rigging summary. An approved or superseded file cannot be changed, so both boxes are switched off there.
 

@@ -69,6 +69,18 @@ export async function inSettings<T>(page: Page, fn: (dialog: Locator) => Promise
   return result;
 }
 
+/** Open the pencil pop-out of one array card, run `fn` with the dialog, close it with Done. */
+export async function editCard<T>(card: Locator, fn: (dialog: Locator) => Promise<T>): Promise<T> {
+  await card.getByRole('button', { name: /^Edit / }).click();
+  // Found on the page, not under the card: a new title changes what finds the card.
+  const dialog = card.page().locator('article.card dialog[open]');
+  await expect(dialog).toBeVisible();
+  const result = await fn(dialog);
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  return result;
+}
+
 /** Open the Venue under the plot box from the button under the rigging plot, and return the dialog. */
 export async function openVenue(page: Page): Promise<Locator> {
   await page.getByTestId('venue-button').click();

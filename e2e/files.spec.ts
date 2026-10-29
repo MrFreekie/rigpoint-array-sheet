@@ -2,9 +2,9 @@
 // These run on every browser project, including the 375 px phone.
 
 import { readFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { changedPdf, closeSettings, closeVenue, inSettings, inVenue, openJson, openPdf, openSettings, openVenue, plotControls, samplePdf, save, savedName, start } from './helpers';
+import { changedPdf, closeSettings, closeVenue, editCard, inSettings, inVenue, openJson, openPdf, openSettings, openVenue, plotControls, samplePdf, save, savedName, start } from './helpers';
 
 test('opens a Soundvision PDF and shows one card per array without sideways scrolling', async ({ page }) => {
   await start(page);
@@ -86,7 +86,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
   await expect(page.locator('.tag-check', { hasText: 'READ-ONLY' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
   await expect(page.getByLabel('Show', { exact: true })).toBeDisabled();
-  await expect(page.locator('.card').first().getByLabel('Ground offset (m)')).toBeDisabled();
+  await editCard(page.locator('.card').first(), (d) => expect(d.getByLabel('Ground offset (m)')).toBeDisabled());
 
   // Opening the approved file locks it too; a new revision is editable and unsaved.
   await openJson(page, 'Main stage - Rev B.arraysheet.json', approved.text);
@@ -400,8 +400,8 @@ test('a title and a note are saved, come back on reopening, and stay with the ar
   await start(page);
   await openPdf(page, samplePdf('a'));
   const card = () => page.locator('.card', { has: page.getByRole('heading', { name: 'KARA II L Out', exact: true }) });
-  await card().getByLabel('Card title').fill('Left outfill');
-  await page.locator('.card', { hasText: 'Left outfill' }).getByLabel('Notes for the crew').fill('Hang at 2 m');
+  await editCard(card(), (d) => d.getByLabel('Card title').fill('Left outfill'));
+  await editCard(page.locator('.card', { hasText: 'Left outfill' }), (d) => d.getByLabel('Notes for the crew').fill('Hang at 2 m'));
   const saved = await save(page);
   const json = saved.json as { titles: string[]; notes: string[]; report: { sources: { name: string }[] } };
   const at = json.report.sources.findIndex((s) => s.name === 'KARA II L Out');
@@ -413,8 +413,10 @@ test('a title and a note are saved, come back on reopening, and stay with the ar
   await openJson(page, 'x.arraysheet.json', saved.text);
   const again = page.locator('.card', { hasText: 'Left outfill' });
   await expect(again).toContainText('Soundvision name: KARA II L Out');
-  await expect(again.getByLabel('Card title')).toHaveValue('Left outfill');
-  await expect(again.getByLabel('Notes for the crew')).toHaveValue('Hang at 2 m');
+  await editCard(again, async (d) => {
+    await expect(d.getByLabel('Card title')).toHaveValue('Left outfill');
+    await expect(d.getByLabel('Notes for the crew')).toHaveValue('Hang at 2 m');
+  });
   // The rigging plot and its table use the title as well.
   const summary = page.locator('section', { has: page.getByRole('heading', { name: 'Rigging summary' }) });
   await expect(summary).toContainText('Left outfill');
@@ -430,7 +432,7 @@ test('a title and a note are saved, come back on reopening, and stay with the ar
   await expect(dialog).toContainText('The new PDF is different', { timeout: 20_000 });
   await dialog.getByRole('button', { name: 'Update from new PDF' }).click();
   const kept = page.locator('.card', { hasText: 'Left outfill' });
-  await expect(kept.getByLabel('Notes for the crew')).toHaveValue('Hang at 2 m');
+  await editCard(kept, (d) => expect(d.getByLabel('Notes for the crew')).toHaveValue('Hang at 2 m'));
 });
 
 test('the title and note boxes are switched off on a read-only file', async ({ page }) => {
@@ -439,8 +441,10 @@ test('the title and note boxes are switched off on a read-only file', async ({ p
   await page.getByLabel('Status').selectOption('approved');
   await save(page);
   await expect(page.locator('.tag-check', { hasText: 'READ-ONLY' })).toBeVisible();
-  await expect(page.getByLabel('Card title').first()).toBeDisabled();
-  await expect(page.getByLabel('Notes for the crew').first()).toBeDisabled();
+  await editCard(page.locator('.card').first(), async (d) => {
+    await expect(d.getByLabel('Card title')).toBeDisabled();
+    await expect(d.getByLabel('Notes for the crew')).toBeDisabled();
+  });
 });
 
 test('a deleted array stays in the saved file, can be restored after reopening, and is not counted as deleted twice', async ({ page }) => {
@@ -504,17 +508,22 @@ test('update from PDF brings a deleted array back, and says so', async ({ page }
 test('every symbol can be picked whatever the weight of the array, there is no typed value on the card, and Settings names each shape', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('c'));
-  const front = page.getByRole('group', { name: 'Plot symbol, front pickup' }).first();
-  await expect(front.locator('option[value="quarter"]')).toBeEnabled();
-  await expect(front).not.toContainText('typed text');
-  await expect(front.getByLabel('Typed value, instead of the rating (optional)')).toHaveCount(0);
-  await expect(front.locator('option[value="one"]')).toHaveText('1 t, circle with a cross');
+  const k1 = page.locator('.card', { has: page.getByRole('heading', { name: 'K1 1 Left', exact: true }) });
+  const front = (d: Locator) => d.getByRole('group', { name: 'Plot symbol, front pickup' });
+  await editCard(k1, async (d) => {
+    await expect(front(d).locator('option[value="quarter"]')).toBeEnabled();
+    await expect(front(d)).not.toContainText('typed text');
+    await expect(front(d).getByLabel('Typed value, instead of the rating (optional)')).toHaveCount(0);
+    await expect(front(d).locator('option[value="one"]')).toHaveText('1 t, circle with a cross');
+  });
   await inSettings(page, async (d) => {
     await expect(d.getByRole('heading', { name: 'Symbols' })).toBeVisible();
     await d.getByLabel('Symbol, circle with a cross').fill('1.5 t');
   });
-  await expect(front.locator('option[value="one"]')).toHaveText('1.5 t, circle with a cross');
-  await expect(front.locator('option[value="quarter"]')).toBeEnabled();
+  await editCard(k1, async (d) => {
+    await expect(front(d).locator('option[value="one"]')).toHaveText('1.5 t, circle with a cross');
+    await expect(front(d).locator('option[value="quarter"]')).toBeEnabled();
+  });
 });
 
 test('the value written for a symbol in Settings is kept in the file, and a blank field goes back to the usual value', async ({ page }) => {
@@ -540,10 +549,12 @@ test('the value written for a symbol in Settings is kept in the file, and a blan
 test('update from PDF keeps a symbol for the same pickup and resets one the new PDF cannot follow, and says so', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('c'));
-  const card = page.locator('article.card').filter({ has: page.getByRole('group', { name: 'Plot symbol, rear pickup' }) }).first();
-  const name = (await card.getByRole('heading', { level: 3 }).innerText()).trim();
-  await card.getByRole('group', { name: 'Plot symbol, front pickup' }).getByRole('combobox').selectOption('two');
-  await card.getByRole('group', { name: 'Plot symbol, rear pickup' }).getByRole('combobox').selectOption('half');
+  const name = 'K1 1 Left';
+  const cardOf = () => page.locator('article.card').filter({ has: page.getByRole('heading', { level: 3, name, exact: true }) }).first();
+  await editCard(cardOf(), async (d) => {
+    await d.getByRole('group', { name: 'Plot symbol, front pickup' }).getByRole('combobox').selectOption('two');
+    await d.getByRole('group', { name: 'Plot symbol, rear pickup' }).getByRole('combobox').selectOption('half');
+  });
 
   const moved = changedPdf((sources) => sources.map((s) => (s.name === name ? { ...s, pickups: s.pickups.map((p) => (p.which === 'rear' ? { ...p, position: p.position + 1 } : p)) } : s)), 'c');
   await page.getByTestId('update-file').setInputFiles({ name: 'newer.pdf', mimeType: 'application/pdf', buffer: moved });
@@ -553,9 +564,10 @@ test('update from PDF keeps a symbol for the same pickup and resets one the new 
   await expect(dialog).toContainText('back to 1 t');
   await dialog.getByRole('button', { name: 'Update from new PDF' }).click();
 
-  const again = page.locator('article.card').filter({ has: page.getByRole('heading', { level: 3, name, exact: true }) }).first();
-  await expect(again.getByRole('group', { name: 'Plot symbol, front pickup' }).getByRole('combobox')).toHaveValue('two');
-  await expect(again.getByRole('group', { name: 'Plot symbol, rear pickup' }).getByRole('combobox')).toHaveValue('one');
+  await editCard(cardOf(), async (d) => {
+    await expect(d.getByRole('group', { name: 'Plot symbol, front pickup' }).getByRole('combobox')).toHaveValue('two');
+    await expect(d.getByRole('group', { name: 'Plot symbol, rear pickup' }).getByRole('combobox')).toHaveValue('one');
+  });
 });
 
 test('on a read-only file a symbol can still be picked for this session, and is not saved', async ({ page }) => {
@@ -564,10 +576,12 @@ test('on a read-only file a symbol can still be picked for this session, and is 
   await page.getByLabel('Status').selectOption('approved');
   const { text } = await save(page);
   await openJson(page, 'locked.arraysheet.json', text);
-  const front = page.getByRole('group', { name: 'Plot symbol, front pickup' }).first();
-  await expect(front.getByRole('combobox')).toBeEnabled();
-  await front.getByRole('combobox').selectOption('two');
-  await expect(front.getByRole('combobox')).toHaveValue('two');
+  await editCard(page.locator('.card', { has: page.getByRole('heading', { name: 'K1 1 Left', exact: true }) }), async (d) => {
+    const front = d.getByRole('group', { name: 'Plot symbol, front pickup' });
+    await expect(front.getByRole('combobox')).toBeEnabled();
+    await front.getByRole('combobox').selectOption('two');
+    await expect(front.getByRole('combobox')).toHaveValue('two');
+  });
   await expect(page.getByText('Unsaved changes')).toHaveCount(0);
 });
 

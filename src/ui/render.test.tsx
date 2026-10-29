@@ -24,7 +24,7 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} onPlot onOnPlot={() => {}} markers={{ front: { shape: 'one' }, rear: { shape: 'one' } }} onMarker={() => {}} extras={{ front: '', rear: '' }} onExtra={() => {}} symbolValues={{ two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' }} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} onPlot onOnPlot={() => {}} markers={{ front: { shape: 'one' }, rear: { shape: 'one' } }} onMarker={() => {}} extras={{ front: '', rear: '' }} onExtra={() => {}} symbolValues={{ two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' }} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} startEditing {...extra} />,
   );
 
 describe('ArrayCard', () => {
@@ -325,6 +325,20 @@ describe('ArrayCard delete button', () => {
   });
 });
 
+describe('ArrayCard edit pop-out', () => {
+  it('shows a pencil button and none of the entry fields until it is opened', () => {
+    const closed = card('KARA II L Main', a, { startEditing: false });
+    expect(closed).toContain('aria-label="Edit KARA II L Main"');
+    for (const t of ['Card title', 'Notes for the crew', 'Ground offset (m)', 'Additional weight', 'Plot symbol']) expect(closed).not.toContain(t);
+    const open = card('KARA II L Main');
+    for (const t of ['Edit KARA II L Main', 'Card title', 'Notes for the crew', 'Ground offset (m)', 'Additional weight (kg)', 'Plot symbol']) expect(open).toContain(t);
+  });
+
+  it('keeps a bad ground offset visible on the card while the pop-out is closed', () => {
+    expect(card('KARA II L Main', a, { startEditing: false, offsetBad: true })).toContain('Open Edit to fix it');
+  });
+});
+
 describe('ArrayCard title and notes', () => {
   it('has a card title field with the report name as its placeholder, and a notes box with a count', () => {
     const html = card('KARA II L Main', a, { note: 'Hang at 2 m' });
@@ -355,7 +369,7 @@ describe('ArrayCard plot symbol picker', () => {
   const c = parseFixture('c').report.sources;
   const heavy = c.find((s) => s.pickups.length === 2 && (s.weights.total ?? 0) > 1000)!;
   const pick = (extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) => card(heavy.name, c, extra);
-  const options = (html: string) => [...html.matchAll(/<option value="(\w+)"( disabled="")?( selected="")?[^>]*>([^<]*)</g)].map((m) => ({ value: m[1]!, disabled: !!m[2], text: m[4]! }));
+  const options = (html: string) => [...(/<dialog[\s\S]*<\/dialog>/.exec(html)?.[0] ?? '').matchAll(/<option value="(\w+)"( disabled="")?( selected="")?[^>]*>([^<]*)</g)].map((m) => ({ value: m[1]!, disabled: !!m[2], text: m[4]! }));
 
   it('has one picker for a single pickup and one for each of a pair', () => {
     const html = pick();

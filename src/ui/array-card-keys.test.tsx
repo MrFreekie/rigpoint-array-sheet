@@ -6,7 +6,7 @@ import { flySheetColumn } from '../engine/sheet';
 import { parseFixture } from '../testing/fixtures';
 import { ArrayCard } from './ArrayCard';
 
-vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()), useId: () => 'id' }));
+vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()), useId: () => 'id', useState: (v: unknown) => [v, () => {}] }));
 
 function rowKeys(node: ReactNode): (string | null)[] | null {
   if (!node || typeof node !== 'object') return null;

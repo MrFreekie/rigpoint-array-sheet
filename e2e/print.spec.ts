@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { changedPdf, inSettings, openPdf, plotControls, samplePdf, save, start } from './helpers';
+import { changedPdf, editCard, inSettings, openPdf, plotControls, samplePdf, save, start } from './helpers';
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'PDF printing is Chromium-only in Playwright');
 
@@ -423,12 +423,14 @@ test('a card with a title and a long note is as tall as the plan says, and the P
   await start(page);
   await openPdf(page, samplePdf('a'));
   const card = page.locator('.card', { has: page.getByRole('heading', { name: 'KARA II L Out', exact: true }) });
-  await card.getByLabel('Card title').fill('Left outfill');
+  await editCard(card, (d) => d.getByLabel('Card title').fill('Left outfill'));
   await expect(page.getByRole('heading', { name: 'Left outfill', exact: true })).toBeVisible();
   await expect(page.locator('.card', { hasText: 'Soundvision name: KARA II L Out' })).toHaveCount(1);
   const note = 'Hang from the front bar hole.\n\nCheck the chain twice before the load in. ' + 'x'.repeat(60);
-  await page.locator('.card', { hasText: 'Left outfill' }).getByLabel('Notes for the crew').fill(note);
-  await expect(page.getByText(`${note.length} of 300 characters`)).toBeVisible();
+  await editCard(page.locator('.card', { hasText: 'Left outfill' }), async (d) => {
+    await d.getByLabel('Notes for the crew').fill(note);
+    await expect(d.getByText(`${note.length} of 300 characters`)).toBeVisible();
+  });
 
   await expect.poll(() => page.locator('.as-fit[data-planned-height]').count()).toBeGreaterThan(0);
   const measured = await page.evaluate(() => ({
@@ -682,8 +684,9 @@ test('the plot preview and the print view carry the credit line', async ({ page 
 test('picking a pickup symbol and writing a value for the 1 t symbol in Settings shows on the plot preview, in the print view, in Download PDF, in the DXF and in the saved file', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('c'));
-  const front = page.getByRole('group', { name: 'Plot symbol, front pickup' }).first();
-  await front.getByRole('combobox').selectOption('two');
+  await editCard(page.locator('.card', { has: page.getByRole('heading', { name: 'K1 1 Left', exact: true }) }), (d) =>
+    d.getByRole('group', { name: 'Plot symbol, front pickup' }).getByRole('combobox').selectOption('two'),
+  );
   await inSettings(page, (d) => d.getByLabel('Symbol, circle with a cross').fill('1.5 t'));
   const preview = page.getByTestId('plot-preview');
   await expect(preview.getByText('1.5 t', { exact: true }).first()).toBeVisible();

@@ -906,3 +906,10 @@ select {
   border-radius: var(--radius);
   margin-bottom: 0.75rem;
 }
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.5rem;
+}

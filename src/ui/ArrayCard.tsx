@@ -1,4 +1,4 @@
-import { Fragment, useId } from 'react';
+import { Fragment, useId, useState } from 'react';
 import { cartShade, groupsText } from '../engine/carts';
 import type { FlySheetColumn } from '../engine/sheet';
 import { isTypingExtra, type ExtraText } from '../engine/extra-weight';
@@ -8,6 +8,7 @@ import { enclosureLabel } from '../engine/types';
 import type { CartsOf } from '../files/doc';
 import { FIXATION_COLUMNS, fixationName, frameFacts, warningText } from '../print/card-content';
 import { NOTES_MAX, TITLE_MAX } from '../schema/array-file';
+import { Dialog } from './Dialog';
 import { plain } from './plain';
 import { degrees, kg, metres, NOT_STATED, num } from './format';
 
@@ -60,10 +61,13 @@ interface Props {
   onDelete?: (() => void) | undefined;
   /** True when the offset in use comes from the "every array" field. */
   usingDefault: boolean;
+  /** Starts with the edit pop-out open. Only the tests use it. */
+  startEditing?: boolean | undefined;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onPlot, onOnPlot, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, extras, onExtra, symbolValues, patch, onPatch, carts, onCartBreak, onCartReset }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onPlot, onOnPlot, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, extras, onExtra, symbolValues, patch, onPatch, carts, onCartBreak, onCartReset, startEditing }: Props) {
   const id = useId();
+  const [editing, setEditing] = useState(startEditing === true);
   const hasColumns = c.rows.some((r) => r.column !== null);
   const hasStackRows = c.rows.some((r) => r.row !== null);
   const hasAngles = c.rows.some((r) => r.angle !== null);
@@ -76,6 +80,11 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
       <header className="card-head">
         <div className="card-title-row">
           <h3 id={`${id}-name`}>{c.name}</h3>
+          <button type="button" className="button icon-button" onClick={() => setEditing(true)} aria-label={`Edit ${c.name}`} title="Edit this card">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+              <path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor" />
+            </svg>
+          </button>
           {onImage ? (
             <button type="button" className="button" onClick={onImage} aria-label={`Save ${c.name} as an image`}>
               Save image
@@ -176,78 +185,11 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         </div>
       ) : null}
 
-      <label className="field title-field">
-        <span>Card title</span>
-        <input
-          type="text"
-          value={titleText}
-          maxLength={TITLE_MAX}
-          disabled={locked === true}
-          // A title is one line of plain text. The file refuses control characters, so they are dropped as they are typed.
-          onChange={(e) => onTitle(plain(e.target.value, false))}
-          placeholder={reportName}
-          autoComplete="off"
-        />
-      </label>
-
-      <label className="field note-field">
-        <span>Notes for the crew</span>
-        <textarea
-          value={note}
-          maxLength={NOTES_MAX}
-          rows={3}
-          disabled={locked === true}
-          // Line breaks stay; any other control character is dropped.
-          onChange={(e) => onNote(plain(e.target.value, true))}
-          aria-describedby={`${id}-note-count`}
-        />
-        <span id={`${id}-note-count`} className="muted">
-          {note.length} of {NOTES_MAX} characters. Printed on the card.
-        </span>
-      </label>
-
-      {c.pickups.map((p) => (
-        <SymbolField
-          key={p.which}
-          label={c.pickups.length > 1 ? `Plot symbol, ${p.which} pickup` : 'Plot symbol'}
-          marker={markers[p.which]}
-          values={symbolValues}
-          onChange={(m) => onMarker(p.which, m)}
-        />
-      ))}
-
-      {c.pickups.map((p) => (
-        <ExtraWeightField
-          key={p.which}
-          label={c.pickups.length > 1 ? `Additional weight, ${p.which} pickup (kg)` : 'Additional weight (kg)'}
-          value={extras[p.which]}
-          disabled={locked === true}
-          onChange={(t) => onExtra(p.which, t)}
-        />
-      ))}
-
-      <label className="field offset-field">
-        <span>Ground offset (m)</span>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={offsetText}
-          disabled={locked === true}
-          onChange={(e) => onOffset(e.target.value)}
-          placeholder={usingDefault ? 'same as all arrays' : '0'}
-          aria-invalid={offsetBad}
-          aria-describedby={offsetBad ? `${id}-offset-error` : undefined}
-          autoComplete="off"
-        />
-        {offsetBad ? (
-          <span id={`${id}-offset-error`} className="field-error">
-            Enter a number of metres, such as 0.3. The heights are hidden until you do.
-          </span>
-        ) : null}
-        {defaultBad ? (
-          <span className="field-error">Heights are hidden: the ground offset for every array is not a number.</span>
-        ) : null}
-      </label>
+      {offsetBad || defaultBad ? (
+        <p className="field-error" role="alert">
+          {offsetBad ? 'The ground offset is not a number, so the heights are hidden.' : 'Heights are hidden: the ground offset for every array is not a number.'} Open Edit to fix it.
+        </p>
+      ) : null}
 
       {onDelete ? (
         <p className="card-delete">
@@ -335,6 +277,88 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         </div>
         </>
       )}
+      {editing ? (
+        <Dialog title={`Edit ${c.name}`} onClose={() => setEditing(false)}>
+          <label className="field title-field">
+            <span>Card title</span>
+            <input
+              type="text"
+              value={titleText}
+              maxLength={TITLE_MAX}
+              disabled={locked === true}
+              // A title is one line of plain text. The file refuses control characters, so they are dropped as they are typed.
+              onChange={(e) => onTitle(plain(e.target.value, false))}
+              placeholder={reportName}
+              autoComplete="off"
+            />
+          </label>
+
+          <label className="field note-field">
+            <span>Notes for the crew</span>
+            <textarea
+              value={note}
+              maxLength={NOTES_MAX}
+              rows={3}
+              disabled={locked === true}
+              // Line breaks stay; any other control character is dropped.
+              onChange={(e) => onNote(plain(e.target.value, true))}
+              aria-describedby={`${id}-note-count`}
+            />
+            <span id={`${id}-note-count`} className="muted">
+              {note.length} of {NOTES_MAX} characters. Printed on the card.
+            </span>
+          </label>
+
+          {c.pickups.map((p) => (
+            <SymbolField
+              key={p.which}
+              label={c.pickups.length > 1 ? `Plot symbol, ${p.which} pickup` : 'Plot symbol'}
+              marker={markers[p.which]}
+              values={symbolValues}
+              onChange={(m) => onMarker(p.which, m)}
+            />
+          ))}
+
+          {c.pickups.map((p) => (
+            <ExtraWeightField
+              key={p.which}
+              label={c.pickups.length > 1 ? `Additional weight, ${p.which} pickup (kg)` : 'Additional weight (kg)'}
+              value={extras[p.which]}
+              disabled={locked === true}
+              onChange={(t) => onExtra(p.which, t)}
+            />
+          ))}
+
+          <label className="field offset-field">
+            <span>Ground offset (m)</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={offsetText}
+              disabled={locked === true}
+              onChange={(e) => onOffset(e.target.value)}
+              placeholder={usingDefault ? 'same as all arrays' : '0'}
+              aria-invalid={offsetBad}
+              aria-describedby={offsetBad ? `${id}-offset-error` : undefined}
+              autoComplete="off"
+            />
+            {offsetBad ? (
+              <span id={`${id}-offset-error`} className="field-error">
+                Enter a number of metres, such as 0.3. The heights are hidden until you do.
+              </span>
+            ) : null}
+            {defaultBad ? (
+              <span className="field-error">Heights are hidden: the ground offset for every array is not a number.</span>
+            ) : null}
+          </label>
+
+          <div className="dialog-actions">
+            <button type="button" className="button primary" onClick={() => setEditing(false)}>
+              Done
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
     </article>
   );
 }
