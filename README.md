@@ -4,6 +4,12 @@ Turn a Soundvision report PDF into a short, readable page of the array and riggi
 
 RigPoint Array Sheet is the second app in the RigPoint family, after [RigPoint Load Sheet](https://github.com/MrFreekie/rigpoint-load-sheet). It follows the same rules: everything runs in the browser, nothing is sent anywhere, and the app is honest about what it has and has not checked.
 
+## What it is for
+
+The app reads a Soundvision report PDF and shows what it states to the crew on the ground, in a form they can use to deploy the system quickly: pocket cards, a rigging summary and a rigging plot.
+
+On top of that it manages the file (saving, revisions, approval, updating from a newer PDF), lets the crew write patching notes on each card, and gathers the rigging information in one place. The rigging plot is a starting point and an aid for developing a fuller rigging plan. It is not that plan, and it is not CAD or an engineering sign-off.
+
 ## Where it is
 
 You can open a Soundvision PDF and see a fly sheet card for every array, a rigging plot and a rigging summary. You can type the show details and a ground offset, give an array a title (up to 60 characters) and a note for the crew (up to 300) in the pop-out behind its pencil button, choose a feeder and a way for each enclosure, group the enclosures of an array into carts, choose which arrays go on the rigging plot and whether it prints, delete an array and bring it back, save the lot as a file, open it again later, print it, save it as a PDF, and save each array as an image. The rigging plot can be downloaded as a DXF, and a venue can be drawn under it. The app installs on a computer or phone and works with no signal once it has been opened once.
