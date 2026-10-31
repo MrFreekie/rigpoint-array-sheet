@@ -45,7 +45,7 @@ export interface PdfInput {
   checks: number;
 }
 
-interface Fonts {
+export interface Fonts {
   regular: PDFFont;
   bold: PDFFont;
 }
@@ -66,7 +66,7 @@ function hex(color: string) {
 }
 
 /** Helvetica holds the Western European characters. Anything else would stop the file being made, so it becomes "?". */
-function encodable(font: PDFFont): (text: string) => string {
+export function encodable(font: PDFFont): (text: string) => string {
   const known = new Set(font.getCharacterSet());
   return (text) =>
     Array.from(text)
@@ -78,9 +78,9 @@ function encodable(font: PDFFont): (text: string) => string {
  * Draws laid-out steps on a page. `left` and `top` are the card's top left corner in points from the top
  * left of the page; `scale` shrinks the whole card.
  */
-function drawOps(page: PDFPage, fonts: Fonts, safe: (t: string) => string, ops: readonly DrawOp[], left: number, top: number, scale: number) {
+export function drawOps(page: PDFPage, fonts: Fonts, safe: (t: string) => string, ops: readonly DrawOp[], left: number, top: number, scale: number, pageH = A4.h) {
   const X = (x: number) => left + x * scale;
-  const Y = (y: number) => A4.h - (top + y * scale);
+  const Y = (y: number) => pageH - (top + y * scale);
   for (const o of ops) {
     if (o.op === 'rect') {
       page.drawRectangle({
@@ -106,13 +106,13 @@ function drawOps(page: PDFPage, fonts: Fonts, safe: (t: string) => string, ops: 
 }
 
 /** A light word set at an angle across a box. Marks a draft. */
-function drawWatermark(page: PDFPage, font: PDFFont, left: number, top: number, w: number, h: number, size: number) {
+export function drawWatermark(page: PDFPage, font: PDFFont, left: number, top: number, w: number, h: number, size: number, pageH = A4.h) {
   const text = 'DRAFT';
   const angle = (35 * Math.PI) / 180;
   const tw = font.widthOfTextAtSize(text, size);
   // Rotating about the start point, so place that point where the centred, rotated word will land.
   const cx = left + w / 2;
-  const cy = A4.h - (top + h / 2);
+  const cy = pageH - (top + h / 2);
   const hx = tw / 2;
   const hy = size * 0.35;
   page.drawText(text, {

@@ -123,3 +123,61 @@ describe('bad input', () => {
     expect(() => parseSoundvision(garbage)).not.toThrow();
   });
 });
+
+describe('odd tuning lines', () => {
+  /** A one source report whose acoustic configuration (and anything before the source) is the lines given, each a list of cells. */
+  const report = (acoustic: string[][], before: string[][] = []) => {
+    const rows: string[][] = [['Distance unit:', 'm'], ['Weight unit:', 'kg'], ...before, ['1. Source: A'], ['1. 1. Physical configuration'], ['Configuration: vertical, stacked array'], ['1. 2. Acoustic configuration'], ...acoustic];
+    const items: TextItem[] = rows.flatMap((cells, n) => cells.map((text, i) => ({ page: 1, x: 71 + i * 45, y: 780 - n * 14, text })));
+    return parseSoundvision(items);
+  };
+  const tuning = (acoustic: string[][], before: string[][] = []) => report(acoustic, before).report.sources[0]?.tuning;
+  const blank = { autofilter: null, lfContourFrequency: null, lfContourGain: null, zoom: null, delay: null, gain: null, groups: [] };
+
+  it('reads well formed lines', () => {
+    expect(tuning([['Delay:', '4.17', 'ms'], ['Gain:', '−3', 'dB'], ['Zoom Factor (ratio): 1.2']])).toEqual({ ...blank, delay: '4.17', gain: '-3', zoom: '1.2' });
+  });
+
+  it('leaves a figure blank when it is not a number or the unit is not the expected one', () => {
+    expect(tuning([['Delay:', 'abc', 'ms']])).toEqual(blank);
+    expect(tuning([['Delay:', '3', 's']])).toEqual(blank);
+    expect(tuning([['Gain:', '3', 'ms']])).toEqual(blank);
+    expect(tuning([['Delay:', '1e3', 'ms']])).toEqual(blank);
+    expect(tuning([['Delay:', '12345678901234567890123', 'ms']])).toEqual(blank);
+    expect(tuning([['Delay:']])).toEqual(blank);
+  });
+
+  it('leaves the zoom blank when the line has no value', () => {
+    expect(tuning([['Zoom Factor (ratio):']])).toEqual(blank);
+    expect(tuning([['Zoom Factor (ratio): wide']])).toEqual(blank);
+  });
+
+  it('leaves the LF Contour blank when the line is broken, and keeps the figure that is fine when only one is', () => {
+    expect(tuning([['LF Contour: Frequency = 180 Hz']])).toEqual(blank);
+    expect(tuning([['LF Contour:']])).toEqual(blank);
+    expect(tuning([['LF Contour: Frequency = high Hz; Gain = 2 dB']])).toEqual({ ...blank, lfContourGain: '2' });
+  });
+
+  it('keeps an Autofilter line only when the saved file could hold it', () => {
+    expect(tuning([['Autofilter active - Default']])?.autofilter).toBe('Autofilter active - Default');
+    expect(tuning([[`Autofilter ${'x'.repeat(200)}`]])?.autofilter).toBeNull();
+    expect(tuning([['Autofilter active \u0007 bell']])?.autofilter).toBeNull();
+  });
+
+  it('ignores a delay and a gain printed before any group or source', () => {
+    const r = report([], [['Delay:', '3', 'ms'], ['Gain:', '2', 'dB']]);
+    expect(r.report.sources[0]?.tuning).toEqual(blank);
+    expect(r.problems.some((p) => p.level === 'error')).toBe(false);
+  });
+
+  it('ignores everything after the first enclosure, the FIR and air lines included', () => {
+    expect(
+      tuning([['Autofilter active - Default'], ['Enclosure #1 - K2'], ['FIR 1 (1250 Hz): -1 dB'], ['Gain:', '9', 'dB'], ['Delay:', '9', 'ms'], ['Zoom Factor (ratio): 9'], ['Air compensation (gain): 8.2 dB']]),
+    ).toEqual({ ...blank, autofilter: 'Autofilter active - Default' });
+  });
+
+  it('reads a source with no acoustic section as all blank, and raises nothing for it', () => {
+    const items: TextItem[] = ['Distance unit: m', 'Weight unit: kg', '1. Source: A'].map((text, n) => ({ page: 1, x: 71, y: 780 - n * 14, text }));
+    expect(parseSoundvision(items).report.sources[0]?.tuning).toEqual(blank);
+  });
+});

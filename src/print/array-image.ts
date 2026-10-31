@@ -309,15 +309,15 @@ export function drawLayout(ctx: CanvasRenderingContext2D, layout: ImageLayout): 
   }
 }
 
-/** A PNG of the card, at twice the layout size so it stays sharp on a phone. */
-export async function cardImageBlob(content: CardContent, options: ImageOptions, scale = 2): Promise<Blob> {
+/** A PNG of a layout, at twice its size so it stays sharp on a phone. The layout is made with a measure of real text. */
+export async function layoutImageBlob(make: (measure: Measure) => ImageLayout, scale = 2): Promise<Blob> {
   const probe = document.createElement('canvas').getContext('2d');
   if (!probe) throw new Error('This browser cannot draw images.');
   const measure: Measure = (t, size, bold) => {
     probe.font = canvasFont(size, bold);
     return probe.measureText(t).width;
   };
-  const layout = layoutCardImage(content, options, measure);
+  const layout = make(measure);
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(layout.width * scale);
   canvas.height = Math.round(layout.height * scale);
@@ -328,4 +328,9 @@ export async function cardImageBlob(content: CardContent, options: ImageOptions,
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('The image could not be made.'))), 'image/png');
   });
+}
+
+/** A PNG of the card, at twice the layout size so it stays sharp on a phone. */
+export function cardImageBlob(content: CardContent, options: ImageOptions, scale = 2): Promise<Blob> {
+  return layoutImageBlob((measure) => layoutCardImage(content, options, measure), scale);
 }

@@ -2,12 +2,40 @@
 // (later phases: saved files, autosave) validates it here first, as untrusted input.
 
 import { z } from 'zod';
+import { AUTOFILTER_MAX, TUNING_FIGURE_MAX, TUNING_GROUP_MAX } from '../engine/parse';
 import type { ParseResult } from '../engine/types';
 
 const num = () => z.number({ error: 'must be a number' }).finite({ error: 'must be a finite number' });
 const text = () => z.string({ error: 'must be text' });
 
 const Point3Schema = z.object({ x: num(), y: num(), z: num() });
+
+const NUMBER_TEXT = /^-?\d+(?:\.\d+)?$/;
+
+/** A figure copied as the PDF prints it: a number as text, or null. */
+const figure = () =>
+  z
+    .string({ error: 'must be text' })
+    .max(TUNING_FIGURE_MAX, { error: 'is too long' })
+    .regex(NUMBER_TEXT, { error: 'must be a number' })
+    .nullable();
+
+export const TuningSchema = z.object({
+  autofilter: z
+    .string({ error: 'must be text' })
+    .max(AUTOFILTER_MAX, { error: 'is too long' })
+    // eslint-disable-next-line no-control-regex
+    .refine((t) => !/[\u0000-\u001f\u007f]/.test(t), { error: 'cannot hold control characters' })
+    .nullable(),
+  lfContourFrequency: figure(),
+  lfContourGain: figure(),
+  zoom: figure(),
+  delay: figure(),
+  gain: figure(),
+  groups: z.array(z.object({ group: z.string({ error: 'must be text' }).max(TUNING_GROUP_MAX, { error: 'is too long' }), delay: figure(), gain: figure() }), {
+    error: 'must be a list',
+  }),
+});
 
 export const CabinetSchema = z.object({
   number: z.number({ error: 'Enclosure number must be a number' }).int({ error: 'Enclosure number must be a whole number' }).positive({ error: 'Enclosure number must be 1 or more' }),
@@ -61,6 +89,11 @@ export const ArraySourceSchema = z.object({
   }),
   cabinets: z.array(CabinetSchema, { error: 'Enclosures must be a list' }),
   warnings: z.array(WarningSchema, { error: 'Warnings must be a list' }),
+  tuning: TuningSchema.optional(),
+}).superRefine((source, ctx) => {
+  if (source.tuning && source.tuning.groups.length > source.groups.length) {
+    ctx.addIssue({ code: 'custom', path: ['tuning', 'groups'], message: 'lists more groups than the array sits in' });
+  }
 });
 
 export const ReportSchema = z.object({

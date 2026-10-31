@@ -6,6 +6,7 @@ import * as msg from './messages';
 import { enclosureLabel } from './types';
 import type {
   ArraySource,
+  ArrayTuning,
   Cabinet,
   Fixation,
   ParseResult,
@@ -82,6 +83,15 @@ const ACOUSTIC = /^\d+\. 2\. Acoustic configuration$/;
 const SEVERITY = /^[A-Z]{4,}$/;
 /** The first cell of an enclosure row: "#3", "C2 #1" in a ground stack laid out in columns, or "R2 #1" in one laid out in rows. */
 const ROW_LABEL = /^(?:(?:C([1-9]\d*)|R([1-9]\d*)) )?#(\d+)$/;
+/** The first line of an enclosure's own acoustic settings. Nothing after it is read: the FIR and air lines belong to the enclosures. */
+const ENCLOSURE_HEADING = /^Enclosure\b/;
+const LF_CONTOUR = /^LF Contour:\s*Frequency = (\S+) Hz;\s*Gain = (\S+) dB$/;
+const ZOOM = /^Zoom Factor \(ratio\):\s*(\S+)$/;
+/** The longest tuning figure and Autofilter line kept. The saved file refuses more. */
+export const TUNING_FIGURE_MAX = 20;
+export const AUTOFILTER_MAX = 120;
+/** The longest group name kept in a source's tuning. A longer group stays in the source's groups but states no tuning. */
+export const TUNING_GROUP_MAX = 300;
 const POINT = '(-?[\\d.]+); (-?[\\d.]+); (-?[\\d.]+)';
 const DEGREES = '(-?[\\d.]+) \\S+';
 
@@ -90,6 +100,23 @@ function point(m: RegExpMatchArray, from: number): Point3 | null {
   const y = num(m[from + 1] ?? '');
   const z = num(m[from + 2] ?? '');
   return x === null || y === null || z === null ? null : { x, y, z };
+}
+
+/** A number as the PDF prints it, with a true minus sign, or null when it is anything else. */
+function figureText(value: string | undefined): string | null {
+  const t = (value ?? '').replace(/−/g, '-');
+  return NUMBER.test(t) && t.length <= TUNING_FIGURE_MAX ? t : null;
+}
+
+/** The figure of a line such as "Delay: 4.17 ms" or "Gain: -2 dB", as printed. Null when the line says anything else, its unit included. */
+function labelledFigure(text: string, label: string, unit: string): string | null {
+  return figureText(new RegExp(`^${label}:\\s*(\\S+)\\s+${unit}$`).exec(text)?.[1]);
+}
+
+/** The whole Autofilter line, or null when it is too long or holds control characters. */
+function autofilterText(text: string): string | null {
+  // eslint-disable-next-line no-control-regex
+  return text.length <= AUTOFILTER_MAX && !/[\u0000-\u001f\u007f]/.test(text) ? text : null;
 }
 
 type Column = 'angle' | 'site' | 'topZ' | 'bottomZ' | 'panflex';
@@ -127,11 +154,31 @@ function blankWeights(): ArraySource['weights'] {
   return { total: null, enclosures: null, frontMotorLoad: null, rearMotorLoad: null };
 }
 
-function newSource(number: number, name: string, groups: string[]): ArraySource {
+interface GroupEntry {
+  n: number;
+  name: string;
+  delay: string | null;
+  gain: string | null;
+}
+
+/** A source's tuning before its own acoustic lines are read: only what its groups state. */
+function newTuning(stack: readonly GroupEntry[]): ArrayTuning {
+  return {
+    autofilter: null,
+    lfContourFrequency: null,
+    lfContourGain: null,
+    zoom: null,
+    delay: null,
+    gain: null,
+    groups: stack.filter((g) => (g.delay !== null || g.gain !== null) && g.name.length <= TUNING_GROUP_MAX).map((g) => ({ group: g.name, delay: g.delay, gain: g.gain })),
+  };
+}
+
+function newSource(number: number, name: string, stack: readonly GroupEntry[]): ArraySource {
   return {
     number,
     name,
-    groups,
+    groups: stack.map((g) => g.name),
     configuration: null,
     orientation: null,
     mounting: null,
@@ -148,6 +195,7 @@ function newSource(number: number, name: string, groups: string[]): ArraySource 
     weights: blankWeights(),
     cabinets: [],
     warnings: [],
+    tuning: newTuning(stack),
   };
 }
 
@@ -178,7 +226,9 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
   let tableLacksAngle = false;
   let inWarnings = false;
   let warning: SoundvisionWarning | null = null;
-  const groupStack: { n: number; name: string }[] = [];
+  const groupStack: GroupEntry[] = [];
+  /** True once the first enclosure of the acoustic configuration has started: what follows is not the source's own tuning. */
+  let afterEnclosure = false;
 
   const problem = (level: Problem['level'], message: string) =>
     problems.push({ level, source: source?.name ?? null, message });
@@ -192,7 +242,34 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
         groupStack.pop();
       }
     }
-    groupStack.push({ n, name });
+    groupStack.push({ n, name, delay: null, gain: null });
+  }
+
+  /** The delay and gain a group states on the lines straight after its heading. */
+  function groupLine(line: Line) {
+    const group = groupStack[groupStack.length - 1];
+    if (!group) return;
+    group.delay = labelledFigure(line.text, 'Delay', 'ms') ?? group.delay;
+    group.gain = labelledFigure(line.text, 'Gain', 'dB') ?? group.gain;
+  }
+
+  /** The source's own tuning, copied as printed, from the lines before its first enclosure. Anything odd stays blank. */
+  function acousticLine(line: Line, tuning: ArrayTuning) {
+    if (ENCLOSURE_HEADING.test(line.text)) afterEnclosure = true;
+    if (afterEnclosure) return;
+    const t = line.text;
+    let m: RegExpMatchArray | null;
+    if (/^Autofilter\b/.test(t)) {
+      tuning.autofilter = autofilterText(t);
+    } else if ((m = LF_CONTOUR.exec(t))) {
+      tuning.lfContourFrequency = figureText(m[1]);
+      tuning.lfContourGain = figureText(m[2]);
+    } else if ((m = ZOOM.exec(t))) {
+      tuning.zoom = figureText(m[1]);
+    } else {
+      tuning.delay = labelledFigure(t, 'Delay', 'ms') ?? tuning.delay;
+      tuning.gain = labelledFigure(t, 'Gain', 'dB') ?? tuning.gain;
+    }
   }
 
   function documentLine(line: Line) {
@@ -339,7 +416,7 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     }
     if ((m = line.text.match(SOURCE))) {
       finishSource();
-      source = newSource(Number(m[1]), m[2] ?? '', groupStack.map((g) => g.name));
+      source = newSource(Number(m[1]), m[2] ?? '', groupStack);
       sources.push(source);
       section = 'source';
       continue;
@@ -353,6 +430,7 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     }
     if (ACOUSTIC.test(line.text) && source) {
       section = 'acoustic';
+      afterEnclosure = false;
       continue;
     }
 
@@ -373,8 +451,11 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
       } else if (!inWarnings && !physicalField(line, source)) {
         problem('check', msg.notUnderstood(line.text));
       }
+    } else if (section === 'groups') {
+      groupLine(line);
+    } else if (section === 'acoustic' && source?.tuning) {
+      acousticLine(line, source.tuning);
     }
-    // Group settings, source headings and the acoustic configuration are not array information.
   }
   finishSource();
 

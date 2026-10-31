@@ -528,3 +528,63 @@ describe('a stack laid out in rows', () => {
     expect(report(['R0 #1']).problems.length).toBeGreaterThan(0);
   });
 });
+
+describe('tuning read from the acoustic configuration and the group settings', () => {
+  const tuning = (result: typeof a, name: string) => find(result, name).tuning;
+  const blank = { autofilter: null, lfContourFrequency: null, lfContourGain: null, zoom: null, delay: null, gain: null, groups: [] };
+  const autofilter = 'Autofilter active - Default';
+
+  it('gives every source a tuning object, and raises no problem for it', () => {
+    for (const r of [a, b, c, d, e]) {
+      expect(r.problems).toEqual([]);
+      expect(r.report.sources.every((s) => s.tuning !== undefined)).toBe(true);
+    }
+  });
+
+  it('report A: the Autofilter, LF Contour and zoom of the hangs, as printed', () => {
+    expect(tuning(a, 'KARA II L Main')).toEqual({ ...blank, autofilter, lfContourFrequency: '180', lfContourGain: '2', zoom: '1.1' });
+    expect(tuning(a, 'KARA II R Main')?.zoom).toBe('1.1');
+    expect(tuning(a, 'KARA II L Out')?.zoom).toBe('1.4');
+    expect(tuning(a, 'KARA II R Out')?.zoom).toBe('1.4');
+  });
+
+  it('report A: the SUBS group states a gain and a delay, and a rear sub adds a delay of its own', () => {
+    const subs = { group: 'SUBS', delay: '4', gain: '-2' };
+    expect(tuning(a, 'SB28 L Front')).toEqual({ ...blank, groups: [subs] });
+    expect(tuning(a, 'SB28 R Rear')).toEqual({ ...blank, delay: '4.17', groups: [subs] });
+    expect(tuning(a, 'SB28 L Rear')?.delay).toBe('4.17');
+  });
+
+  it('report A: a group that states only a delay, and one that states only a gain', () => {
+    expect(tuning(a, 'X8 2')?.groups).toEqual([{ group: 'LIPFILL', delay: '14', gain: null }]);
+    expect(tuning(a, 'X12 B R')?.groups).toEqual([{ group: 'X12', delay: null, gain: '-3' }]);
+  });
+
+  it('report B: a source with nothing stated is all blank, and one states its own gain', () => {
+    expect(tuning(b, 'FL KARA II L')).toEqual(blank);
+    expect(tuning(b, 'SB28 L')).toEqual(blank);
+    expect(tuning(b, 'GS KARA II L')).toEqual({ ...blank, autofilter, lfContourFrequency: '180', lfContourGain: '6', zoom: '1.2', gain: '-3' });
+  });
+
+  it('report C: a group delay on a nested chain, a group with a gain and a delay, and delays of sources', () => {
+    expect(tuning(c, 'K1 1 Left')).toEqual({ ...blank, autofilter, lfContourFrequency: '60', lfContourGain: '-6', groups: [{ group: 'K1', delay: '3', gain: null }] });
+    expect(find(c, 'K1 1 Left').groups).toEqual(['ALL', 'MAIN', 'K1']);
+    expect(tuning(c, 'K2 Left')?.groups).toEqual([{ group: 'DELAY', delay: '120', gain: '-6' }]);
+    expect(tuning(c, 'KS28 1')?.delay).toBe('2.77');
+    expect(tuning(c, 'KS28 2')?.delay).toBe('0.92');
+    expect(tuning(c, 'KS28 3')).toEqual(blank);
+    expect(tuning(c, 'K2 SL')).toEqual({ ...blank, autofilter, lfContourFrequency: '60', lfContourGain: '-5', gain: '-2' });
+  });
+
+  it('report D: a source with its own gain and delay inside a group, and a group gain on the hangs', () => {
+    expect(tuning(d, 'SB28 L')).toEqual({ ...blank, gain: '4', delay: '9' });
+    expect(tuning(d, '12 KARA II L')).toEqual({ ...blank, autofilter, zoom: '1.2', groups: [{ group: 'KARA', delay: null, gain: '-4' }] });
+    expect(tuning(d, '9 KARA II')?.lfContourGain).toBe('1');
+    expect(tuning(d, 'X12 R')?.groups).toEqual([{ group: 'OUT FILL', delay: '6', gain: null }]);
+  });
+
+  it('report E: the whole Autofilter line is kept, and the FIR and air lines are not read', () => {
+    expect(tuning(e, 'YZ Sym of Left')).toEqual({ ...blank, autofilter: 'Autofilter active - Reduced latency (Disabled LF filters)', delay: '5' });
+    expect(tuning(e, 'KARA II 2')?.delay).toBeNull();
+  });
+});

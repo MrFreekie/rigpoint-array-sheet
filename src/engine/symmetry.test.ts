@@ -325,3 +325,13 @@ describe('left-right pairs: azimuth and group prefixes', () => {
     expect(isMirror(grouped, twin({ groups: ['ALL'] }))).toBe(false);
   });
 });
+
+describe('tuning and mirrors', () => {
+  it('still pairs a left and right array whose delays differ, because the tuning is not part of the pairing', () => {
+    const list = structuredClone(a);
+    const rear = list.find((s) => s.name === 'SB28 R Rear')!;
+    rear.tuning = { ...rear.tuning!, delay: '9', gain: '3' };
+    expect(names(list)).toEqual(names(a));
+    expect(names(list)).toContainEqual(['SB28 L Rear', 'SB28 R Rear']);
+  });
+});

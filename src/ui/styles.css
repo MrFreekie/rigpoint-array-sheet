@@ -913,3 +913,39 @@ select {
   justify-content: center;
   padding: 0.35rem 0.5rem;
 }
+
+/* The tuning sheet: a wide table that scrolls sideways, with the array name kept in view. */
+
+.dialog.tuning-dialog {
+  width: min(64rem, calc(100vw - 2rem));
+}
+
+.tuning-wrap {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.tuning-table th,
+.tuning-table td {
+  vertical-align: top;
+}
+
+.tuning-table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.tuning-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+.tuning-small {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted, inherit);
+}

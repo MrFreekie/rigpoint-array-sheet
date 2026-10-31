@@ -23,6 +23,10 @@ export interface RenderedSource extends ArraySource {
 export function renderReport(document: ReportDocument, sources: RenderedSource[], pageLength = 38): TextItem[] {
   const lines: { cells: Cell[]; table?: boolean }[] = [];
   const line = (text: string, x = 71) => lines.push({ cells: [{ x, text }] });
+  /** A figure the way the report prints it: the label, the value and the unit in three cells. */
+  const figure = (label: string, value: string | null, unit: string) => {
+    if (value !== null) lines.push({ cells: [{ x: 73, text: `${label}:` }, { x: 116, text: value }, { x: 135 + 3 * value.length, text: unit }] });
+  };
   const f = (n: number) => String(n);
 
   line('Soundvision', 350);
@@ -46,7 +50,12 @@ export function renderReport(document: ReportDocument, sources: RenderedSource[]
   const right = (text: string, edge: number): Cell => ({ x: edge - CHAR * text.length, text });
 
   sources.forEach((s, index) => {
-    for (const g of s.groupLines ?? []) line(g);
+    for (const g of s.groupLines ?? []) {
+      line(g);
+      const tuned = s.tuning?.groups.find((t) => t.group === /^\d+\. Group: (.+)$/.exec(g)?.[1]);
+      figure('Gain', tuned?.gain ?? null, 'dB');
+      figure('Delay', tuned?.delay ?? null, 'ms');
+    }
     line(`${s.number}. Source: ${s.name}`);
     line(`${s.number}. 1. Physical configuration`);
     if (s.configuration) line(`Configuration: ${s.configuration}`);
@@ -93,10 +102,17 @@ export function renderReport(document: ReportDocument, sources: RenderedSource[]
       }
     }
     line(`${s.number}. 2. Acoustic configuration`);
-    line('Autofilter active - Default');
+    const t = s.tuning;
+    if (t?.autofilter) line(t.autofilter);
+    figure('Gain', t?.gain ?? null, 'dB');
+    if (t?.lfContourFrequency != null && t.lfContourGain != null) line(`LF Contour: Frequency = ${t.lfContourFrequency} Hz; Gain = ${t.lfContourGain} dB`);
+    if (t?.zoom != null) line(`Zoom Factor (ratio): ${t.zoom}`);
+    figure('Delay', t?.delay ?? null, 'ms');
+    // Everything after the first enclosure is the enclosures' own settings, which the reader must not take for the source's.
     line('Enclosure #1 - KARA II');
     line('FIR 1 (1250 Hz): -1 dB');
     line(index % 2 === 0 ? 'None' : 'Delay: 4.17 ms');
+    figure('Gain', '9', 'dB');
   });
 
   // Lay the lines out on pages.

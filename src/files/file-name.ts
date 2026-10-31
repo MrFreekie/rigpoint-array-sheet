@@ -32,3 +32,9 @@ export function suggestedDxfName(title: string, revision: string): string {
   const base = safeName(title.replace(/\.xmlp$/i, ''));
   return `${base}${revision ? ` - Rev ${revision}` : ''}.dxf`;
 }
+
+/** The tuning sheet: the show name, the revision and "Tuning sheet", as a PDF or a PNG. */
+export function suggestedTuningName(title: string, revision: string, extension: 'pdf' | 'png'): string {
+  const base = safeName(title.replace(/\.xmlp$/i, ''));
+  return `${base}${revision ? ` - Rev ${revision}` : ''} - Tuning sheet.${extension}`;
+}

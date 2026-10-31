@@ -47,6 +47,15 @@ describe('importPdf', () => {
     expect(result.ok).toBe(false);
     expect(result.problems.map((p) => p.message).join(' ')).toMatch(/does not look like a Soundvision report/);
   });
+
+  it('reads a report whose group name is longer than the saved file allows, leaving that group out of the tuning', async () => {
+    const long = 'G'.repeat(301);
+    const lines = ['Distance unit: m', 'Weight unit: kg', `1. Group: ${long}`, 'Delay: 3 ms', '1. Group: SUB', 'Gain: -2 dB', '1. Source: A', '1. 2. Acoustic configuration'];
+    const result = await importPdf(makePdf([lines.map((text, n) => ({ x: 72, y: 780 - n * 14, text }))], 4000));
+    const source = result.report.sources[0];
+    expect(source?.groups).toEqual([long, 'SUB']);
+    expect(source?.tuning?.groups).toEqual([{ group: 'SUB', delay: null, gain: '-2' }]);
+  });
 });
 
 const SAMPLES = ['A', 'B', 'C'].map((n) => `reference/soundvision_report_${n}.pdf`);

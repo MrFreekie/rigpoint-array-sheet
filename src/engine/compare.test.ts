@@ -186,3 +186,68 @@ describe('compareReports and cable patches', () => {
     expect(compareReports(a(), a(), new Set(), {}, [], [])).toEqual([]);
   });
 });
+
+describe('compareReports and tuning', () => {
+  const noTuning = () => {
+    const r = a();
+    for (const s of r.sources) delete s.tuning;
+    return r;
+  };
+  const tuned = (name: string, report: Report) => report.sources.find((s) => s.name === name)!.tuning!;
+
+  it('finds nothing when the tuning is the same', () => {
+    expect(compareReports(a(), a())).toEqual([]);
+  });
+
+  it('names the figure when a delay, a gain or the zoom changes', () => {
+    const next = a();
+    tuned('SB28 L Rear', next).delay = '5';
+    tuned('KARA II L Main', next).zoom = '1.3';
+    tuned('KARA II L Main', next).gain = '2';
+    expect(compareReports(a(), next)).toEqual([
+      { kind: 'changed', array: 'KARA II L Main', what: 'Gain', saved: 'not stated', now: '2' },
+      { kind: 'changed', array: 'KARA II L Main', what: 'Zoom factor', saved: '1.1', now: '1.3' },
+      { kind: 'changed', array: 'SB28 L Rear', what: 'Delay', saved: '4.17', now: '5' },
+    ]);
+  });
+
+  it('names the Autofilter and the LF Contour', () => {
+    const next = a();
+    tuned('KARA II L Main', next).autofilter = 'Autofilter active - Reduced latency (Disabled LF filters)';
+    tuned('KARA II L Main', next).lfContourGain = '4';
+    expect(compareReports(a(), next)).toEqual([
+      { kind: 'changed', array: 'KARA II L Main', what: 'Autofilter', saved: 'Autofilter active - Default', now: 'Autofilter active - Reduced latency (Disabled LF filters)' },
+      { kind: 'changed', array: 'KARA II L Main', what: 'LF Contour', saved: '180 Hz, 2 dB', now: '180 Hz, 4 dB' },
+    ]);
+  });
+
+  it('names the group when its delay or gain changes', () => {
+    const next = a();
+    tuned('SB28 L Front', next).groups = [{ group: 'SUBS', delay: '5', gain: '-2' }];
+    expect(compareReports(a(), next)).toEqual([{ kind: 'changed', array: 'SB28 L Front', what: 'Group 3 (SUBS) delay', saved: '4', now: '5' }]);
+  });
+
+  it('keeps two groups of the same name in one chain apart, by their place in the chain', () => {
+    const chain = () => {
+      const r = a();
+      const s = r.sources.find((x) => x.name === 'SB28 L Front')!;
+      s.groups = ['ALL', 'SUB', 'ALL'];
+      s.tuning = { ...s.tuning!, groups: [{ group: 'ALL', delay: '3', gain: null }, { group: 'SUB', delay: '4', gain: null }, { group: 'ALL', delay: '5', gain: '-1' }] };
+      return r;
+    };
+    const next = chain();
+    next.sources.find((x) => x.name === 'SB28 L Front')!.tuning!.groups[0]!.delay = '7';
+    expect(compareReports(chain(), next)).toEqual([{ kind: 'changed', array: 'SB28 L Front', what: 'Group 1 (ALL) delay', saved: '3', now: '7' }]);
+    const inner = chain();
+    inner.sources.find((x) => x.name === 'SB28 L Front')!.tuning!.groups[2]!.gain = '-2';
+    expect(compareReports(chain(), inner)).toEqual([{ kind: 'changed', array: 'SB28 L Front', what: 'Group 3 (ALL) gain', saved: '-1', now: '-2' }]);
+  });
+
+  it('says once that the tuning is read when the saved file has none, and does not list it figure by figure', () => {
+    expect(compareReports(noTuning(), a())).toEqual([{ kind: 'changed', array: null, what: 'Tuning values', saved: 'not in this file', now: 'read from the new PDF' }]);
+  });
+
+  it('says nothing about tuning when the new report has none either', () => {
+    expect(compareReports(noTuning(), noTuning())).toEqual([]);
+  });
+});

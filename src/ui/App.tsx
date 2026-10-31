@@ -11,7 +11,7 @@ import { openFileText, serialiseDoc } from '../files/array-file-io';
 import { browserStore, readAutosave, writeAutosave, type Restorable } from '../files/autosave';
 import { deletedList, editKey, isDirty, isLocked, keepsHandle, markSaved, sameDocument, statusLocks } from '../files/doc';
 import { downloadBlob } from '../files/download';
-import { suggestedFileName, suggestedImageName, suggestedPdfName } from '../files/file-name';
+import { suggestedFileName, suggestedImageName, suggestedPdfName, suggestedTuningName } from '../files/file-name';
 import { ensurePermission, fsAccessSupported, pickFileToOpen } from '../files/fs-access';
 import { idbStore } from '../files/kv';
 import { onLaunchFile } from '../files/launch';
@@ -39,6 +39,7 @@ import { RecentFilesDialog } from './RecentFilesDialog';
 import { RiggingPlotPreview } from './RiggingPlotPreview';
 import { RiggingSummary } from './RiggingSummary';
 import { SettingsDialog } from './SettingsDialog';
+import { TuningDialog } from './TuningDialog';
 import { extraKgFor, sheetModel, type SheetEntry, type SheetModel } from './sheet-model';
 import { ThemeButton } from './ThemeButton';
 import { UpdatePrompt } from './UpdatePrompt';
@@ -64,6 +65,7 @@ export function App() {
   const [compare, setCompare] = useState<PendingCompare | null>(null);
   const [showMirrors, setShowMirrors] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tuningOpen, setTuningOpen] = useState(false);
   const [printedAt, setPrintedAt] = useState(() => new Date());
   const [printOverflow, setPrintOverflow] = useState(false);
   const [handle, setHandle] = useState<FileSystemFileHandle | null>(null);
@@ -194,6 +196,38 @@ export function App() {
       setNotice(`Saved ${name}.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The PDF could not be made.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** The tuning sheet, on its own: a PDF or an image of the table in the Tuning dialog. The main PDF and the cards never hold it. */
+  async function saveTuning(kind: 'pdf' | 'png') {
+    if (!doc) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const footer = printFooter({
+        appVersion: __APP_VERSION__,
+        soundvisionVersion: doc.result.report.document.version,
+        fileName: doc.fileName,
+        defaultName: suggestedFileName(showTitle(doc), doc.revision),
+        dirty,
+        printedAt: new Date(),
+        verb: 'Exported',
+      });
+      const name = suggestedTuningName(showTitle(doc), doc.revision, kind);
+      if (kind === 'pdf') {
+        const { renderTuningPdf } = await import('../print/tuning-pdf');
+        const bytes = await renderTuningPdf({ doc, footer, checks });
+        downloadBlob(name, new Blob([bytes as BlobPart], { type: 'application/pdf' }));
+      } else {
+        const { tuningImageBlob } = await import('../print/tuning-image');
+        downloadBlob(name, await tuningImageBlob(doc, footer));
+      }
+      setNotice(`Saved ${name}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : kind === 'pdf' ? 'The tuning sheet PDF could not be made.' : 'The tuning sheet image could not be made.');
     } finally {
       setBusy(false);
     }
@@ -522,6 +556,9 @@ export function App() {
               Create new revision
             </button>
           ) : null}
+          <button type="button" className="button" disabled={!doc || !doc.result.ok || busy} onClick={() => setTuningOpen(true)} title="Delay, gain and the other tuning the report states for each array">
+            Tuning
+          </button>
           <button type="button" className="button" disabled={!doc || !doc.result.ok || busy} onClick={() => setSettingsOpen(true)}>
             Settings
           </button>
@@ -694,6 +731,9 @@ export function App() {
           onShowMirrors={setShowMirrors}
           onClose={() => setSettingsOpen(false)}
         />
+      ) : null}
+      {tuningOpen && doc && doc.result.ok ? (
+        <TuningDialog doc={doc} locked={locked} busy={busy} onPdf={() => void saveTuning('pdf')} onImage={() => void saveTuning('png')} onClose={() => setTuningOpen(false)} />
       ) : null}
       {compare ? (
         <CompareDialog changes={compare.changes} sourceName={compare.sourceName} onUpdate={applyUpdate} onKeep={() => setCompare(null)} />

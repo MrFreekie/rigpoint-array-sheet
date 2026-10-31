@@ -68,6 +68,35 @@ export interface ArrayWeights {
   rearMotorLoad: number | null;
 }
 
+/** The delay and gain a Soundvision group states for the sources in it. Each is the number as printed, or null when not stated. */
+export interface GroupTuning {
+  group: string;
+  delay: string | null;
+  gain: string | null;
+}
+
+/**
+ * What the acoustic configuration of a source states before its first enclosure, copied as printed (numbers as text, so
+ * "4.17" stays "4.17"). Null for anything the report does not state or prints in a form this app does not read.
+ * The FIR and air compensation lines after the first enclosure are not read.
+ */
+export interface ArrayTuning {
+  /** The whole "Autofilter ..." line. */
+  autofilter: string | null;
+  /** The frequency in Hz of "LF Contour: Frequency = X Hz; Gain = Y dB". */
+  lfContourFrequency: string | null;
+  /** The gain in dB of the LF Contour line. */
+  lfContourGain: string | null;
+  /** "Zoom Factor (ratio): X". */
+  zoom: string | null;
+  /** The source's own delay in ms. */
+  delay: string | null;
+  /** The source's own gain in dB. */
+  gain: string | null;
+  /** The groups the source sits in that state a delay or a gain, outermost first. */
+  groups: GroupTuning[];
+}
+
 export interface ArraySource {
   /** The number printed before "Source:". */
   number: number;
@@ -95,6 +124,8 @@ export interface ArraySource {
   weights: ArrayWeights;
   cabinets: Cabinet[];
   warnings: SoundvisionWarning[];
+  /** The tuning the report states. Absent in a file saved before the app read it. */
+  tuning?: ArrayTuning | undefined;
 }
 
 export interface ReportDocument {

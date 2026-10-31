@@ -53,6 +53,15 @@ const FIELD_NAMES: Record<string, string> = {
   fixations: 'Fixations',
   fixationCount: 'Number of fixations',
   warnings: 'Warnings',
+  tuning: 'Tuning',
+  autofilter: 'Autofilter',
+  lfContourFrequency: 'LF Contour frequency',
+  lfContourGain: 'LF Contour gain',
+  zoom: 'Zoom factor',
+  delay: 'Delay',
+  gain: 'Gain',
+  groups: 'Groups',
+  group: 'Group',
 };
 
 /** Describe a Zod issue path, e.g. "Array 2, Enclosures, entry 3, Top height". */

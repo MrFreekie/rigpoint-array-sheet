@@ -6,7 +6,7 @@ import { loadItems } from '../testing/fixtures';
 import { rng } from '../testing/random';
 import { renderReport, type RenderedSource } from '../testing/render-report';
 import { parseSoundvision } from './parse';
-import type { Cabinet, ReportDocument } from './types';
+import type { ArrayTuning, Cabinet, ReportDocument } from './types';
 
 const DOCUMENT: ReportDocument = {
   version: '2026.3.1',
@@ -18,6 +18,20 @@ const DOCUMENT: ReportDocument = {
 };
 
 const round = (n: number, places: number) => Math.round(n * 10 ** places) / 10 ** places;
+
+function randomTuning(r: ReturnType<typeof rng>): ArrayTuning {
+  const figure = () => (r.chance(0.5) ? r.pick(['4.17', '-3', '0', '120', '2.5', '0.92', '-6']) : null);
+  const lf = r.chance(0.5);
+  return {
+    autofilter: r.chance(0.7) ? r.pick(['Autofilter active - Default', 'Autofilter active - Reduced latency (Disabled LF filters)']) : null,
+    lfContourFrequency: lf ? r.pick(['60', '180']) : null,
+    lfContourGain: lf ? r.pick(['-6', '2', '3.5']) : null,
+    zoom: figure(),
+    delay: figure(),
+    gain: figure(),
+    groups: [],
+  };
+}
 
 function randomSource(r: ReturnType<typeof rng>, number: number): RenderedSource {
   const flown = r.chance(0.7);
@@ -91,6 +105,7 @@ function randomSource(r: ReturnType<typeof rng>, number: number): RenderedSource
     warnings: r.chance(0.4)
       ? [{ severity: r.pick(['WARNING', 'CAUTION']), title: 'Tipping hazard', message: 'Secure the array to the ground.' }]
       : [],
+    tuning: randomTuning(r),
   };
 }
 
@@ -113,6 +128,21 @@ describe('random reports', () => {
     const result = parseSoundvision(renderReport(DOCUMENT, fills));
     expect(result.problems).toEqual([]);
     expect(result.report.sources).toEqual(fills);
+  });
+
+  it('reads the tuning of groups back exactly, outermost first, and leaves out a group that states nothing', () => {
+    const r = rng(5);
+    const source: RenderedSource = {
+      ...randomSource(r, 1),
+      name: 'KARA II L',
+      groups: ['ALL', 'MAINS', 'SUBS'],
+      groupLines: ['1. Group: ALL', '1. Group: MAINS', '1. Group: SUBS'],
+    };
+    source.tuning = { ...randomTuning(r), groups: [{ group: 'MAINS', delay: '3', gain: null }, { group: 'SUBS', delay: '6', gain: '-4' }] };
+    const result = parseSoundvision(renderReport(DOCUMENT, [source]));
+    expect(result.problems).toEqual([]);
+    expect(result.report.sources[0]?.groups).toEqual(['ALL', 'MAINS', 'SUBS']);
+    expect(result.report.sources[0]?.tuning).toEqual(source.tuning);
   });
 
   it('does put tables across page breaks', () => {

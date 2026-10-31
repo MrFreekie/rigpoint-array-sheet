@@ -329,7 +329,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/16');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/17');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -375,7 +375,7 @@ describe('opening a bad file', () => {
   });
 
   it('refuses a file from a newer version', () => {
-    expect(() => open(edited((f) => (f.format = 'arraysheet/17')))).toThrow(/newer version/);
+    expect(() => open(edited((f) => (f.format = 'arraysheet/18')))).toThrow(/newer version/);
   });
 
   it('refuses a file over the size limit', () => {
@@ -654,5 +654,53 @@ describe('cable patch', () => {
     bad((f) => (f.patch = 'many'), /must be a list/);
     bad((f) => (f.patch[0] = 'x'), /must be a list/);
     bad((f) => delete f.patch, /Cable patches must be a list|Required|expected array/i);
+  });
+});
+
+describe('tuning', () => {
+  it('is saved inside the report and opened again as it was', () => {
+    const back = roundTrip(sample()).doc;
+    expect(back.result.report.sources[0]?.tuning).toEqual(parseFixture('a').report.sources[0]?.tuning);
+    expect(back.result.report.sources[0]?.tuning?.zoom).toBe('1.1');
+    expect(back.result.report.sources[7]?.tuning?.groups).toEqual([{ group: 'SUBS', delay: '4', gain: '-2' }]);
+    expect(back.result.report).toEqual(parseFixture('a').report);
+  });
+
+  it('is not counted as a saved change after opening', () => {
+    const back = roundTrip(sample()).doc;
+    expect(back.savedKey).toBe(editKey(back));
+  });
+
+  it('is absent in a version 16 file, which opens without it', () => {
+    const v16 = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as { format: string; report: { sources: Record<string, unknown>[] } };
+    v16.format = 'arraysheet/16';
+    for (const s of v16.report.sources) delete s['tuning'];
+    const back = openFileText(JSON.stringify(v16), null).doc;
+    expect(back.result.report.sources.every((s) => s.tuning === undefined)).toBe(true);
+    expect(back.result.report.sources).toHaveLength(18);
+  });
+
+  const limits: [string, (t: Record<string, any>) => void, RegExp][] = [
+    ['a delay that is not a number', (t) => (t.delay = 'abc'), /Array 1, Tuning, Delay: must be a number/],
+    ['a gain that is not text', (t) => (t.gain = 3), /Array 1, Tuning, Gain: must be text/],
+    ['a figure that is too long', (t) => (t.zoom = '1'.repeat(21)), /Array 1, Tuning, Zoom factor: is too long/],
+    ['a frequency with a unit', (t) => (t.lfContourFrequency = '180 Hz'), /Array 1, Tuning, LF Contour frequency: must be a number/],
+    ['an Autofilter that is too long', (t) => (t.autofilter = 'x'.repeat(121)), /Array 1, Tuning, Autofilter: is too long/],
+    ['an Autofilter with a control character', (t) => (t.autofilter = 'bell'), /Array 1, Tuning, Autofilter: cannot hold control characters/],
+    ['a group figure that is not a number', (t) => (t.groups = [{ group: 'ALL', delay: 'x', gain: null }]), /Array 1, Tuning, Groups, entry 1, Delay: must be a number/],
+    ['more groups than the array sits in', (t) => (t.groups = [1, 2, 3, 4].map((n) => ({ group: `G${n}`, delay: '1', gain: null }))), /Array 1, Tuning, Groups: lists more groups than the array sits in/],
+    ['a figure that is missing', (t) => delete t.zoom, /Array 1, Tuning, Zoom factor: must be text/],
+  ];
+
+  it.each(limits)('names the field when it holds %s', (_what, change, message) => {
+    expect(() => open(edited((f) => change(f.report.sources[0].tuning)))).toThrow(message);
+  });
+
+  it('accepts a figure of 20 characters and an Autofilter of 120', () => {
+    const text = edited((f) => {
+      f.report.sources[0].tuning.zoom = '1'.repeat(20);
+      f.report.sources[0].tuning.autofilter = 'x'.repeat(120);
+    });
+    expect(() => open(text)).not.toThrow();
   });
 });

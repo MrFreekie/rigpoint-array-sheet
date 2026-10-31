@@ -6,7 +6,8 @@ export interface PdfText {
   text: string;
 }
 
-export function makePdf(pages: PdfText[][]): Uint8Array {
+/** @param width the width of each page in points, for text that is wider than an ordinary page. */
+export function makePdf(pages: PdfText[][], width = 595): Uint8Array {
   const objects: string[] = [];
   const add = (body: string) => objects.push(body);
   add(''); // 1: catalogue
@@ -20,7 +21,7 @@ export function makePdf(pages: PdfText[][]): Uint8Array {
     const content = add(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
     pageIds.push(
       add(
-        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${content} 0 R >>`,
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${content} 0 R >>`,
       ),
     );
   }

@@ -122,6 +122,11 @@ export const MIGRATIONS: Record<number, Migration> = {
     const sources = (file['report'] as { sources?: unknown } | undefined)?.sources;
     return { ...file, extra_weight: Array.isArray(sources) ? sources.map(() => ({ front: '', rear: '' })) : [] };
   },
+  // Version 17 added the tuning the report states for each array (delay, gain, Autofilter, LF Contour, zoom and the
+  // delay and gain of its groups), kept inside the report. A file from before has none, and the app shows that it was
+  // saved before it read tuning. Nothing in an older file changes; the step makes older copies of the app refuse every
+  // version 17 file, because they would drop the tuning when they saved.
+  16: (file) => file,
 };
 
 export function migrate(

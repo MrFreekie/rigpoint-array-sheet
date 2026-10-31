@@ -1,7 +1,7 @@
 // Compares a saved report with a newer one read from a fresh PDF, so the person can see exactly what
 // the new PDF changes before choosing to update. Reads and compares; it does not decide anything.
 
-import type { ArraySource, Report } from './types';
+import type { ArraySource, ArrayTuning, Report } from './types';
 
 export interface Change {
   kind: 'added' | 'removed' | 'changed' | 'restored';
@@ -17,8 +17,14 @@ export interface Change {
 const show = (v: string | number | null): string => (v === null ? 'not stated' : String(v));
 const point = (p: { x: number; y: number; z: number } | null) => (p ? `${p.x}, ${p.y}, ${p.z}` : null);
 
-/** Every figure of an array as label and text, in the order they are listed. */
-function facts(s: ArraySource): Map<string, string> {
+/** The LF Contour of a source as one line, or 'not stated' when the report states neither figure. */
+function lfContour(t: ArrayTuning): string {
+  const parts = [t.lfContourFrequency === null ? null : `${t.lfContourFrequency} Hz`, t.lfContourGain === null ? null : `${t.lfContourGain} dB`];
+  return parts.every((p) => p === null) ? 'not stated' : parts.map((p) => p ?? 'not stated').join(', ');
+}
+
+/** Every figure of an array as label and text, in the order they are listed. Tuning is listed only when both reports hold it. */
+function facts(s: ArraySource, withTuning: boolean): Map<string, string> {
   const m = new Map<string, string>();
   m.set('Groups', s.groups.length > 0 ? s.groups.join(' > ') : 'none');
   m.set('Configuration', show(s.configuration));
@@ -51,6 +57,23 @@ function facts(s: ArraySource): Map<string, string> {
     );
   }
   s.warnings.forEach((w, i) => m.set(`Warning ${i + 1}`, `${w.severity}: ${w.title} ${w.message}`.trim()));
+  const t = withTuning ? s.tuning : undefined;
+  if (t) {
+    m.set('Delay', show(t.delay));
+    m.set('Gain', show(t.gain));
+    m.set('Autofilter', show(t.autofilter));
+    m.set('LF Contour', lfContour(t));
+    m.set('Zoom factor', show(t.zoom));
+    // A group is named by its place in the chain, so two groups of the same name do not overwrite each other.
+    let from = 0;
+    for (const [i, g] of t.groups.entries()) {
+      const at = s.groups.indexOf(g.group, from);
+      const place = at === -1 ? i + 1 : at + 1;
+      if (at !== -1) from = at + 1;
+      m.set(`Group ${place} (${g.group}) delay`, show(g.delay));
+      m.set(`Group ${place} (${g.group}) gain`, show(g.gain));
+    }
+  }
   return m;
 }
 
@@ -95,6 +118,11 @@ export function compareReports(
     if (a !== b) out.push({ kind: 'changed', array: null, what, saved: show(a), now: show(b) });
   }
 
+  // A file saved before the app read tuning has none. Updating from the same report reads it.
+  if (saved.sources.every((s) => s.tuning === undefined) && next.sources.some((s) => s.tuning !== undefined)) {
+    out.push({ kind: 'changed', array: null, what: 'Tuning values', saved: 'not in this file', now: 'read from the new PDF' });
+  }
+
   const queues = new Map<string, ArraySource[]>();
   for (const s of next.sources) queues.set(s.name, [...(queues.get(s.name) ?? []), s]);
   const matched = new Set<ArraySource>();
@@ -120,7 +148,8 @@ export function compareReports(
       continue;
     }
     matched.add(match);
-    diffFacts(s.name, facts(s), facts(match), out);
+    const withTuning = s.tuning !== undefined && match.tuning !== undefined;
+    diffFacts(s.name, facts(s, withTuning), facts(match, withTuning), out);
     label();
   }
   for (const s of next.sources) {
