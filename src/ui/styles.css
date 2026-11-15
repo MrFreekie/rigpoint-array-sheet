@@ -192,17 +192,160 @@ input {
   font-weight: 600;
 }
 
-.header-actions {
+.app-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+
+.header-top {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+}
+
+.header-top .brand {
+  display: flex;
+  align-items: baseline;
   gap: 0.5rem;
 }
 
 .versions {
   margin: 0;
-  flex-basis: 100%;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 400;
   color: #b9c3d4;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+}
+
+.header-menu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  flex: 1 1 auto;
+}
+
+.header-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.header-end {
+  margin-left: auto;
+}
+
+.header-group + .header-group {
+  padding-left: 1.25rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.header-quick + .header-menu .header-group:first-child {
+  padding-left: 1.25rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* Header buttons: light outlines on the navy bar, so only Save stands out. */
+.app-header .button:not(.primary) {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+}
+
+.app-header .button:hover:not(:disabled):not(.primary) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #ffffff;
+}
+
+.header-menu-toggle {
+  display: none;
+  margin-left: auto;
+}
+
+/* A narrow screen keeps Open and Save in view and puts the rest behind a Menu button. */
+@media (max-width: 40rem) {
+  .header-menu-toggle {
+    display: inline-block;
+  }
+
+  .header-menu {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    flex-basis: 100%;
+  }
+
+  .header-menu.open {
+    display: flex;
+  }
+
+  .header-group,
+  .header-group + .header-group,
+  .header-quick + .header-menu .header-group:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .header-end {
+    margin-left: 0;
+  }
+
+  .header-group .button {
+    flex: 1 1 auto;
+  }
+
+  .header-quick {
+    flex: 1 1 12rem;
+  }
+
+  .header-quick .button {
+    flex: 1 1 0;
+  }
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  z-index: 50;
+  max-width: min(32rem, calc(100vw - 2rem));
+  transform: translateX(-50%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.card-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.25rem;
+}
+
+.card-delete .button {
+  border-color: transparent;
+  background: none;
+  color: var(--over-text);
+  text-decoration: underline;
+}
+
+.tool-note {
+  font-size: 0.9rem;
+}
+
+.tool-end {
+  margin-left: auto;
+}
+
+@media (min-width: 40rem) {
+  .form-grid .span-2 {
+    grid-column: span 2;
+  }
 }
 
 /* Buttons */
@@ -685,10 +828,6 @@ th.n {
   .main {
     padding: 0.75rem;
   }
-
-  .header-actions .button {
-    flex: 1 1 auto;
-  }
 }
 
 /* Status, dialogs and banners with buttons */
@@ -773,7 +912,6 @@ select {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 0.5rem 1rem;
   margin-bottom: 0.5rem;
 }
@@ -954,4 +1092,35 @@ select {
   margin: 0;
   font-size: 0.85rem;
   opacity: 0.9;
+}
+
+/* Table headings on the rigging summary sit at the left edge, over the first column, like the printed page. */
+.table-wrap caption {
+  caption-side: top;
+  padding: 0 0 0.4rem;
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.table-wrap + .table-wrap {
+  margin-top: 1.25rem;
+}
+
+.app-header > *,
+.header-top > *,
+.header-menu > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.header-top .show-heading {
+  flex: 1 1 10rem;
+}
+
+.app-footer {
+  margin: 2rem 0 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted, #5a6475);
 }

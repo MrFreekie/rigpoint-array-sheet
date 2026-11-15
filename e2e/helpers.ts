@@ -41,6 +41,9 @@ export async function start(page: Page, opts: { fsAccess?: boolean } = {}) {
   }
   await page.goto('./');
   await expect(page.getByRole('button', { name: 'Open', exact: true }).first()).toBeVisible();
+  // On a phone the header keeps Open and Save in view and the rest behind a Menu button: open it.
+  const menu = page.getByTestId('header-menu-toggle');
+  if (await menu.isVisible()) await menu.click();
 }
 
 /** Open the Settings dialog and return it. */

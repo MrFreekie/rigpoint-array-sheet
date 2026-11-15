@@ -52,7 +52,7 @@ export function UpdatePrompt({ dirty }: { dirty: boolean }) {
   }
   if (offlineReady) {
     return (
-      <p className="banner" role="status">
+      <p className="banner toast" role="status">
         Ready to work offline: the app is stored in this browser.
       </p>
     );

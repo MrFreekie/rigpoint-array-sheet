@@ -33,7 +33,7 @@ import { fileTitle, newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblem
 import { JobForm } from './JobForm';
 import { NotesPanel } from './NotesPanel';
 import { reportFromFile } from './load-report';
-import { ProblemsPanel } from './ProblemsPanel';
+import { ProblemsPanel, ReadOkChip } from './ProblemsPanel';
 import { pointLabelOf } from '../print/plot-input';
 import { RecentFilesDialog } from './RecentFilesDialog';
 import { RiggingPlotPreview } from './RiggingPlotPreview';
@@ -85,6 +85,8 @@ export function App() {
   const locked = doc !== null && isLocked(doc);
   // Set while the rigging plot and the rigging summary print without the array cards. Not saved in the file.
   const [cardsOff, setCardsOff] = useState(false);
+  // The header menu on a narrow screen: Open and Save stay in view, the rest wait behind a Menu button.
+  const [menuOpen, setMenuOpen] = useState(false);
   const model = useMemo(() => (doc ? sheetModel(doc, showMirrors, cardsOff) : null), [doc, showMirrors, cardsOff]);
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   const printable = doc !== null && doc.result.ok && model !== null && !model.badOffsets && printCount > 0;
@@ -481,9 +483,11 @@ export function App() {
       onDrop={onDrop}
     >
       <header className="app-header">
-        <div className="brand">
+        <div className="header-top">
+          <div className="brand">
           <span className="brand-name">RigPoint</span> <span className="brand-app">Array Sheet</span>
-        </div>
+          </div>
+          <p className="versions">App {__APP_VERSION__}</p>
         <div className="show-heading">
           <p className="show-title">
             {doc ? showTitle(doc) : 'No report open'}
@@ -493,6 +497,7 @@ export function App() {
                 {doc.revision ? ` · Rev ${doc.revision}` : ''}
               </span>
             ) : null}
+            {doc?.result.ok && problems.length === 0 ? <ReadOkChip /> : null}
           </p>
           {doc?.result.ok && doc.result.report.document.fileName ? (
             <p className="project-title" data-testid="project-title">
@@ -511,18 +516,22 @@ export function App() {
             )}
           </p>
         </div>
-        <nav className="header-actions" aria-label="File">
-          <button type="button" className="button" disabled={!doc || busy} onClick={startAgain}>
-            New
+          <button
+            type="button"
+            className="button header-menu-toggle"
+            aria-expanded={menuOpen}
+            aria-controls="header-menu"
+            data-testid="header-menu-toggle"
+            onClick={() => setMenuOpen((o) => !o)}
+          >
+            {menuOpen ? 'Close menu' : 'Menu'}
           </button>
+        </div>
+        <nav className="header-actions" aria-label="File">
+          <div className="header-group header-quick">
           <button type="button" className="button" disabled={busy} onClick={() => void chooseFile()}>
             Open
           </button>
-          {fsAccess && recent.length > 0 ? (
-            <button type="button" className="button" disabled={busy} onClick={() => setRecentOpen(true)}>
-              Recent
-            </button>
-          ) : null}
           <button
             type="button"
             className="button primary"
@@ -532,6 +541,17 @@ export function App() {
           >
             Save
           </button>
+          </div>
+          <div id="header-menu" className={`header-menu${menuOpen ? ' open' : ''}`}>
+            <div className="header-group">
+          <button type="button" className="button" disabled={!doc || busy} onClick={startAgain}>
+            New
+          </button>
+          {fsAccess && recent.length > 0 ? (
+            <button type="button" className="button" disabled={busy} onClick={() => setRecentOpen(true)}>
+              Recent
+            </button>
+          ) : null}
           {fsAccess ? (
             <button type="button" className="button" disabled={!doc || locked || busy} onClick={() => void onSave(true)}>
               Save As
@@ -546,6 +566,13 @@ export function App() {
           >
             Update from PDF
           </button>
+          {locked ? (
+            <button type="button" className="button" disabled={busy} onClick={createRevision}>
+              Create new revision
+            </button>
+          ) : null}
+            </div>
+            <div className="header-group">
           <button
             type="button"
             className="button"
@@ -570,18 +597,17 @@ export function App() {
           >
             Download PDF
           </button>
-          {locked ? (
-            <button type="button" className="button" disabled={busy} onClick={createRevision}>
-              Create new revision
-            </button>
-          ) : null}
           <button type="button" className="button" disabled={!doc || !doc.result.ok || busy} onClick={() => setTuningOpen(true)} title="Delay, gain and the other tuning the report states for each array">
             Tuning
           </button>
+            </div>
+            <div className="header-group header-end">
           <button type="button" className="button" disabled={!doc || !doc.result.ok || busy} onClick={() => setSettingsOpen(true)}>
             Settings
           </button>
           <ThemeButton />
+            </div>
+          </div>
           <input
             ref={openInput}
             type="file"
@@ -609,7 +635,6 @@ export function App() {
             }}
           />
         </nav>
-        <p className="versions">App {__APP_VERSION__}</p>
       </header>
 
       <main className="main">
@@ -661,7 +686,7 @@ export function App() {
           </p>
         ) : null}
         {notice ? (
-          <p className="banner" role="status">
+          <p className="banner toast" role="status">
             {notice}
           </p>
         ) : null}
@@ -730,6 +755,10 @@ export function App() {
           />
         )}
       </main>
+      <footer className="app-footer">
+        If you found this useful:{' '}
+        <a href="https://buymeacoffee.com/fohengineer" target="_blank" rel="noopener noreferrer">buy me a coffee</a>
+      </footer>
 
       {recentOpen ? (
         <RecentFilesDialog
@@ -833,25 +862,34 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
               <span className="count">
                 {model.entries.length} of {model.live.size} arrays shown
               </span>
+              <span className="count">
+                {report.document.version ? `Soundvision ${report.document.version}. ` : ''}
+                {report.document.date ? `Report dated ${report.document.date}.` : ''}
+              </span>
             </h2>
             <div className="sheet-tools">
               <button type="button" className="button" disabled={busy || model.badOffsets || printCount === 0} onClick={onAllImages}>
                 Save selected as images
               </button>
-              <button type="button" className="button" ref={undoButton} disabled={undoLabel === null || locked} onClick={onUndo}>
-                {undoLabel === null ? 'Undo delete' : `Undo delete of ${undoLabel}`}
-              </button>
-            </div>
-            {model.mirrorPairs > 0 ? (
-              <p className="muted source-line" data-testid="mirrors-line">
+              {model.mirrorPairs > 0 ? (
+              <span className="muted tool-note" data-testid="mirrors-line">
                 {showMirrors
                   ? `The ${model.mirrorPairs} mirrored ${model.mirrorPairs === 1 ? 'array is' : 'arrays are'} shown too. `
                   : `${model.mirrorPairs} exact mirror ${model.mirrorPairs === 1 ? 'image is' : 'images are'} hidden. `}
                 <button type="button" className="button" aria-pressed={showMirrors} onClick={() => onShowMirrors(!showMirrors)}>
                   {showMirrors ? 'Hide them' : 'Show them'}
                 </button>
-              </p>
+              </span>
             ) : null}
+              <span className="muted tool-note" data-testid="print-count">
+                {printCount === model.entries.length
+                  ? `All ${printCount} arrays shown are chosen for printing and as images.`
+                  : `${printCount} of ${model.entries.length} arrays shown are chosen for printing and as images.`}
+              </span>
+              <button type="button" className="button tool-end" ref={undoButton} disabled={undoLabel === null || locked} onClick={onUndo}>
+                {undoLabel === null ? 'Undo delete' : `Undo delete of ${undoLabel}`}
+              </button>
+            </div>
             {model.deletedList.length > 0 ? (
               <div className="muted source-line" data-testid="deleted-list">
                 <p>
@@ -870,15 +908,6 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                 </ul>
               </div>
             ) : null}
-            <p className="muted source-line" data-testid="print-count">
-              {printCount === model.entries.length
-                ? `All ${printCount} arrays shown are chosen for printing and as images.`
-                : `${printCount} of ${model.entries.length} arrays shown are chosen for printing and as images.`}
-            </p>
-            <p className="muted source-line">
-              {report.document.version ? `Soundvision ${report.document.version}. ` : ''}
-              {report.document.date ? `Report dated ${report.document.date}.` : ''}
-            </p>
             <div className="card-grid">
               {model.entries.map((entry) => (
                 <ArrayCard

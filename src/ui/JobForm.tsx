@@ -35,7 +35,7 @@ export function JobForm({ doc, locked, onJob, onStatus, onRevision }: Props) {
           <span>Company</span>
           <input type="text" value={doc.job.company} disabled={locked} onChange={(e) => onJob({ company: e.target.value })} autoComplete="off" />
         </label>
-        <label className="field">
+        <label className="field span-2">
           <span>Z-axis zero</span>
           <input
             type="text"

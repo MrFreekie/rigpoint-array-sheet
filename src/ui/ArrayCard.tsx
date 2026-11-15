@@ -110,14 +110,16 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         ) : null}
       </header>
 
-      <label className="check-field print-check">
-        <input type="checkbox" checked={printed} onChange={(e) => onPrinted(e.target.checked)} />
-        <span>Print this array</span>
-      </label>
-      <label className="check-field print-check">
-        <input type="checkbox" checked={onPlot} onChange={(e) => onOnPlot(e.target.checked)} />
-        <span>Include on rigging plot</span>
-      </label>
+      <div className="card-toggles">
+        <label className="check-field print-check">
+          <input type="checkbox" checked={printed} onChange={(e) => onPrinted(e.target.checked)} />
+          <span>Print this array</span>
+        </label>
+        <label className="check-field print-check">
+          <input type="checkbox" checked={onPlot} onChange={(e) => onOnPlot(e.target.checked)} />
+          <span>Include on rigging plot</span>
+        </label>
+      </div>
 
       {c.warnings.length > 0 ? (
         <ul className="warnings" aria-label={`Soundvision warnings for ${c.name}`}>

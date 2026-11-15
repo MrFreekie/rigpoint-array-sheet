@@ -1,14 +1,18 @@
 import type { Problem } from '../engine/types';
 
+/** The small READ OK mark in the header, for a report with nothing to check. The words are its tooltip. */
+export function ReadOkChip() {
+  return (
+    <span className="tag tag-ok" title="Every line in the array sections was understood and the report's own figures agree with each other.">
+      READ OK
+    </span>
+  );
+}
+
 /** Errors and checks from reading the PDF. Each carries a word, so colour is never the only signal. */
 export function ProblemsPanel({ problems, ok }: { problems: readonly Problem[]; ok: boolean }) {
-  if (problems.length === 0) {
-    return (
-      <p className="banner banner-ok" role="status">
-        <span className="tag tag-ok">READ OK</span> Every line in the array sections was understood and the report's own figures agree with each other.
-      </p>
-    );
-  }
+  // Nothing found: the READ OK chip in the header says so, so there is no banner.
+  if (problems.length === 0) return null;
   const errors = problems.filter((p) => p.level === 'error');
   const checks = problems.filter((p) => p.level === 'check');
   return (

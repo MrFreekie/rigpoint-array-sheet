@@ -46,7 +46,7 @@ export function NotesPanel({ doc, locked, onJob }: Props) {
         <span id="cloud-url-hint" className="field-hint">
           {doc.job.cloudUrl !== '' && !isCloudUrl(doc.job.cloudUrl)
             ? 'Not printed or saved: this is not a web address starting http:// or https://.'
-            : 'A short link to the hosted PDF. Printed under the notes as a link and a QR code that invite the crew to find the most up to date version.'}
+            : 'A short link to the hosted PDF.'}
         </span>
       </label>
     </section>

@@ -7,7 +7,7 @@ import type { Problem } from '../engine/types';
 import { parseFixture } from '../testing/fixtures';
 import { App } from './App';
 import { ArrayCard } from './ArrayCard';
-import { ProblemsPanel } from './ProblemsPanel';
+import { ProblemsPanel, ReadOkChip } from './ProblemsPanel';
 import { PlotSvg } from '../print/PlotSvg';
 import { plotContent } from '../print/plot-input';
 import { layoutPlotPages, PRINT_PALETTE, SCREEN_PALETTE } from '../print/plot-layout';
@@ -148,10 +148,11 @@ describe('ArrayCard', () => {
 });
 
 describe('ProblemsPanel', () => {
-  it('says READ OK in words when nothing was found', () => {
-    const html = renderToStaticMarkup(<ProblemsPanel problems={[]} ok />);
-    expect(html).toContain('READ OK');
-    expect(html).not.toContain('This does not check the design');
+  it('says READ OK in the header chip, and shows no banner, when nothing was found', () => {
+    expect(renderToStaticMarkup(<ProblemsPanel problems={[]} ok />)).toBe('');
+    const chip = renderToStaticMarkup(<ReadOkChip />);
+    expect(chip).toContain('READ OK');
+    expect(chip).toContain('understood');
   });
 
   it('lists checks with the array name and the word CHECK', () => {
