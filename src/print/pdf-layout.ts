@@ -2,7 +2,7 @@
 // browser): one pocket card, and the rigging summary page. pdf-export.ts draws them with pdf-lib.
 // Sizes match the print stylesheet, so the downloaded PDF and the printed sheet look alike.
 
-import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, edgeText, extraTableRows, extrasUsed, riggingEdgeNote, riggingNote, riggingWeightsNote, weightTableColumns, weightTableRows, weightTableWidthsMm, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
+import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, extraTableRows, extrasUsed, riggingNote, riggingWeightsNote, weightTableColumns, weightTableRows, weightTableWidthsMm, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
 import { showDateText } from '../files/show-date';
 import { NOT_STATED } from '../ui/format';
 import { clipMiddle, clipToWidth, noteLines, wrap, wrapAfterLead, type DrawOp, type Measure } from './array-image';
@@ -176,10 +176,10 @@ export function layoutPocketCard(content: CardContent, measure: Measure): Laid {
   return { width: W, height: y, ops };
 }
 
-export const RIGGING_PICKUP_COLUMNS = ['Point', 'Array', 'Pickup', 'Position no.', 'X (m)', 'Y (m)', 'Z (m)', 'Load (kg)', 'To front (m)', 'To rear (m)'];
+export const RIGGING_PICKUP_COLUMNS = ['Point', 'Array', 'Pickup', 'Position no.', 'X (m)', 'Y (m)', 'Z (m)', 'Load (kg)'];
 export const RIGGING_FIXATION_COLUMNS = ['Array', 'Fixation', 'X (m)', 'Y (m)', 'Z (m)'];
 /** Column widths on the 192 mm rigging page; the print stylesheet's tables use the same shares. */
-export const RIGGING_PICKUP_WIDTHS_MM = [12, 46, 14, 21, 13, 13, 13, 18, 21, 21];
+export const RIGGING_PICKUP_WIDTHS_MM = [14, 60, 18, 26, 16, 16, 16, 26];
 /** The columns of the Rigging Points table that are left aligned: Array and Pickup. Every other column is centred. */
 export const RIGGING_PICKUP_LEFT_COLUMNS = [1, 2];
 /** Where the Array column sits in the Rigging Points table. */
@@ -269,7 +269,7 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     table(
       RIGGING_PICKUP_COLUMNS,
       RIGGING_PICKUP_WIDTHS_MM,
-      input.rows.map((r) => [r.point, r.source, r.location, String(r.pickupPosition), String(r.x), String(r.y), String(r.z), r.load === null ? NOT_STATED : String(r.load), edgeText(r, 'toFront', NOT_STATED), edgeText(r, 'toRear', NOT_STATED)]),
+      input.rows.map((r) => [r.point, r.source, r.location, String(r.pickupPosition), String(r.x), String(r.y), String(r.z), r.load === null ? NOT_STATED : String(r.load)]),
       false,
       RIGGING_PICKUP_LEFT_COLUMNS,
     );
@@ -307,14 +307,6 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
   if (weights.length > 0) {
     y += 2;
     for (const line of wrap(riggingWeightsNote(used), 7, false, W, measure)) {
-      ops.push(textOp(0, y, line, 7));
-      y += 7 * 1.3;
-    }
-  }
-  const edgeNote = riggingEdgeNote(input.rows.length > 0);
-  if (edgeNote) {
-    y += 2;
-    for (const line of wrap(edgeNote, 7, false, W, measure)) {
       ops.push(textOp(0, y, line, 7));
       y += 7 * 1.3;
     }

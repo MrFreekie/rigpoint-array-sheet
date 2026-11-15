@@ -32,6 +32,10 @@ import {
 function pages(name: 'a' | 'c' | 'e', tweak: (d: ReturnType<typeof newDoc>) => void = () => undefined) {
   const doc = newDoc(parseFixture(name), `${name}.pdf`);
   doc.job.origin = 'DSE';
+  // Every array with a pickup has its pickup to max depth typed, so it has an outline, unless a test says otherwise.
+  doc.result.report.sources.forEach((src, i) => {
+    if (src.pickups.length > 0) doc.depths[i] = '1.5';
+  });
   tweak(doc);
   const content = plotContent(doc, sheetModel(doc, false))!;
   return { content, pages: layoutPlotPages({ ...content, footer: (i) => `footer ${i}` }, estimateWidth) };
@@ -214,7 +218,7 @@ describe('the plot page', () => {
     const corners = (ops: PlotOp[]) => ops.filter((o) => o.op === 'line' && o.width === 0.15 && o.color === 'grey');
     expect(corners(on.pages[0]!.ops).length - corners(off.pages[0]!.ops).length).toBe(stacks.length * 2 + 2);
     const t = texts(off.pages[0]!.ops);
-    expect(t).not.toContain('Array with pickups: width and depth from the report');
+    expect(t).not.toContain('Array with pickups: outline from the pickup to max depth typed in the app');
     expect(t).not.toContain('Array with no pickup: support not stated in the report');
     expect(t).not.toContain('Stacked array on the ground');
     expect(t).toContain('Position');
@@ -471,7 +475,7 @@ describe('the plot page', () => {
     const far = 5000;
     const first = content.arrays[0]!;
     const moved = content.arrays.map((a, i) =>
-      i === 0 ? { ...a, position: { ...a.position, x: a.position.x + far }, corners: a.corners.map((c) => ({ ...c, x: c.x + far })) as typeof a.corners } : a,
+      i === 0 ? { ...a, position: { ...a.position, x: a.position.x + far }, corners: a.corners?.map((c) => ({ ...c, x: c.x + far })) as typeof a.corners } : a,
     );
     const movedPoints = content.points.map((p) => (p.arrayIndex === first.index ? { ...p, at: { ...p.at, x: p.at.x + far } } : p));
     const page = layoutPlotPages({ ...content, arrays: moved, points: movedPoints, footer: () => 'footer' }, estimateWidth)[0]!;
@@ -742,5 +746,26 @@ describe('pickup symbols on the plot', () => {
         for (const b of boxes) expect(crosses(b, marker), `${name} ${q.label}`).toBe(false);
       }
     }
+  });
+});
+
+describe('arrays with a pickup and no pickup to max depth', () => {
+  it('have no outline, keep their Position dot and pickups, and are named in a note', () => {
+    const { content, pages: p } = pages('c', (d) => {
+      d.depths = {};
+    });
+    const withPickups = content.arrays.filter((a) => a.pickups.length > 0);
+    expect(withPickups.length).toBeGreaterThan(0);
+    for (const a of withPickups) expect(a.corners).toBeNull();
+    const ops = p[0]!.ops;
+    expect(ops.filter((o) => o.op === 'line' && o.dash?.length === 2)).toHaveLength(4);
+    expect(ops.filter((o) => o.op === 'circle' && o.fill && o.color === 'dot').length).toBeGreaterThanOrEqual(content.arrays.length);
+    expect(texts(ops).some((t) => t.startsWith('No outline, type Pickup to max depth in Edit: '))).toBe(true);
+  });
+
+  it('are outlined once the depth is typed, with no note', () => {
+    const { content, pages: p } = pages('c');
+    for (const a of content.arrays.filter((x) => x.pickups.length > 0)) expect(a.corners).not.toBeNull();
+    expect(texts(p[0]!.ops).some((t) => t.startsWith('No outline'))).toBe(false);
   });
 });

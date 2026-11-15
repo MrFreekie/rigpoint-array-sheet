@@ -197,11 +197,11 @@ describe('layoutRiggingPage', () => {
       expect(t).toContain('Every fixation is listed, including those of mirrored arrays, because their positions differ.');
     });
 
-    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.901 (the QR code stands under the small print, the edge distance note and the Rigging Points heading cost a line each; fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
+    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.913 (the QR code stands under the small print, the Rigging Points heading costs a line; fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
       const laid = layoutRiggingPage(withFixations(), estimateWidth);
       const fit = fitScale(pxHeight(laid.height), FULL_H_MM, MIN_FULL_SCALE);
       expect(fit.overflow).toBe(false);
-      expect(fit.scale).toBe(0.901);
+      expect(fit.scale).toBe(0.913);
     });
 
     it('sets the fixation table in 7 pt text and keeps the pickup table at 8 pt', () => {

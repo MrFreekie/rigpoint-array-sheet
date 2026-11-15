@@ -11,7 +11,7 @@ import { openFileText, serialiseDoc } from '../files/array-file-io';
 import { browserStore, readAutosave, writeAutosave, type Restorable } from '../files/autosave';
 import { deletedList, editKey, isDirty, isLocked, keepsHandle, markSaved, sameDocument, statusLocks } from '../files/doc';
 import { downloadBlob } from '../files/download';
-import { suggestedFileName, suggestedImageName, suggestedPdfName, suggestedTuningName } from '../files/file-name';
+import { localDateText, suggestedFileName, suggestedImageName, suggestedPdfName, suggestedTuningName } from '../files/file-name';
 import { ensurePermission, fsAccessSupported, pickFileToOpen } from '../files/fs-access';
 import { idbStore } from '../files/kv';
 import { onLaunchFile } from '../files/launch';
@@ -29,7 +29,7 @@ import { CompareDialog } from './CompareDialog';
 import type { CartSize } from '../engine/carts';
 import type { Shape } from '../engine/markers';
 import type { Underlay } from '../engine/underlay';
-import { newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, extraOf, markerOf, withCartBreak, withCartReset, withCartSizes, withDeleted, withExtra, withPatch, withLayerHidden, withMarker, withNote, plotShown, withOnPlot, withPlotPrinted, withPlotShow, withPrinted, withSymbolValue, withSymbolValuesReset, withTitle, withUnderlay, type Doc, type Job, type PlotShow, type Status } from './document';
+import { fileTitle, newDoc, showTitle, STATUS_LABELS, updatedDoc, visibleProblems, extraOf, markerOf, withCartBreak, withCartReset, withCartSizes, withDeleted, withDepth, depthOf, withExtra, withPatch, withLayerHidden, withMarker, withNote, plotShown, withOnPlot, withPlotPrinted, withPlotShow, withPrinted, withSymbolValue, withSymbolValuesReset, withTitle, withUnderlay, type Doc, type Job, type PlotShow, type Status } from './document';
 import { JobForm } from './JobForm';
 import { NotesPanel } from './NotesPanel';
 import { reportFromFile } from './load-report';
@@ -83,7 +83,9 @@ export function App() {
 
   const dirty = doc !== null && isDirty(doc);
   const locked = doc !== null && isLocked(doc);
-  const model = useMemo(() => (doc ? sheetModel(doc, showMirrors) : null), [doc, showMirrors]);
+  // Print only the rigging plot and the rigging summary. A choice for this session, not saved in the file.
+  const [cardsOff, setCardsOff] = useState(false);
+  const model = useMemo(() => (doc ? sheetModel(doc, showMirrors, cardsOff) : null), [doc, showMirrors, cardsOff]);
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   const printable = doc !== null && doc.result.ok && model !== null && !model.badOffsets && printCount > 0;
   const problems = useMemo(() => (doc ? visibleProblems(doc) : []), [doc]);
@@ -148,7 +150,7 @@ export function App() {
         appVersion: __APP_VERSION__,
         soundvisionVersion: doc.result.report.document.version,
         fileName: doc.fileName,
-        defaultName: suggestedFileName(showTitle(doc), doc.revision),
+        defaultName: suggestedFileName(fileTitle(doc), doc.revision, localDateText()),
         dirty,
         printedAt: new Date(),
         verb: 'Exported',
@@ -185,13 +187,13 @@ export function App() {
           appVersion: __APP_VERSION__,
           soundvisionVersion: doc.result.report.document.version,
           fileName: doc.fileName,
-          defaultName: suggestedFileName(showTitle(doc), doc.revision),
+          defaultName: suggestedFileName(fileTitle(doc), doc.revision, localDateText()),
           dirty,
           printedAt: new Date(),
           verb: 'Exported',
         }),
       });
-      const name = suggestedPdfName(showTitle(doc), doc.revision);
+      const name = suggestedPdfName(fileTitle(doc), doc.revision, localDateText());
       downloadBlob(name, new Blob([bytes as BlobPart], { type: 'application/pdf' }));
       setNotice(`Saved ${name}.`);
     } catch (e) {
@@ -211,12 +213,12 @@ export function App() {
         appVersion: __APP_VERSION__,
         soundvisionVersion: doc.result.report.document.version,
         fileName: doc.fileName,
-        defaultName: suggestedFileName(showTitle(doc), doc.revision),
+        defaultName: suggestedFileName(fileTitle(doc), doc.revision, localDateText()),
         dirty,
         printedAt: new Date(),
         verb: 'Exported',
       });
-      const name = suggestedTuningName(showTitle(doc), doc.revision, kind);
+      const name = suggestedTuningName(fileTitle(doc), doc.revision, kind, localDateText());
       if (kind === 'pdf') {
         const { renderTuningPdf } = await import('../print/tuning-pdf');
         const bytes = await renderTuningPdf({ doc, footer, checks });
@@ -299,7 +301,7 @@ export function App() {
   async function onSave(asNew: boolean) {
     if (!doc || locked) return;
     const snapshot = doc;
-    const suggested = suggestedFileName(showTitle(snapshot), snapshot.revision);
+    const suggested = suggestedFileName(fileTitle(snapshot), snapshot.revision, localDateText());
     setError(null);
     try {
       const outcome = await saveText({ text: serialiseDoc(snapshot, __APP_VERSION__), suggestedName: suggested, handle, asNew });
@@ -430,6 +432,7 @@ export function App() {
   const setNote = (index: number, text: string) => setDoc((d) => (d ? withNote(d, index, text) : d));
   const setUnderlay = (underlay: Underlay | null) => setDoc((d) => (d ? withUnderlay(d, underlay) : d));
   const setLayerHidden = (name: string, hidden: boolean) => setDoc((d) => (d ? withLayerHidden(d, name, hidden) : d));
+  const setDepth = (index: number, text: string) => setDoc((d) => (d ? withDepth(d, index, text) : d));
   const setExtra = (index: number, side: PickupSide, text: string) => setDoc((d) => (d ? withExtra(d, index, side, text) : d));
   const setMarker = (index: number, side: PickupSide, marker: Marker) => setDoc((d) => (d ? withMarker(d, index, side, marker) : d));
   const setCartBreak = (index: number, row: number) => setDoc((d) => (d ? withCartBreak(d, index, row) : d));
@@ -695,12 +698,15 @@ export function App() {
             onNote={setNote}
             onMarker={setMarker}
             onExtra={setExtra}
+            onDepth={setDepth}
             onPatch={setPatch}
             onCartBreak={setCartBreak}
             onCartReset={resetCarts}
             onPrinted={setPrinted}
             onOnPlot={setOnPlot}
             onPlotPrinted={setPlotPrinted}
+            cardsOff={cardsOff}
+            onCardsOff={setCardsOff}
             onPlotShow={setPlotShow}
             onUnderlay={setUnderlay}
             onLayer={setLayerHidden}
@@ -748,7 +754,7 @@ export function App() {
           appVersion: __APP_VERSION__,
           soundvisionVersion: doc.result.report.document.version,
           fileName: doc.fileName,
-          defaultName: suggestedFileName(showTitle(doc), doc.revision),
+          defaultName: suggestedFileName(fileTitle(doc), doc.revision, localDateText()),
           dirty,
           printedAt,
         })}
@@ -782,12 +788,15 @@ interface ReportProps {
   onNote: (i: number, t: string) => void;
   onMarker: (i: number, side: PickupSide, marker: Marker) => void;
   onExtra: (i: number, side: PickupSide, text: string) => void;
+  onDepth: (i: number, text: string) => void;
   onPatch: (i: number, row: number, field: PatchField, value: PatchValue) => void;
   onCartBreak: (i: number, row: number) => void;
   onCartReset: (i: number) => void;
   onPrinted: (i: number, printed: boolean) => void;
   onOnPlot: (i: number, on: boolean) => void;
   onPlotPrinted: (printed: boolean) => void;
+  cardsOff: boolean;
+  onCardsOff: (off: boolean) => void;
   onPlotShow: (patch: Partial<PlotShow>) => void;
   onUnderlay: (underlay: Underlay | null) => void;
   onLayer: (name: string, hidden: boolean) => void;
@@ -795,7 +804,7 @@ interface ReportProps {
   onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onExtra, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, onPlotShow, onUnderlay, onLayer, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onExtra, onDepth, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, cardsOff, onCardsOff, onPlotShow, onUnderlay, onLayer, onImage, onAllImages }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -852,6 +861,10 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                 ? `All ${printCount} arrays shown are chosen for printing and as images.`
                 : `${printCount} of ${model.entries.length} arrays shown are chosen for printing and as images.`}
             </p>
+            <label className="check-field" data-testid="cards-off-field">
+              <input type="checkbox" checked={cardsOff} onChange={(e) => onCardsOff(e.target.checked)} />
+              <span>Print only the rigging plot and the rigging summary (leave out the array cards, for this session)</span>
+            </label>
             <p className="muted source-line">
               {report.document.fileName ? `Project: ${report.document.fileName}. ` : ''}
               {report.document.version ? `Soundvision ${report.document.version}. ` : ''}
@@ -879,6 +892,8 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                   onMarker={(side, m) => onMarker(entry.index, side, m)}
                   extras={{ front: extraOf(doc, entry.index, 'front'), rear: extraOf(doc, entry.index, 'rear') }}
                   onExtra={(side, t) => onExtra(entry.index, side, t)}
+                  depth={depthOf(doc, entry.index)}
+                  onDepth={(t) => onDepth(entry.index, t)}
                   symbolValues={doc.symbolValues}
                   patch={entry.patch}
                   onPatch={(row, field, value) => onPatch(entry.index, row, field, value)}

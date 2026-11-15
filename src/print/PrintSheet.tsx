@@ -4,7 +4,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { APP_URL } from '../app-info';
-import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, edgeText, extraTableRows, extrasUsed, riggingEdgeNote, riggingFixations, riggingNote, riggingRows, riggingWeights, riggingWeightsNote, weightTableColumns, weightTableRows, weightTableWidthsMm } from '../engine/sheet';
+import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, extraTableRows, extrasUsed, riggingFixations, riggingNote, riggingRows, riggingWeights, riggingWeightsNote, weightTableColumns, weightTableRows, weightTableWidthsMm } from '../engine/sheet';
 import type { Doc } from '../files/doc';
 import { NOT_STATED, num } from '../ui/format';
 import { extraKgFor, type SheetModel } from '../ui/sheet-model';
@@ -160,7 +160,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
     () => ({ show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero, showDate: doc.job.showDate }),
     [doc.job.show, doc.job.venue, doc.status, doc.revision, doc.job.zAxisZero, doc.job.showDate],
   );
-  const contents = useMemo(() => model.entries.filter((e) => e.print).map((e) => ({ index: e.index, content: cardContent(e, ctx) })), [model, ctx]);
+  const contents = useMemo(() => model.printedCards.map((e) => ({ index: e.index, content: cardContent(e, ctx) })), [model, ctx]);
   const extraOf = useMemo(() => extraKgFor(doc, model), [doc, model]);
   const rigging = useMemo(() => riggingRows(model.sources, model.printedSources, extraOf, pointLabelOf(model)), [model, extraOf]);
   const weights = useMemo(() => riggingWeights(model.sources, model.printedSources, extraOf), [model.sources, model.printedSources, extraOf]);
@@ -168,7 +168,6 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
   const fixations = useMemo(() => riggingFixations(model.sources, model.printedSources), [model.sources, model.printedSources]);
   const note = riggingNote(rigging.length > 0, fixations.length > 0);
   const showNotes = riggingNotes(doc.job);
-  const edgeNote = riggingEdgeNote(rigging.length > 0);
   // Names too long for their column are cut with an ellipsis, by the same rule as the PDF.
   const rigMeasure = useMemo(() => canvasMeasurePt(), []);
   const cell = (text: string, column: number, widthsMm: number[], size = 8) => clipRiggingCell(text, widthsMm[column] ?? 0, false, rigMeasure, size);
@@ -288,8 +287,6 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
                   <td className="n">{r.y}</td>
                   <td className="n">{r.z}</td>
                   <td className="n">{num(r.load)}</td>
-                  <td className="n">{edgeText(r, 'toFront', NOT_STATED)}</td>
-                  <td className="n">{edgeText(r, 'toRear', NOT_STATED)}</td>
                 </tr>
               ))}
             </tbody>
@@ -388,7 +385,6 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
       ) : null}
       {note ? <p className="as-rigging-note">{note}</p> : null}
       {weights.length > 0 ? <p className="as-rigging-note">{riggingWeightsNote(extrasOn)}</p> : null}
-      {edgeNote ? <p className="as-rigging-note">{edgeNote}</p> : null}
       {showNotes ? (
         <>
           <p className="as-rigging-heading">Notes</p>

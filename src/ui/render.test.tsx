@@ -24,7 +24,7 @@ const byName = (list: typeof a, name: string) => list.find((s) => s.name === nam
 
 const card = (name: string, list = a, extra: Partial<Parameters<typeof ArrayCard>[0]> = {}) =>
   renderToStaticMarkup(
-    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} onPlot onOnPlot={() => {}} markers={{ front: { shape: 'one' }, rear: { shape: 'one' } }} onMarker={() => {}} extras={{ front: '', rear: '' }} onExtra={() => {}} symbolValues={{ two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' }} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} startEditing {...extra} />,
+    <ArrayCard column={flySheetColumn(byName(list, name))} offsetText="" offsetBad={false} defaultBad={false} usingDefault onOffset={() => {}} titleText="" reportName={name} onTitle={() => {}} note="" onNote={() => {}} printed onPrinted={() => {}} onPlot onOnPlot={() => {}} markers={{ front: { shape: 'one' }, rear: { shape: 'one' } }} onMarker={() => {}} extras={{ front: '', rear: '' }} onExtra={() => {}} depth="" onDepth={() => {}} symbolValues={{ two: '2 t', one: '1 t', half: '0.5 t', quarter: '0.25 t' }} patch={[]} onPatch={() => {}} carts={{ breaks: [], manual: false, groups: [flySheetColumn(byName(list, name)).rows.length], forced: [] }} onCartBreak={() => {}} onCartReset={() => {}} startEditing {...extra} />,
   );
 
 describe('ArrayCard', () => {

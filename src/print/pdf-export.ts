@@ -194,8 +194,7 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
 
   const header = panelHeader(doc);
   const ctx = { show: doc.job.show, venue: doc.job.venue, status: doc.status, revision: doc.revision, zAxisZero: doc.job.zAxisZero, showDate: doc.job.showDate };
-  const cards = model.entries
-    .filter((e) => e.print)
+  const cards = model.printedCards
     .map((e) => ({ item: layoutPocketCard(cardContent(e, ctx), measure) }))
     .map((c) => ({ item: c.item, heightPx: ptToPx(c.item.height) }));
   const plan = planPages(cards);

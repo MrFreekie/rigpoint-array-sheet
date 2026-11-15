@@ -133,6 +133,13 @@ export const MIGRATIONS: Record<number, Migration> = {
     const job = file['job'];
     return typeof job === 'object' && job !== null && !Array.isArray(job) ? { ...file, job: { ...job, grid_m: 10 } } : file;
   },
+  // Version 19 added the pickup to max depth, typed in metres for each array, which the outline of an array with a pickup is
+  // drawn from. Earlier files had none, so those arrays have no outline until it is typed. An older copy of the app would drop
+  // the depths when it saved, so it refuses version 19 files.
+  18: (file) => {
+    const sources = (file['report'] as { sources?: unknown } | undefined)?.sources;
+    return { ...file, max_depth_m: Array.isArray(sources) ? sources.map(() => '') : [] };
+  },
 };
 
 export function migrate(

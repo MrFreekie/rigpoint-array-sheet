@@ -47,6 +47,10 @@ export interface SheetModel {
   badOffsets: boolean;
   /** Arrays chosen for printing, and the mirror images they stand for. Positions in the report. */
   printedSources: Set<number>;
+  /** True when only the rigging plot and the rigging summary are printed. The summary still lists the arrays chosen for printing. */
+  cardsOff: boolean;
+  /** The arrays whose pocket cards the print view and the PDF put on paper: those chosen for printing, none when cardsOff. */
+  printedCards: SheetEntry[];
   /** Arrays on the rigging plot, and the mirror images they stand for. Positions in the report. The plot ignores what is chosen for printing. */
   plottedSources: Set<number>;
   /** True when some array is on the rigging plot. Without one there is no plot, and Print rigging plot cannot be ticked. */
@@ -61,7 +65,10 @@ export interface SheetModel {
   deletedList: { index: number; name: string }[];
 }
 
-export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
+/**
+ * @param cardsOff the person chose to print only the rigging plot and the rigging summary. A session choice, not saved in the file.
+ */
+export function sheetModel(doc: Doc, showMirrors: boolean, cardsOff = false): SheetModel {
   const report = doc.result.report.sources;
   const sources = report.map((s, i) => ({ ...s, name: displayName(doc, i) }));
   const gone = new Set(deletedList(doc));
@@ -123,6 +130,8 @@ export function sheetModel(doc: Doc, showMirrors: boolean): SheetModel {
     hidden,
     badOffsets: entries.some((e) => e.offset.value === null),
     printedSources,
+    cardsOff,
+    printedCards: cardsOff ? [] : entries.filter((e) => e.print),
     plottedSources,
     hasPlot: plottedSources.size > 0,
     printsPlot: plottedSources.size > 0 && plotPrintChosen(doc),

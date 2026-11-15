@@ -1,8 +1,9 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/18").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/19").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
 import { CART_SIZE_MAX, CART_SIZES_MAX, CART_TYPE_MAX } from '../engine/carts';
+import { DEPTH_MAX_M, isValidDepth } from '../engine/depth';
 import { EXTRA_WEIGHT_MAX_KG, isValidExtra } from '../engine/extra-weight';
 import { GRID_MAX_M, GRID_MIN_M } from '../engine/grid';
 import { SHAPES, SYMBOL_VALUE_MAX } from '../engine/markers';
@@ -23,7 +24,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 18;
+export const FORMAT_VERSION = 19;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -58,6 +59,10 @@ const CartSizeSchema = z.object({
 const ExtraWeightSchema = z
   .string({ error: 'An additional weight must be text' })
   .refine(isValidExtra, { error: `An additional weight must be blank or a number of kilograms from 0 to ${EXTRA_WEIGHT_MAX_KG} with at most 2 decimals` });
+
+const DepthSchema = z
+  .string({ error: 'A pickup to max depth must be text' })
+  .refine(isValidDepth, { error: `A pickup to max depth must be blank or a number of metres above 0 and up to ${DEPTH_MAX_M} with at most 2 decimals` });
 
 const CartSchema = z.object({
   manual: z.boolean({ error: 'Carts must be set by hand or automatic' }),
@@ -128,6 +133,7 @@ export const ArrayFileSchema = z
     markers: z.array(z.object({ front: MarkerSchema, rear: MarkerSchema }), { error: 'Pickup symbols must be a list' }),
     symbol_values: z.object({ two: SymbolValueSchema, one: SymbolValueSchema, half: SymbolValueSchema, quarter: SymbolValueSchema }),
     extra_weight: z.array(z.object({ front: ExtraWeightSchema, rear: ExtraWeightSchema }), { error: 'Additional weights must be a list' }),
+    max_depth_m: z.array(DepthSchema, { error: 'Pickup to max depths must be a list' }),
     patch: z.array(z.array(PatchRowSchema, { error: 'The cable patch of an array must be a list' }), { error: 'Cable patches must be a list' }),
     cart_sizes: z.array(CartSizeSchema, { error: 'Cart sizes must be a list' }).max(CART_SIZES_MAX, { error: `There are more than ${CART_SIZES_MAX} cart sizes` }),
     carts: z.array(CartSchema, { error: 'Carts must be a list' }),
@@ -161,6 +167,9 @@ export const ArrayFileSchema = z
     }
     if (file.markers.length !== sources.length) {
       ctx.addIssue({ code: 'custom', path: ['markers'], message: 'There must be one pair of pickup symbols for each array' });
+    }
+    if (file.max_depth_m.length !== sources.length) {
+      ctx.addIssue({ code: 'custom', path: ['max_depth_m'], message: 'There must be one pickup to max depth for each array' });
     }
     if (file.extra_weight.length !== sources.length) {
       ctx.addIssue({ code: 'custom', path: ['extra_weight'], message: 'There must be one pair of additional weights for each array' });

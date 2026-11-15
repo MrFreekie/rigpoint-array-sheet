@@ -95,6 +95,11 @@ export interface Doc {
    * none). Arrays not listed have none. Content, so a read-only file cannot change it. Saved in the file.
    */
   extras: Record<number, ExtraText>;
+  /**
+   * The pickup to max depth typed for an array that has a pickup, in metres, by position in the report, as text (blank means
+   * none). The outline of such an array is drawn only when it is set. Content, so a read-only file cannot change it. Saved in the file.
+   */
+  depths: Record<number, string>;
   /** The value written for each of the four plot symbols, such as "1 t". One for the whole job. Saved in the file. */
   symbolValues: SymbolValues;
   /**
@@ -145,6 +150,7 @@ export function newDoc(result: ParseResult, sourceName: string): Doc {
     markers: {},
     markerOverride: null,
     extras: {},
+    depths: {},
     symbolValues: defaultSymbolValues(),
     patches: {},
     underlay: null,
@@ -202,7 +208,7 @@ export function editKey(doc: Doc): string {
     Object.entries(r)
       .filter(([, text]) => text.trim() !== '')
       .sort(([a], [b]) => Number(a) - Number(b));
-  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), SHAPES.map((shape) => symbolValue(doc.symbolValues, shape)), savedExtras(doc), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc), offPlot, doc.plotPrintOff, doc.plotShow.position, doc.plotShow.outlines]);
+  return JSON.stringify([doc.job, offsets, doc.status, doc.revision, doc.sourceName, doc.result, skipped, typed(doc.titles), typed(doc.notes), deletedList(doc), savedMarkers(doc), SHAPES.map((shape) => symbolValue(doc.symbolValues, shape)), savedExtras(doc), typed(doc.depths), savedPatches(doc), doc.underlay, doc.cartSizes, savedCarts(doc), offPlot, doc.plotPrintOff, doc.plotShow.position, doc.plotShow.outlines]);
 }
 
 /** The plot symbols that are not the default, by position, in order. Only what is saved counts, not a read-only file's override. */
@@ -319,6 +325,18 @@ export function withExtra(doc: Doc, index: number, side: PickupSide, text: strin
   return { ...doc, extras: empty ? rest : { ...rest, [index]: now } };
 }
 
+/** The pickup to max depth typed for an array, as text. Blank when none. */
+export function depthOf(doc: Doc, index: number): string {
+  return doc.depths[index] ?? '';
+}
+
+/** Type the pickup to max depth of an array. A read-only file cannot change it, as with a note. Blank removes it. */
+export function withDepth(doc: Doc, index: number, text: string): Doc {
+  if (doc.locked) return doc;
+  const rest = Object.fromEntries(Object.entries(doc.depths).filter(([i]) => Number(i) !== index));
+  return { ...doc, depths: text.trim() === '' ? rest : { ...rest, [index]: text } };
+}
+
 /** The plot symbol of one pickup side of an array. A read-only file shows its session choice, if it has one. */
 export function markerOf(doc: Doc, index: number, side: PickupSide): Marker {
   return (doc.markerOverride ?? doc.markers)[index]?.[side] ?? defaultPair()[side];
@@ -407,6 +425,7 @@ export function updatedDoc(doc: Doc, fresh: ParseResult, sourceName: string): Do
     markers: trackMarkers(doc.result.report, fresh.report, doc.markerOverride ?? doc.markers).kept,
     markerOverride: null,
     extras: trackExtras(doc.result.report, fresh.report, doc.extras).kept,
+    depths: carry(doc.depths, (t) => t.trim() !== ''),
     patches: trackPatches(doc.result.report, fresh.report, doc.patches).kept,
     carts: trackCarts(doc.result.report, fresh.report, doc.carts).kept,
   };

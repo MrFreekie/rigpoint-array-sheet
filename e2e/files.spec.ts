@@ -6,6 +6,9 @@ import { expect, test, type Locator } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
 import { changedPdf, closeSettings, closeVenue, editCard, inSettings, inVenue, openJson, openPdf, openSettings, openVenue, plotControls, samplePdf, save, savedName, start } from './helpers';
 
+/** Today as YYYY-MM-DD in the local time zone, which the app writes into the name of a revision. */
+const today = new Date().toLocaleDateString('en-CA');
+
 test('opens a Soundvision PDF and shows one card per array without sideways scrolling', async ({ page }) => {
   await start(page);
   await expect(page.getByRole('heading', { name: 'Open a Soundvision report' })).toBeVisible();
@@ -64,7 +67,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/18', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/19', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -81,7 +84,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
   await page.getByLabel('Revision').fill('b');
   await expect(page.getByLabel('Revision')).toHaveValue('B');
   const approved = await save(page);
-  expect(savedName(approved.download)).toBe('Main stage - Rev B.arraysheet.json');
+  expect(savedName(approved.download)).toBe(`Main stage (Rev B ${today}).arraysheet.json`);
   expect(approved.json).toMatchObject({ status: 'approved', revision: 'B' });
   await expect(page.locator('.tag-check', { hasText: 'READ-ONLY' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
@@ -96,7 +99,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
   await expect(page.getByText('● Unsaved changes')).toBeVisible();
   await expect(page.getByLabel('Show', { exact: true })).toBeEnabled();
   const next = await save(page);
-  expect(savedName(next.download)).toBe('Main stage - Rev C.arraysheet.json');
+  expect(savedName(next.download)).toBe(`Main stage (Rev C ${today}).arraysheet.json`);
   expect(next.json).toMatchObject({ status: 'draft', revision: 'C' });
 });
 
@@ -318,7 +321,7 @@ test('Download PDF makes the sheet in one click, with no print window', async ({
   await page.getByLabel('Show', { exact: true }).fill('Main stage');
   await page.getByLabel('Venue').fill('Grand Hall');
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
-  expect(savedName(download)).toBe('Main stage.pdf');
+  expect(savedName(download)).toBe('Main stage - Grand Hall.pdf');
   const bytes = readFileSync(await download.path());
   expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
 
@@ -330,7 +333,7 @@ test('Download PDF makes the sheet in one click, with no print window', async ({
   expect(text(1).match(/Main stage · Grand Hall/g)).toHaveLength(4);
   expect(text(4)).toContain('Rigging plot');
   expect(text(5)).toContain('Rigging summary');
-  await expect(page.getByText('Saved Main stage.pdf.')).toBeVisible();
+  await expect(page.getByText('Saved Main stage - Grand Hall.pdf.')).toBeVisible();
 });
 
 test('Download PDF follows the choice of arrays and is off when none is chosen', async ({ page }) => {
@@ -344,6 +347,32 @@ test('Download PDF follows the choice of arrays and is off when none is chosen',
 
   await cards.nth(0).getByLabel('Print this array').uncheck();
   await expect(page.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
+});
+
+test('Print only the rigging plot and the rigging summary leaves the cards out of the print view and Download PDF', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await expect(page.getByTestId('print-card')).toHaveCount(9);
+  const only = page.getByLabel('Print only the rigging plot and the rigging summary');
+  await expect(only).not.toBeChecked();
+  await only.check();
+  await expect(page.getByTestId('print-card')).toHaveCount(0);
+  await expect(page.getByTestId('print-page')).toHaveCount(2);
+  await expect(page.getByTestId('print-page').first()).toContainText('Rigging plot');
+  await expect(page.getByTestId('print-page').last()).toContainText('Rigging summary');
+  await expect(page.getByTestId('print-page').last()).toContainText('Page 2 of 2');
+  // The arrays are still chosen for printing, and the card choices are untouched.
+  await expect(page.getByTestId('print-count')).toContainText('All 9 arrays');
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+  expect(Math.max(...items.map((i) => i.page))).toBe(2);
+  const text = (n: number) => items.filter((i) => i.page === n).map((i) => i.text).join(' ');
+  expect(text(1)).toContain('Rigging plot');
+  expect(text(2)).toContain('Rigging summary');
+
+  await only.uncheck();
+  await expect(page.getByTestId('print-card')).toHaveCount(9);
 });
 
 test('Download DXF saves the plot in millimetres at full size, and says so beside the button', async ({ page }) => {
@@ -632,7 +661,7 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
 
   // It is saved in the file and comes back with the layer still off.
   const saved = await save(page);
-  expect((saved.json['format'] as string)).toBe('arraysheet/18');
+  expect((saved.json['format'] as string)).toBe('arraysheet/19');
   expect(saved.text).not.toContain('Label');
   await openJson(page, 'venue.arraysheet.json', saved.text);
   const again = (await openVenue(page)).getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });

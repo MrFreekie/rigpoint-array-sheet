@@ -60,7 +60,7 @@ test('the choices are saved with the file and come back', async ({ page }) => {
   await onPlot(page, OUT).uncheck();
   await printPlot(page).uncheck();
   const saved = await save(page);
-  expect(saved.json['format']).toBe('arraysheet/18');
+  expect(saved.json['format']).toBe('arraysheet/19');
   expect((saved.json['plot'] as boolean[]).filter((p) => !p)).toHaveLength(1);
   expect(saved.json['print_plot']).toBe(false);
 });
@@ -69,7 +69,7 @@ const showPosition = (page: Page) => plotControls(page).getByLabel(/Show positio
 const showOutlines = (page: Page) => plotControls(page).getByLabel(/Show outlines/);
 const keyEntry = (page: Page, text: string | RegExp) => preview(page).getByTestId('plot-svg').locator('text', { hasText: text });
 const POSITION_KEY = /^Position$/;
-const BOX_KEY = 'Array with pickups: width and depth from the report';
+const BOX_KEY = 'Array with pickups: outline from the pickup to max depth typed in the app';
 
 test('Show position and Show outlines take the dots, the boxes and their key entries off the preview, and are saved with the file', async ({ page }) => {
   await start(page);

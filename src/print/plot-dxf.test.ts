@@ -27,6 +27,10 @@ function build(name: 'a' | 'c' | 'e') {
 function buildUncached(name: 'a' | 'c' | 'e', tweak: (d: ReturnType<typeof newDoc>) => void = () => undefined) {
   const doc = newDoc(parseFixture(name), `${name}.pdf`);
   doc.job.origin = 'DSE';
+  // Every array with a pickup has its pickup to max depth typed, so it has an outline.
+  doc.result.report.sources.forEach((src, i) => {
+    if (src.pickups.length > 0) doc.depths[i] = '1.5';
+  });
   tweak(doc);
   const content = plotContent(doc, sheetModel(doc, false))!;
   const text = plotDxf({ ...content, footer: () => '' }, estimateWidth)!;
@@ -117,8 +121,9 @@ describe('plot DXF', () => {
     const f = read(text);
     const flown = content.arrays.find((a) => a.kind === 'flown' && a.pickups.length > 0)!;
     const boxLines = f.entities.filter((e) => e.type === 'LINE' && e.layer === 'ARRAYS');
-    for (const [i, c] of flown.corners.entries()) {
-      const next = flown.corners[(i + 1) % 4]!;
+    const corners = flown.corners!;
+    for (const [i, c] of corners.entries()) {
+      const next = corners[(i + 1) % 4]!;
       const hit = boxLines.some(
         (e) =>
           Math.abs(n(e, 10) - c.x * 1000) < 0.01 && Math.abs(n(e, 20) - c.y * 1000) < 0.01 && Math.abs(n(e, 11) - next.x * 1000) < 0.01 && Math.abs(n(e, 21) - next.y * 1000) < 0.01,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
-import { footprint, numberPickups, planSpacing, plotArrays, type PlotArray } from './plot';
+import { footprint, numberPickups, pickupOutline, planSpacing, plotArrays, type PlotArray } from './plot';
 import type { ArraySource } from './types';
 
 const near = (a: number, b: number) => expect(a).toBeCloseTo(b, 6);
@@ -201,5 +201,51 @@ describe('planSpacing', () => {
     tall.pickups = [{ which: 'front', position: 1, at: { x: 0, y: 0, z: 5 } }, { which: 'rear', position: 2, at: { x: 3, y: 4, z: 50 } }];
     expect(numberPickups([tall])[0]!.spacing).toBe(5);
     for (const a of arrays.filter((x) => x.pickups.length === 1)) expect(pts.find((p) => p.arrayIndex === a.index)!.spacing).toBeNull();
+  });
+});
+
+describe('pickupOutline', () => {
+  const at = (x: number, y: number) => ({ x, y, z: 8 });
+  const flown = (azimuth: number, pickups: ArraySource['pickups']) => ({ position: { x: 10, y: 20, z: 8 }, dimensions: { x: 2, y: 3, z: 1 }, azimuth, pickups });
+
+  it('puts the rear edge the typed depth behind the pickup and the front edge the report depth in front of that', () => {
+    const c = pickupOutline(flown(0, [{ which: 'front', position: 1, at: at(10, 19.5) }]), 2)!;
+    near(c[0].y, 20.5);
+    near(c[2].y, 17.5);
+    near(c[0].x, 9);
+    near(c[1].x, 11);
+  });
+
+  it('measures from the rear pickup when there are two', () => {
+    const pair = [
+      { which: 'front' as const, position: 1, at: at(10, 19.8) },
+      { which: 'rear' as const, position: 2, at: at(10, 19) },
+    ];
+    near(pickupOutline(flown(0, pair), 1.5)![2].y, 17.5);
+  });
+
+  it('turns with the azimuth and keeps the width centred on Position', () => {
+    const c = pickupOutline(flown(90, [{ which: 'front', position: 1, at: at(10.5, 20) }]), 1)!;
+    // Facing east, rearward is -X: the pickup is 0.5 ahead of Position, so the rear edge is at x = 10.5 - 1 = 9.5.
+    near(c[2].x, 9.5);
+    near(c[0].x, 12.5);
+    near((c[0].y + c[1].y) / 2, 20);
+  });
+
+  it('is null with no pickup, a size or an azimuth missing', () => {
+    expect(pickupOutline(flown(0, []), 1)).toBeNull();
+    expect(pickupOutline({ ...flown(0, [{ which: 'front', position: 1, at: at(10, 20) }]), dimensions: null }, 1)).toBeNull();
+  });
+});
+
+describe('plotArrays and the pickup to max depth', () => {
+  const b = parseFixture('b').report.sources;
+  it('gives an array with a pickup an outline only when its depth is known; an array without one always has its box from Position', () => {
+    const none = plotArrays(b).drawn;
+    for (const a of none) expect(a.corners === null).toBe(a.pickups.length > 0);
+    const all = plotArrays(b, undefined, () => 1.5).drawn;
+    for (const a of all) expect(a.corners).not.toBeNull();
+    const withPickup = all.find((a) => a.pickups.length > 0)!;
+    expect(withPickup.corners).toEqual(pickupOutline(b[withPickup.index]!, 1.5));
   });
 });

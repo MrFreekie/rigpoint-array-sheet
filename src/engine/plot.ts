@@ -22,8 +22,11 @@ export interface PlotArray {
   kind: 'flown' | 'stacked';
   /** The array Position as printed. */
   position: Point3;
-  /** Front left, front right, rear right, rear left, as seen looking the way the array points. */
-  corners: [Pt2, Pt2, Pt2, Pt2];
+  /**
+   * Front left, front right, rear right, rear left, as seen looking the way the array points. Null for an array with a pickup
+   * whose pickup to max depth has not been typed: the report does not say where the pickup sits in the box, so there is no outline.
+   */
+  corners: [Pt2, Pt2, Pt2, Pt2] | null;
   pickups: Pickup[];
   frontMotorLoad: number | null;
   rearMotorLoad: number | null;
@@ -75,40 +78,45 @@ export function footprint(s: Pick<ArraySource, 'position' | 'dimensions' | 'azim
   return [at(-half, 0), at(half, 0), at(half, depth), at(-half, depth)];
 }
 
-/**
- * How far a pickup lies from the front and from the rear edge of its array's box, measured along the array's own axis
- * in metres to 2 decimals. Positive means inside the box; negative means in front of the front edge or behind the rear
- * edge, which happens. Null when the report does not state a position, a size or an azimuth.
- */
-export function edgeDistances(
-  s: Pick<ArraySource, 'position' | 'dimensions' | 'azimuth'>,
-  at: Pt2,
-): { toFront: number; toRear: number } | null {
-  const { position, dimensions } = s;
-  if (!position || !dimensions || s.azimuth === null) return null;
-  const a = (s.azimuth * Math.PI) / 180;
-  const along = (at.x - position.x) * -Math.sin(a) + (at.y - position.y) * -Math.cos(a);
-  const round = (v: number) => Math.round(v * 100) / 100 + 0;
-  return { toFront: round(along), toRear: round(dimensions.y - along) };
-}
-
 export interface PlotArrays {
   drawn: PlotArray[];
   /** Names of arrays the plot cannot draw because the report lacks a position, a size or an azimuth. */
   notDrawn: string[];
 }
 
-/** The arrays the report marks as flown or stacked (an array with no pickup is not necessarily hung), in report order. `include` limits them to some positions in the report. */
-export function plotArrays(sources: readonly ArraySource[], include?: ReadonlySet<number>): PlotArrays {
+/**
+ * The outline of an array that has a pickup, from the pickup to max depth typed for it: the rear edge lies that far behind the
+ * pickup (the rear one when there are two), along the array, and the front edge lies the report's depth in front of the rear
+ * edge. The width is centred on Position x as for any array. Null when the array has no pickup or the report lacks a size or an azimuth.
+ */
+export function pickupOutline(s: Pick<ArraySource, 'position' | 'dimensions' | 'azimuth' | 'pickups'>, depthM: number): [Pt2, Pt2, Pt2, Pt2] | null {
+  const { position, dimensions } = s;
+  const ref = s.pickups.find((p) => p.which === 'rear') ?? s.pickups[0];
+  if (!position || !dimensions || s.azimuth === null || !ref) return null;
+  const a = (s.azimuth * Math.PI) / 180;
+  const rearward = { x: -Math.sin(a), y: -Math.cos(a) };
+  const along = (ref.at.x - position.x) * rearward.x + (ref.at.y - position.y) * rearward.y;
+  const front = along + depthM - dimensions.y;
+  return footprint({ position: { ...position, x: position.x + rearward.x * front, y: position.y + rearward.y * front }, dimensions, azimuth: s.azimuth });
+}
+
+/**
+ * The arrays the report marks as flown or stacked (an array with no pickup is not necessarily hung), in report order. `include`
+ * limits them to some positions in the report. An array with a pickup is outlined from its pickup to max depth (`depthOf`, in
+ * metres, or null when none is typed); every other array stands with Position as the middle of its front edge.
+ */
+export function plotArrays(sources: readonly ArraySource[], include?: ReadonlySet<number>, depthOf: (index: number) => number | null = () => null): PlotArrays {
   const drawn: PlotArray[] = [];
   const notDrawn: string[] = [];
   sources.forEach((s, index) => {
     if (include && !include.has(index)) return;
-    const corners = footprint(s);
-    if (!corners || !s.position) {
+    const box = footprint(s);
+    if (!box || !s.position) {
       notDrawn.push(s.name);
       return;
     }
+    const depth = depthOf(index);
+    const corners = s.pickups.length === 0 ? box : depth === null ? null : pickupOutline(s, depth);
     drawn.push({
       index,
       name: s.name,

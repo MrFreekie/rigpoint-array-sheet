@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { suggestedFileName, safeName } from './file-name';
+import { fileTitle, localDateText, suggestedFileName, suggestedPdfName, safeName } from './file-name';
 import { cleanRevision, nextRevision, REVISION_PATTERN } from './revision';
 
 describe('nextRevision', () => {
@@ -41,6 +41,30 @@ describe('file names', () => {
 
   it('adds the revision, as the family does', () => {
     expect(suggestedFileName('Main stage', 'B')).toBe('Main stage - Rev B.arraysheet.json');
+  });
+
+  it('puts the day it was saved after the revision, in brackets, when it is given', () => {
+    expect(suggestedFileName('Main stage', 'C', '2026-11-15')).toBe('Main stage (Rev C 2026-11-15).arraysheet.json');
+    expect(suggestedPdfName('Main stage', 'C', '2026-11-15')).toBe('Main stage (Rev C 2026-11-15).pdf');
+    expect(suggestedFileName('Main stage', '', '2026-11-15')).toBe('Main stage.arraysheet.json');
+  });
+
+  it('writes today as YYYY-MM-DD', () => {
+    expect(localDateText(new Date(2026, 10, 5))).toBe('2026-11-05');
+  });
+
+  it('starts with the show date, then the show and the venue, leaving out what is blank', () => {
+    const job = { show: 'Tony Hadley CBBT 26', venue: 'Ipswich - Regent Theatre', showDate: '2026-11-15' };
+    expect(fileTitle(job, 'report')).toBe('2026-11-15 - Tony Hadley CBBT 26 - Ipswich - Regent Theatre');
+    expect(fileTitle({ ...job, venue: '' }, 'report')).toBe('2026-11-15 - Tony Hadley CBBT 26');
+    expect(fileTitle({ ...job, showDate: '' }, 'report')).toBe('Tony Hadley CBBT 26 - Ipswich - Regent Theatre');
+    expect(fileTitle({ ...job, showDate: '15/11/2026', show: ' ' }, 'Example Show.xmlp')).toBe('Example Show - Ipswich - Regent Theatre');
+    expect(suggestedFileName(fileTitle(job, 'r'), 'C', '2026-11-15')).toBe('2026-11-15 - Tony Hadley CBBT 26 - Ipswich - Regent Theatre (Rev C 2026-11-15).arraysheet.json');
+  });
+
+  it('keeps a long show and venue whole, and takes out what a file system would refuse', () => {
+    expect(fileTitle({ show: 'a/b', venue: 'c:d', showDate: '' }, 'r')).toBe('a b - c d');
+    expect(suggestedFileName(fileTitle({ show: 'S'.repeat(70), venue: 'V'.repeat(70), showDate: '2026-11-15' }, 'r'), '', undefined).length).toBeGreaterThan(150);
   });
 
   it('drops the Soundvision file extension', () => {

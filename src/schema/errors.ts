@@ -25,6 +25,7 @@ const FIELD_NAMES: Record<string, string> = {
   deleted: 'Deleted arrays',
   markers: 'Pickup symbols',
   extra_weight: 'Additional weights',
+  max_depth_m: 'Pickup to max depths',
   cart_sizes: 'Cart sizes',
   carts: 'Carts',
   breaks: 'Cart breaks',

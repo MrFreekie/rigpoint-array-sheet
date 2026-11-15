@@ -1,15 +1,13 @@
-import { EXTRA_TABLE_COLUMNS, edgeText, extraTableRows, extrasUsed, riggingEdgeNote, riggingNote, riggingWeightsNote, weightTableColumns, weightTableRows, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
+import { EXTRA_TABLE_COLUMNS, extraTableRows, extrasUsed, riggingNote, riggingWeightsNote, weightTableColumns, weightTableRows, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
 import { NOT_STATED, num } from './format';
 
 export function RiggingSummary({ rows, weights = [], fixations = [] }: { rows: readonly RiggingRow[]; weights?: readonly RiggingWeight[]; fixations?: readonly FixationRow[] }) {
   const used = extrasUsed(rows);
   const note = riggingNote(rows.length > 0, fixations.length > 0);
-  const edgeNote = riggingEdgeNote(rows.length > 0);
   return (
     <section className="panel" aria-labelledby="rigging-heading">
       <h2 id="rigging-heading">Rigging summary</h2>
       {note ? <p className="muted">{note}</p> : null}
-      {edgeNote ? <p className="muted">{edgeNote}</p> : null}
       {rows.length === 0 ? (
         <p className="muted">No flown array in this report has a pickup position.</p>
       ) : (
@@ -26,8 +24,6 @@ export function RiggingSummary({ rows, weights = [], fixations = [] }: { rows: r
                 <th scope="col" className="n">Y (m)</th>
                 <th scope="col" className="n">Z (m)</th>
                 <th scope="col" className="n">Load (kg)</th>
-                <th scope="col" className="n">To front (m)</th>
-                <th scope="col" className="n">To rear (m)</th>
               </tr>
             </thead>
             <tbody>
@@ -41,8 +37,6 @@ export function RiggingSummary({ rows, weights = [], fixations = [] }: { rows: r
                   <td className="n">{r.y}</td>
                   <td className="n">{r.z}</td>
                   <td className="n">{num(r.load)}</td>
-                  <td className="n">{edgeText(r, 'toFront', NOT_STATED)}</td>
-                  <td className="n">{edgeText(r, 'toRear', NOT_STATED)}</td>
                 </tr>
               ))}
             </tbody>

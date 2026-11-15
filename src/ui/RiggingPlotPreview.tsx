@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react';
-import { suggestedDxfName } from '../files/file-name';
+import { localDateText, suggestedDxfName } from '../files/file-name';
 import { downloadBlob } from '../files/download';
 import { canvasMeasurePt, estimateWidth } from '../print/array-image';
 import { PlotSvg } from '../print/PlotSvg';
@@ -8,7 +8,7 @@ import { plotContent } from '../print/plot-input';
 import { layoutPlotPages, SCREEN_PALETTE } from '../print/plot-layout';
 import { ORIGIN_MAX } from '../schema/array-file';
 import type { Underlay } from '../engine/underlay';
-import { effectiveOffset, plotShown, showTitle, type Doc, type Job, type PlotShow } from './document';
+import { effectiveOffset, fileTitle, plotShown, type Doc, type Job, type PlotShow } from './document';
 import type { SheetModel } from './sheet-model';
 import { VenueDialog, venueButtonLabel } from './VenueDialog';
 
@@ -46,7 +46,7 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, o
       const content = plotContent(doc, model);
       const text = content ? plotDxf({ ...content, footer: () => '' }, measure(), { venue: venueInDxf }) : null;
       if (text === null) return;
-      downloadBlob(suggestedDxfName(showTitle(doc), doc.revision), new Blob([text], { type: DXF_MIME }));
+      downloadBlob(suggestedDxfName(fileTitle(doc), doc.revision, localDateText()), new Blob([text], { type: DXF_MIME }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The DXF could not be made.');
     }

@@ -252,13 +252,14 @@ export function plotDxf(input: PlotInput, measure: Measure, options: { venue?: b
   // Array boxes, their Positions, then the pickups and the lines joining them.
   const dotR = real(dotRadiusMm(plan.ratio));
   for (const a of input.arrays) {
-    if (input.showOutlines !== false) {
+    const box = a.corners;
+    if (input.showOutlines !== false && box) {
       const layer = a.kind === 'stacked' ? 'STACKS' : a.pickups.length === 0 ? 'ARRAYS_NO_PICKUP' : 'ARRAYS';
-      a.corners.forEach((c, i) => {
-        const n = a.corners[(i + 1) % a.corners.length] as { x: number; y: number };
+      box.forEach((c, i) => {
+        const n = box[(i + 1) % box.length] as { x: number; y: number };
         w.line(layer, mm(c.x), mm(c.y), mm(n.x), mm(n.y));
       });
-      const [p0, p1, p2, p3] = a.corners;
+      const [p0, p1, p2, p3] = box;
       if (a.kind === 'stacked') {
         w.line('STACK_DIAGONALS', mm(p0.x), mm(p0.y), mm(p2.x), mm(p2.y));
         w.line('STACK_DIAGONALS', mm(p1.x), mm(p1.y), mm(p3.x), mm(p3.y));
@@ -320,6 +321,7 @@ export function plotDxf(input: PlotInput, measure: Measure, options: { venue?: b
     `${DXF_UNITS_NOTE} The origin 0,0 is the Soundvision origin${origin ? `, ${origin}` : ''}. +X is towards house left and +Y towards the audience.`,
     `Pickup symbols, a guide only: ${SYMBOL_WORDS.map(([shape, word]) => `${word} ${symbolValue(input.symbolValues, shape)}`).join(', ')}.`,
     ...(input.notDrawn.length > 0 ? [`Not drawn, no position, size or azimuth in the report: ${input.notDrawn.join(', ')}`] : []),
+    ...(input.showOutlines !== false && input.arrays.some((a) => a.corners === null) ? [`No outline, Pickup to max depth not typed: ${input.arrays.filter((a) => a.corners === null).map((a) => a.name).join(', ')}`] : []),
     ...wrapChars(plotSmallPrint(input.additionalWeight === true), 110),
   ];
   for (const n of notes.flatMap((t) => wrapChars(t, 110))) {

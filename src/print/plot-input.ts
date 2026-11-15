@@ -1,8 +1,9 @@
 // What the rigging plot draws for a document: the arrays chosen for printing and their numbered pickups.
 
+import { parseDepthM } from '../engine/depth';
 import { SHAPES, symbolValue, type PickupSide, type SymbolValues } from '../engine/markers';
 import { numberPickups, plotArrays } from '../engine/plot';
-import { markerOf, plotShown, type Doc } from '../files/doc';
+import { depthOf, markerOf, plotShown, type Doc } from '../files/doc';
 import { extraKgFor, type SheetModel } from '../ui/sheet-model';
 import { addKg, sumKg } from '../engine/extra-weight';
 import type { PointLabel } from '../engine/sheet';
@@ -30,7 +31,7 @@ export function pointLabelOf(model: SheetModel): PointLabel {
 
 /** Null when no array on the plot can be drawn, in which case there is nothing to show. */
 export function plotContent(doc: Doc, model: SheetModel): PlotContent | null {
-  const { drawn, notDrawn } = plotArrays(model.sources, model.plottedSources);
+  const { drawn, notDrawn } = plotArrays(model.sources, model.plottedSources, (i) => parseDepthM(depthOf(doc, i)));
   if (drawn.length === 0) return null;
   // A mirror image that a card stands for has no choice of its own: it takes its pickup's symbol from that card.
   const standsFor = new Map<number, number>();

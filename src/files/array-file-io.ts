@@ -1,6 +1,7 @@
 // Turning a document into a saved file and back. Opening is strict: the text is untrusted until
 // it has passed the size limit, the format check, any upgrade steps and the schema.
 
+import { canonicalDepth } from '../engine/depth';
 import { canonicalExtra, type ExtraText } from '../engine/extra-weight';
 import { defaultPair, isDefaultPair, SHAPES, symbolValue, type MarkerPair, type SymbolValues } from '../engine/markers';
 import { fitPatch, patchUsed, type PatchRow } from '../engine/patch';
@@ -47,6 +48,7 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
       return { front: { ...pair.front }, rear: { ...pair.rear } };
     }),
     extra_weight: Array.from({ length: count }, (_, i) => ({ front: canonicalExtra(doc.extras[i]?.front ?? ''), rear: canonicalExtra(doc.extras[i]?.rear ?? '') })),
+    max_depth_m: Array.from({ length: count }, (_, i) => canonicalDepth(doc.depths[i] ?? '')),
     patch: Array.from({ length: count }, (_, i) => fitPatch(doc.patches[i], doc.result.report.sources[i]?.cabinets.length ?? 0)),
     symbol_values: { two: symbolValue(doc.symbolValues, 'two'), one: symbolValue(doc.symbolValues, 'one'), half: symbolValue(doc.symbolValues, 'half'), quarter: symbolValue(doc.symbolValues, 'quarter') },
     cart_sizes: doc.cartSizes.map((c) => ({ type: c.type, size: c.size })),
@@ -121,6 +123,10 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
   f.extra_weight.forEach((e, i) => {
     if (e.front !== '' || e.rear !== '') extras[i] = { front: e.front, rear: e.rear };
   });
+  const depths: Record<number, string> = {};
+  f.max_depth_m.forEach((t, i) => {
+    if (t !== '') depths[i] = t;
+  });
   const patches: Record<number, PatchRow[]> = {};
   f.patch.forEach((rows, i) => {
     if (patchUsed(rows)) patches[i] = rows;
@@ -168,6 +174,7 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
     markers,
     markerOverride: null,
     extras,
+    depths,
     symbolValues: Object.fromEntries(SHAPES.map((shape) => [shape, f.symbol_values[shape]])) as SymbolValues,
     patches,
     underlay,

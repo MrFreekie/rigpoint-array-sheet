@@ -5,7 +5,6 @@
 
 import { addKg, kgText, sumKg } from './extra-weight';
 import { panflexLabel, type PanflexLabel } from './panflex';
-import { edgeDistances } from './plot';
 import type { ArraySource, Fixation, Pickup, SoundvisionWarning } from './types';
 
 export interface SheetRow {
@@ -107,20 +106,6 @@ export interface RiggingRow {
   extra: number | null;
   /** True when any pickup of this pickup's array has an additional weight typed, so its rows are listed with the additions. */
   arrayHasExtra: boolean;
-  /**
-   * How far the pickup lies from the front and the rear edge of its array's box, calculated from the report's Position,
-   * Spatial dimensions and Azimuth (see edgeDistances). A front pickup carries only the front figure and a rear pickup
-   * only the rear one, unless the array has a single pickup, which carries both. A null figure does not apply to this
-   * pickup. The whole field is null when the report lacks a position, size or azimuth.
-   */
-  edge: { toFront: number | null; toRear: number | null } | null;
-}
-
-/** The text of an edge distance cell: the figure to 2 decimals, blank where it does not apply, `dash` where it cannot be worked out. */
-export function edgeText(row: Pick<RiggingRow, 'edge'>, which: 'toFront' | 'toRear', dash: string): string {
-  if (!row.edge) return dash;
-  const v = row.edge[which];
-  return v === null ? '' : v.toFixed(2);
 }
 
 /**
@@ -138,7 +123,6 @@ export function riggingRows(
     if (include && !include.has(index)) continue;
     const arrayHasExtra = s.pickups.some((p) => extraOf(index, p.which) !== null);
     for (const p of s.pickups) {
-      const d = edgeDistances(s, p.at);
       const single = s.pickups.length === 1;
       rows.push({
         point: pointOf(index, p.which),
@@ -151,7 +135,6 @@ export function riggingRows(
         load: p.which === 'front' ? s.weights.frontMotorLoad : s.weights.rearMotorLoad,
         extra: extraOf(index, p.which),
         arrayHasExtra,
-        edge: d ? { toFront: single || p.which === 'front' ? d.toFront : null, toRear: single || p.which === 'rear' ? d.toRear : null } : null,
       });
     }
   }
@@ -259,12 +242,6 @@ export function riggingNote(pickups: boolean, fixations: boolean): string | null
   if (!pickups && !fixations) return null;
   const what = pickups && fixations ? 'pickup and fixation' : pickups ? 'pickup' : 'fixation';
   return `Every ${what} is listed, including those of mirrored arrays, because their positions differ.`;
-}
-
-/** The line that explains the To front and To rear columns. Null when no pickup is listed. */
-export function riggingEdgeNote(pickups: boolean): string | null {
-  if (!pickups) return null;
-  return "To front and To rear are calculated from the report's position and size, along the array, in metres. Below zero means outside the box.";
 }
 
 /** A ground offset typed by the user: blank means 0, anything that is not a number is rejected. */

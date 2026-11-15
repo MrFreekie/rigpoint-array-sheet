@@ -1,6 +1,7 @@
 import { Fragment, useId, useState } from 'react';
 import { cartShade, groupsText } from '../engine/carts';
 import type { FlySheetColumn } from '../engine/sheet';
+import { isTypingDepth, parseDepthM, DEPTH_MAX_M } from '../engine/depth';
 import { isTypingExtra, type ExtraText } from '../engine/extra-weight';
 import { SHAPE_NAME, SHAPES, symbolValue, type Marker, type MarkerPair, type PickupSide, type Shape, type SymbolValues } from '../engine/markers';
 import { PATCH_COLOURS, PATCH_DIGITS, type PatchDigit, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
@@ -48,6 +49,9 @@ interface Props {
   /** The additional weight typed for each pickup, in kilograms as text, and how to change one. A read-only file cannot change them. */
   extras: ExtraText;
   onExtra: (side: PickupSide, text: string) => void;
+  /** The pickup to max depth typed for this array, as text. */
+  depth: string;
+  onDepth: (text: string) => void;
   /** The value written for each symbol, set in Settings, for the names in the list of symbols. */
   symbolValues: Readonly<SymbolValues>;
   /** The feeder and way of each enclosure row, and how to change one. Read-only files cannot change. */
@@ -65,7 +69,7 @@ interface Props {
   startEditing?: boolean | undefined;
 }
 
-export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onPlot, onOnPlot, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, extras, onExtra, symbolValues, patch, onPatch, carts, onCartBreak, onCartReset, startEditing }: Props) {
+export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffset, usingDefault, coversMirror, mirrorOf, locked, onImage, printed, onPrinted, onPlot, onOnPlot, onDelete, titleText, reportName, onTitle, note, onNote, markers, onMarker, extras, onExtra, depth, onDepth, symbolValues, patch, onPatch, carts, onCartBreak, onCartReset, startEditing }: Props) {
   const id = useId();
   const [editing, setEditing] = useState(startEditing === true);
   const hasColumns = c.rows.some((r) => r.column !== null);
@@ -329,6 +333,8 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
             />
           ))}
 
+          {c.pickups.length > 0 ? <DepthField label={c.pickups.length > 1 ? 'Rear pickup to max depth (m)' : 'Pickup to max depth (m)'} value={depth} disabled={locked === true} onChange={onDepth} /> : null}
+
           <label className="field offset-field">
             <span>Ground offset (m)</span>
             <input
@@ -383,6 +389,39 @@ function ExtraWeightField({ label, value, disabled, onChange }: { label: string;
       />
       <span id={`${id}-help`} className="muted">
         Optional. Added to this pickup's load and the array's total on the plot, and listed on its own on the rigging summary.
+      </span>
+    </label>
+  );
+}
+
+/**
+ * The distance from the pickup (the rear one when there are two) to the rear of the array, which Soundvision shows but the report
+ * does not carry. The plot draws the outline of an array with a pickup only when it is typed.
+ */
+function DepthField({ label, value, disabled, onChange }: { label: string; value: string; disabled: boolean; onChange: (text: string) => void }) {
+  const id = useId();
+  const bad = value.trim() !== '' && parseDepthM(value) === null;
+  return (
+    <label className="field depth-field" htmlFor={id}>
+      <span>{label}</span>
+      <input
+        id={id}
+        type="text"
+        inputMode="decimal"
+        value={value}
+        disabled={disabled}
+        maxLength={5}
+        autoComplete="off"
+        aria-invalid={bad}
+        onChange={(e) => {
+          if (isTypingDepth(e.target.value)) onChange(e.target.value);
+        }}
+        aria-describedby={`${id}-help`}
+      />
+      <span id={`${id}-help`} className={bad ? 'field-error' : 'muted'}>
+        {bad
+          ? `Enter a number of metres above 0 and up to ${DEPTH_MAX_M}, such as 1.25.`
+          : "Shown in Soundvision but not in the report. The rigging plot draws this array's outline only when it is typed."}
       </span>
     </label>
   );

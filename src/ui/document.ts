@@ -2,6 +2,7 @@
 
 import { parseOffset } from '../engine/sheet';
 import type { Doc } from '../files/doc';
+import { fileTitle as fileTitleOf } from '../files/file-name';
 
 export {
   cartsOf,
@@ -34,6 +35,8 @@ export {
   withCartSizes,
   withDeleted,
   withExtra,
+  withDepth,
+  depthOf,
   withLayerHidden,
   withUnderlay,
   withMarker,
@@ -62,6 +65,11 @@ export function effectiveOffset(doc: Doc, index: number, mirrorIndex?: number): 
   const useOwn = own.trim() !== '';
   const value = parseOffset(useOwn ? own : doc.job.defaultOffset);
   return { value, badField: value === null ? (useOwn ? 'array' : 'default') : null };
+}
+
+/** The name a saved file is suggested with: show date, show name and venue. */
+export function fileTitle(doc: Doc): string {
+  return fileTitleOf(doc.job, showTitle(doc));
 }
 
 export function showTitle(doc: Doc): string {

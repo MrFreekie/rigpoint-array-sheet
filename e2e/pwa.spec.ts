@@ -15,6 +15,9 @@ async function controlledByServiceWorker(page: Page) {
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
 }
 
+/** Today as YYYY-MM-DD in the local time zone, which the app writes into the name of a revision. */
+const today = new Date().toLocaleDateString('en-CA');
+
 test('the web manifest makes the app installable and registers file and share handlers', async ({ page, request, baseURL }) => {
   await start(page);
   const href = await page.locator('link[rel="manifest"]').getAttribute('href');
@@ -163,12 +166,12 @@ test('a new revision of an approved file never overwrites the original', async (
 
   await page.getByRole('button', { name: 'Create new revision' }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByText('Saved to Main stage - Rev A.arraysheet.json.')).toBeVisible();
+  await expect(page.getByText(`Saved to Main stage (Rev A ${today}).arraysheet.json.`)).toBeVisible();
 
   // Save asked where to put the revision, suggesting a new name, and the original is untouched.
-  expect((await pickerCalls(page)).at(-1)).toEqual({ kind: 'save', suggestedName: 'Main stage - Rev A.arraysheet.json' });
+  expect((await pickerCalls(page)).at(-1)).toEqual({ kind: 'save', suggestedName: `Main stage (Rev A ${today}).arraysheet.json` });
   expect(await readOpfs(page, original)).toBe(before);
-  await expect.poll(async () => JSON.parse(await readOpfs(page, 'Main stage - Rev A.arraysheet.json'))).toMatchObject({ status: 'draft', revision: 'A' });
+  await expect.poll(async () => JSON.parse(await readOpfs(page, `Main stage (Rev A ${today}).arraysheet.json`))).toMatchObject({ status: 'draft', revision: 'A' });
 });
 
 test('a saved file shared from another app opens (Android share target)', async ({ page }) => {

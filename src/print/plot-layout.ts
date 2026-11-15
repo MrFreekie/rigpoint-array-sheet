@@ -403,7 +403,7 @@ function extent(input: PlotInput): { x0: number; y0: number; x1: number; y1: num
   const xs: number[] = [0];
   const ys: number[] = [0];
   for (const a of input.arrays) {
-    for (const c of a.corners) {
+    for (const c of a.corners ?? []) {
       xs.push(c.x);
       ys.push(c.y);
     }
@@ -502,7 +502,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const bounds: Rect = { x0: FRAME.x0 + 0.8, y0: FRAME.y0 + 0.8, x1: FRAME.x1 - 0.8, y1: FRAME.y1 - 0.8 };
   // When even the smallest scale is too small, what falls outside the frame is left off and named, not drawn over the table.
   const inside = (x: number, y: number) => X(x) >= bounds.x0 && X(x) <= bounds.x1 && Y(y) >= bounds.y0 && Y(y) <= bounds.y1;
-  const arrays = fits ? input.arrays : input.arrays.filter((a) => a.corners.every((c) => inside(c.x, c.y)) && inside(a.position.x, a.position.y));
+  const arrays = fits ? input.arrays : input.arrays.filter((a) => (a.corners ?? []).every((c) => inside(c.x, c.y)) && inside(a.position.x, a.position.y));
   const kept = new Set(arrays.map((a) => a.index));
   const points = fits ? input.points : input.points.filter((p) => kept.has(p.arrayIndex) && inside(p.at.x, p.at.y));
   const offPage = input.arrays.filter((a) => !kept.has(a.index)).map((a) => a.name);
@@ -587,23 +587,29 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const showOutlines = input.showOutlines !== false;
   const showPosition = input.showPosition !== false;
   const boxRects = new Map<number, Rect>();
+  // An array with a pickup has no outline until its pickup to max depth is typed; its label then stands by its Position dot.
+  const dotRects = new Map<number, Rect>();
   for (const a of arrays) {
-    const pts = a.corners.map((c) => ({ x: X(c.x), y: Y(c.y) }));
-    if (showOutlines) {
-      if (a.kind === 'stacked') stackBox(ops, pts);
-      else dashedBox(ops, pts, a.pickups.length === 0);
+    if (a.corners === null) {
+      dotRects.set(a.index, rectAround(X(a.position.x), Y(a.position.y), dotR + 0.35));
+    } else {
+      const pts = a.corners.map((c) => ({ x: X(c.x), y: Y(c.y) }));
+      if (showOutlines) {
+        if (a.kind === 'stacked') stackBox(ops, pts);
+        else dashedBox(ops, pts, a.pickups.length === 0);
+      }
+      pts.forEach((p, i) => {
+        const q = pts[(i + 1) % pts.length] as Pt2;
+        segments.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y });
+      });
+      const rect: Rect = {
+        x0: Math.min(...pts.map((p) => p.x)),
+        y0: Math.min(...pts.map((p) => p.y)),
+        x1: Math.max(...pts.map((p) => p.x)),
+        y1: Math.max(...pts.map((p) => p.y)),
+      };
+      boxRects.set(a.index, rect);
     }
-    pts.forEach((p, i) => {
-      const q = pts[(i + 1) % pts.length] as Pt2;
-      segments.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y });
-    });
-    const rect: Rect = {
-      x0: Math.min(...pts.map((p) => p.x)),
-      y0: Math.min(...pts.map((p) => p.y)),
-      x1: Math.max(...pts.map((p) => p.x)),
-      y1: Math.max(...pts.map((p) => p.y)),
-    };
-    boxRects.set(a.index, rect);
     if (showPosition) ops.push({ op: 'circle', cx: X(a.position.x), cy: Y(a.position.y), r: dotR, width: 0.1, color: 'dot', fill: true });
     occupied.push(rectAround(X(a.position.x), Y(a.position.y), dotR + 0.35));
   }
@@ -652,7 +658,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
     if (a.totalWeight !== null && a.pickups.length > 0) lines.push({ text: `Total ${a.totalWeight} kg`, bold: false });
     const spacing = spacings.get(a.index);
     if (spacing !== undefined) lines.push({ text: `Spacing ${spacing.toFixed(2)} m`, bold: false });
-    const own = boxRects.get(a.index) as Rect;
+    const own = (boxRects.get(a.index) ?? dotRects.get(a.index)) as Rect;
     return { anchor: own, ignore: [own], lines, gap: 1.2 };
   };
   // Each label takes the best spot left by the ones before it, so the order matters in a crowded row. Several orders are
@@ -727,6 +733,8 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   // What was left off, on the row of the scale text, clear of the footer.
   const left: string[] = [];
   if (input.notDrawn.length > 0) left.push(`Not drawn, no position, size or azimuth in the report: ${input.notDrawn.join(', ')}`);
+  const noOutline = arrays.filter((a) => a.corners === null).map((a) => a.name);
+  if (showOutlines && noOutline.length > 0) left.push(`No outline, type Pickup to max depth in Edit: ${noOutline.join(', ')}`);
   if (offPage.length > 0) left.push(`Off the page at this scale: ${offPage.join(', ')}`);
   if (left.length > 0) {
     const noteX = gridX + 24;
@@ -743,7 +751,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const legend: [() => void, string][] = [
     ...(showOutlines
       ? ([
-          [() => dashedBox(ops, swatch(), false), 'Array with pickups: width and depth from the report'],
+          [() => dashedBox(ops, swatch(), false), 'Array with pickups: outline from the pickup to max depth typed in the app'],
           [() => dashedBox(ops, swatch(), true), 'Array with no pickup: support not stated in the report'],
         ] as [() => void, string][])
       : []),
