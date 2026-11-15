@@ -190,18 +190,18 @@ describe('layoutRiggingPage', () => {
       expect(t).not.toContain('Fixation');
     });
 
-    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.919 (the QR code stands under the small print, the Rigging Points heading costs a line; fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
+    it('fits one A4 page with all 12 pickups and 32 fixations, shrunk only to 0.956 (the QR code stands under the small print, the Rigging Points heading costs a line; fixation rows at a pocket card\'s 10.5 pt; 13 pt rows needed 0.88)', () => {
       const laid = layoutRiggingPage(withFixations(), estimateWidth);
       const fit = fitScale(pxHeight(laid.height), FULL_H_MM, MIN_FULL_SCALE);
       expect(fit.overflow).toBe(false);
-      expect(fit.scale).toBe(0.919);
+      expect(fit.scale).toBe(0.956);
     });
 
-    it('sets the fixation table in 7 pt text and keeps the pickup table at 8 pt', () => {
+    it('sets every rigging table in 7 pt text', () => {
       const ops = layoutRiggingPage(withFixations(), estimateWidth).ops;
       const sizeOf = (s: string) => ops.flatMap((o) => (o.op === 'text' && o.text === s ? [o.size] : []))[0];
       expect(sizeOf('Fixation')).toBe(7);
-      expect(sizeOf('Pickup')).toBe(8);
+      expect(sizeOf('Pickup')).toBe(7);
     });
 
     it('keeps a long array name inside its own column, with the 3 pt inset, in both tables', () => {

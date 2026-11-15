@@ -11,7 +11,7 @@ import { openFileText, serialiseDoc } from '../files/array-file-io';
 import { browserStore, readAutosave, writeAutosave, type Restorable } from '../files/autosave';
 import { deletedList, editKey, isDirty, isLocked, keepsHandle, markSaved, sameDocument, statusLocks } from '../files/doc';
 import { downloadBlob } from '../files/download';
-import { localDateText, suggestedFileName, suggestedImageName, suggestedPdfName, suggestedTuningName } from '../files/file-name';
+import { localDateText, suggestedFileName, suggestedImageName, suggestedPdfName, suggestedPlotPdfName, suggestedTuningName } from '../files/file-name';
 import { ensurePermission, fsAccessSupported, pickFileToOpen } from '../files/fs-access';
 import { idbStore } from '../files/kv';
 import { onLaunchFile } from '../files/launch';
@@ -175,15 +175,18 @@ export function App() {
   }
 
   /** The PDF in one click: made on this device and downloaded, with no print window. */
-  async function onDownloadPdf() {
-    if (!doc || !model || !printable) return;
+  async function onDownloadPdf(plotOnly = false) {
+    if (!doc || !model) return;
+    if (plotOnly ? !doc.result.ok || model.badOffsets : !printable) return;
+    // The plot and the summary alone: the cards are left out of the model, as in the print window.
+    const pdfModel = plotOnly ? sheetModel(doc, showMirrors, true) : model;
     setBusy(true);
     setError(null);
     try {
       const { renderPdf } = await import('../print/pdf-export');
       const bytes = await renderPdf({
         doc,
-        model,
+        model: pdfModel,
         checks,
         footer: printFooter({
           appVersion: __APP_VERSION__,
@@ -195,7 +198,7 @@ export function App() {
           verb: 'Exported',
         }),
       });
-      const name = suggestedPdfName(fileTitle(doc), doc.revision, localDateText());
+      const name = (plotOnly ? suggestedPlotPdfName : suggestedPdfName)(fileTitle(doc), doc.revision, localDateText());
       downloadBlob(name, new Blob([bytes as BlobPart], { type: 'application/pdf' }));
       setNotice(`Saved ${name}.`);
     } catch (e) {
@@ -482,7 +485,7 @@ export function App() {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <header className="app-header">
+      <header className="app-header" onKeyDown={(e) => (e.key === 'Escape' ? setMenuOpen(false) : undefined)}>
         <div className="header-top">
           <div className="brand">
           <span className="brand-name">RigPoint</span> <span className="brand-app">Array Sheet</span>
@@ -542,7 +545,13 @@ export function App() {
             Save
           </button>
           </div>
-          <div id="header-menu" className={`header-menu${menuOpen ? ' open' : ''}`}>
+          <div
+            id="header-menu"
+            className={`header-menu${menuOpen ? ' open' : ''}`}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest('button')) setMenuOpen(false);
+            }}
+          >
             <div className="header-group">
           <button type="button" className="button" disabled={!doc || busy} onClick={startAgain}>
             New
@@ -596,6 +605,15 @@ export function App() {
             title={doc && !printable ? 'Fix the problems with the report or the ground offsets, and choose at least one array' : 'Download the PDF without opening the print window'}
           >
             Download PDF
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={!printable || busy}
+            onClick={() => model && void saveImages(model.entries.filter((e) => e.print))}
+            title={doc && !printable ? 'Fix the problems with the report or the ground offsets, and choose at least one array' : 'Download one image for every array chosen for printing'}
+          >
+            Download Images ({printCount})
           </button>
           <button type="button" className="button" disabled={!doc || !doc.result.ok || busy} onClick={() => setTuningOpen(true)} title="Delay, gain and the other tuning the report states for each array">
             Tuning
@@ -747,11 +765,11 @@ export function App() {
             onOnPlot={setOnPlot}
             onPlotPrinted={setPlotPrinted}
             onPrintPlot={doc.result.ok && !model?.badOffsets ? onPrintPlot : null}
+            onDownloadPlotPdf={doc.result.ok && !model?.badOffsets && !busy ? () => void onDownloadPdf(true) : null}
             onPlotShow={setPlotShow}
             onUnderlay={setUnderlay}
             onLayer={setLayerHidden}
             onImage={(entry) => void saveImages([entry])}
-            onAllImages={() => model && void saveImages(model.entries.filter((e) => e.print))}
           />
         )}
       </main>
@@ -840,14 +858,14 @@ interface ReportProps {
   onOnPlot: (i: number, on: boolean) => void;
   onPlotPrinted: (printed: boolean) => void;
   onPrintPlot: (() => void) | null;
+  onDownloadPlotPdf: (() => void) | null;
   onPlotShow: (patch: Partial<PlotShow>) => void;
   onUnderlay: (underlay: Underlay | null) => void;
   onLayer: (name: string, hidden: boolean) => void;
   onImage: (entry: SheetEntry) => void;
-  onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onExtra, onDepth, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, onPrintPlot, onPlotShow, onUnderlay, onLayer, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onExtra, onDepth, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, onPrintPlot, onDownloadPlotPdf, onPlotShow, onUnderlay, onLayer, onImage }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -868,9 +886,6 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
               </span>
             </h2>
             <div className="sheet-tools">
-              <button type="button" className="button" disabled={busy || model.badOffsets || printCount === 0} onClick={onAllImages}>
-                Save selected as images
-              </button>
               {model.mirrorPairs > 0 ? (
               <span className="muted tool-note" data-testid="mirrors-line">
                 {showMirrors
@@ -948,7 +963,7 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
               ))}
             </div>
           </section>
-          <RiggingPlotPreview doc={doc} model={model} locked={locked} onJob={onJob} onPlotPrinted={onPlotPrinted} onPlotShow={onPlotShow} onUnderlay={onUnderlay} onLayer={onLayer} onPrintPlot={onPrintPlot} />
+          <RiggingPlotPreview doc={doc} model={model} locked={locked} onJob={onJob} onPlotPrinted={onPlotPrinted} onPlotShow={onPlotShow} onUnderlay={onUnderlay} onLayer={onLayer} onPrintPlot={onPrintPlot} onDownloadPlotPdf={onDownloadPlotPdf} />
           <RiggingSummary rows={riggingRows(model.sources, model.live, extraKgFor(doc, model), pointLabelOf(model))} weights={riggingWeights(model.sources, model.live, extraKgFor(doc, model))} fixations={riggingFixations(model.sources, model.live)} />
           <NotesPanel doc={doc} locked={locked} onJob={onJob} />
         </>

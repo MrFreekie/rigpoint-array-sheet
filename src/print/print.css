@@ -393,9 +393,9 @@
   margin-top: 6mm;
 }
 
-/* The fixation list is long, so its rows are a pocket card's: 7 pt text in a row 10.5 pt high. */
-.as-rigging .as-table-second td,
-.as-rigging .as-table-second th {
+/* Every table on the rigging page has a pocket card's rows: 7 pt text in a row 10.5 pt high, so the tables match. */
+.as-rigging .as-table td,
+.as-rigging .as-table th {
   padding: 0.25mm 1.2mm;
   font-size: 7pt;
 }
@@ -457,6 +457,15 @@
 
 .as-qr p {
   margin: 0;
+}
+
+.as-cloud-block {
+  margin-top: 7mm;
+  border-top: 0.4mm solid #777;
+}
+
+.as-cloud-block .as-rigging-heading {
+  margin-top: 4mm;
 }
 
 .as-cloud {

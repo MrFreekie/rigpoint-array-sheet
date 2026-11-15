@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { openPdf, plotControls, samplePdf, save, start } from './helpers';
+import { openMenu, openPdf, plotControls, samplePdf, save, start } from './helpers';
 
 const card = (page: Page, name: string) => page.locator('.card', { has: page.getByRole('heading', { name, exact: true }) });
 const onPlot = (page: Page, name: string) => card(page, name).getByLabel('Include on rigging plot');
@@ -13,6 +13,7 @@ const printPlot = (page: Page) => preview(page).getByLabel(/Print rigging plot/)
 const OUT = 'KARA II L Out';
 
 async function downloadedText(page: Page): Promise<string[]> {
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   return (await readPdfItems(new Uint8Array(readFileSync(await download.path())))).map((i) => i.text);
 }
@@ -69,7 +70,7 @@ const showPosition = (page: Page) => plotControls(page).getByLabel(/Show positio
 const showOutlines = (page: Page) => plotControls(page).getByLabel(/Show outlines/);
 const keyEntry = (page: Page, text: string | RegExp) => preview(page).getByTestId('plot-svg').locator('text', { hasText: text });
 const POSITION_KEY = /^Position$/;
-const BOX_KEY = 'Array with pickups: outline from the pickup to max depth typed in the app';
+const BOX_KEY = 'Flown Array Outline';
 
 test('Show position and Show outlines take the dots, the boxes and their key entries off the preview, and are saved with the file', async ({ page }) => {
   await start(page);
@@ -174,12 +175,12 @@ test.describe('printing', () => {
     await showOutlines(page).uncheck();
     const text = await downloadedText(page);
     expect(text).not.toContain('Position');
-    expect(text.some((t) => t.startsWith('Array with pickups'))).toBe(false);
+    expect(text.some((t) => t.startsWith('Flown Array Outline'))).toBe(false);
     expect(text.some((t) => t.includes(OUT))).toBe(true);
     await page.emulateMedia({ media: 'print' });
     const plotPage = page.getByTestId('print-page').filter({ hasText: 'Rigging plot' });
     await expect(plotPage).toHaveCount(1);
-    await expect(plotPage).not.toContainText('Array with pickups');
+    await expect(plotPage).not.toContainText('Flown Array Outline');
   });
 
   test('on a read-only file Show position and Show outlines work for this session, and are not saved', async ({ page }) => {

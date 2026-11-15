@@ -51,6 +51,7 @@ export async function start(page: Page, opts: { fsAccess?: boolean } = {}) {
 export const plotControls = (page: Page): Locator => page.getByTestId('plot-controls');
 
 export async function openSettings(page: Page): Promise<Locator> {
+  await openMenu(page);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Settings' });
   await expect(dialog).toBeVisible();
@@ -123,3 +124,9 @@ export async function save(page: Page): Promise<{ download: Download; text: stri
 
 /** The file name the browser saves under. WebKit on Linux replaces spaces with underscores in download names. */
 export const savedName = (download: Download) => download.suggestedFilename().replace(/_/g, ' ');
+
+/** On a phone, open the header Menu when it is shut (a choice in it closes it). Does nothing on a wider screen. */
+export async function openMenu(page: Page): Promise<void> {
+  const menu = page.getByTestId('header-menu-toggle');
+  if ((await menu.isVisible()) && (await menu.getAttribute('aria-expanded')) !== 'true') await menu.click();
+}

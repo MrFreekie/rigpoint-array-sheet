@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { editCard, openPdf, samplePdf, save, start } from './helpers';
+import { openMenu, editCard, openPdf, samplePdf, save, start } from './helpers';
 
 const card = (page: Page, name: string) => page.locator('.card', { has: page.getByRole('heading', { name, exact: true }) });
 const WEIGHT = 'Additional weight (kg)';
@@ -15,6 +15,7 @@ const MAIN = 'KARA II L Main';
 const OUT = 'KARA II L Out';
 
 async function downloadedText(page: Page): Promise<string[]> {
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   return (await readPdfItems(new Uint8Array(readFileSync(await download.path())))).map((i) => i.text);
 }

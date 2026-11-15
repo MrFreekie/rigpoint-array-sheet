@@ -66,6 +66,11 @@ export function suggestedPlotImageName(title: string, revision: string, savedOn?
   return `${baseOf(title)}${revisionSuffix(revision, savedOn)} - Rigging plot.png`;
 }
 
+/** The rigging plot and the rigging summary as a PDF: the name, the revision and "Rigging plot". */
+export function suggestedPlotPdfName(title: string, revision: string, savedOn?: string): string {
+  return `${baseOf(title)}${revisionSuffix(revision, savedOn)} - Rigging plot.pdf`;
+}
+
 /** The tuning sheet: the name, the revision and "Tuning sheet", as a PDF or a PNG. */
 export function suggestedTuningName(title: string, revision: string, extension: 'pdf' | 'png', savedOn?: string): string {
   return `${baseOf(title)}${revisionSuffix(revision, savedOn)} - Tuning sheet.${extension}`;

@@ -2,7 +2,7 @@
 // Service workers and the File System Access API are tested in Chromium.
 
 import { expect, test, type Page } from '@playwright/test';
-import { openPdf, samplePdf, start } from './helpers';
+import { openMenu, openPdf, samplePdf, start } from './helpers';
 
 test.skip(({ browserName, isMobile }) => browserName !== 'chromium' || isMobile, 'Chromium desktop features');
 
@@ -122,6 +122,7 @@ test('Save writes back to the file; Save As picks a new one; recent files reopen
   await page.reload();
   // Saved, so there is no unsaved copy to restore, and the file is listed under Recent.
   await expect(page.getByRole('heading', { name: /Restore unsaved changes/ })).toHaveCount(0);
+  await openMenu(page);
   await page.getByRole('button', { name: 'Recent' }).click();
   await page.getByRole('button', { name: `Open ${name}` }).click();
   await expect(page.getByLabel('Company')).toHaveValue('Acme Audio');
@@ -132,6 +133,7 @@ test('Save writes back to the file; Save As picks a new one; recent files reopen
   expect(await pickerCalls(page)).toEqual([]);
 
   // Save As always asks where.
+  await openMenu(page);
   await page.getByRole('button', { name: 'Save As' }).click();
   expect(await pickerCalls(page)).toEqual([{ kind: 'save', suggestedName: name }]);
 });
@@ -143,6 +145,7 @@ test('Open uses the picker, and Save then writes back to what was opened', async
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   const name = 'Example Theatre - Example Show.arraysheet.json';
   await expect(page.getByText(/^Saved to /)).toBeVisible();
+  await openMenu(page);
   await page.getByRole('button', { name: 'New' }).click();
 
   await setNextOpen(page, name);
@@ -164,6 +167,7 @@ test('a new revision of an approved file never overwrites the original', async (
   await expect(page.getByText('Read-only · Main stage.arraysheet.json')).toBeVisible();
   const before = await readOpfs(page, original);
 
+  await openMenu(page);
   await page.getByRole('button', { name: 'Create new revision' }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText(`Saved to Main stage (Rev A ${today}).arraysheet.json.`)).toBeVisible();
@@ -182,6 +186,7 @@ test('a saved file shared from another app opens (Android share target)', async 
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Save', exact: true }).click()]);
     return (await import('node:fs')).readFileSync(await download.path(), 'utf8');
   })();
+  await openMenu(page);
   await page.getByRole('button', { name: 'New' }).click();
   await controlledByServiceWorker(page);
 

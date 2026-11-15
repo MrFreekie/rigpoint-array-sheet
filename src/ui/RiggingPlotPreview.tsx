@@ -28,9 +28,10 @@ interface Props {
   onLayer: (name: string, hidden: boolean) => void;
   /** Print the rigging plot and the rigging summary without the array cards (the print window also saves as PDF). Null when nothing can be printed. */
   onPrintPlot: (() => void) | null;
+  onDownloadPlotPdf: (() => void) | null;
 }
 
-export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, onPlotShow, onUnderlay, onLayer, onPrintPlot }: Props) {
+export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, onPlotShow, onUnderlay, onLayer, onPrintPlot, onDownloadPlotPdf }: Props) {
   const framesRef = useRef<HTMLDivElement>(null);
   const hintId = useId();
   const badDefault = effectiveOffset({ ...doc, offsets: {} }, 0).value === null;
@@ -158,9 +159,19 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, o
             data-testid="print-plot-button"
             disabled={onPrintPlot === null}
             onClick={() => onPrintPlot?.()}
-            title={onPrintPlot === null ? 'Fix the problems with the report or the ground offsets first' : 'Print the rigging plot and the rigging summary without the array cards, or save them as a PDF from the print window'}
+            title={onPrintPlot === null ? 'Fix the problems with the report or the ground offsets first' : 'Print the rigging plot and the rigging summary without the array cards'}
           >
-            Print / export rigging plot and summary
+            Print rigging plot and summary
+          </button>
+          <button
+            type="button"
+            className="button"
+            data-testid="download-plot-pdf-button"
+            disabled={onDownloadPlotPdf === null}
+            onClick={() => onDownloadPlotPdf?.()}
+            title={onDownloadPlotPdf === null ? 'Fix the problems with the report or the ground offsets first' : 'Download the rigging plot and the rigging summary as a PDF, without the array cards'}
+          >
+            Download rigging plot PDF
           </button>
         </div>
         {error ? <p role="alert">{error}</p> : null}

@@ -303,7 +303,7 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
       RIGGING_PICKUP_COLUMNS,
       RIGGING_PICKUP_WIDTHS_MM,
       input.rows.map((r) => [r.point, r.source, r.location, String(r.pickupPosition), String(r.x), String(r.y), String(r.z), r.load === null ? NOT_STATED : String(r.load)]),
-      false,
+      true,
       RIGGING_PICKUP_LEFT_COLUMNS,
     );
   }
@@ -345,7 +345,10 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
   // The cloud link, under the notes: its QR code on the left, the invitation and the address on the right.
   const links: LinkArea[] = [];
   if (input.cloud) {
-    y += mm(3);
+    // Set apart from the summary: a space, a rule across the page, then the block.
+    y += mm(7);
+    ops.push({ op: 'line', x1: 0, y1: y, x2: W, y2: y, width: 0.4, color: '#777777' });
+    y += mm(4);
     ops.push(textOp(0, y, CLOUD_LINK_HEADING, 7, { bold: true }));
     y += 7 * 1.4;
     const box = mm(22);

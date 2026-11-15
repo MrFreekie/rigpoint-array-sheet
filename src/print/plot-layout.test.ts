@@ -218,8 +218,8 @@ describe('the plot page', () => {
     const corners = (ops: PlotOp[]) => ops.filter((o) => o.op === 'line' && o.width === 0.15 && o.color === 'grey');
     expect(corners(on.pages[0]!.ops).length - corners(off.pages[0]!.ops).length).toBe(stacks.length * 2 + 2);
     const t = texts(off.pages[0]!.ops);
-    expect(t).not.toContain('Array with pickups: outline from the pickup to max depth typed in the app');
-    expect(t).not.toContain('Array with no pickup: support not stated in the report');
+    expect(t).not.toContain('Flown Array Outline');
+    expect(t).not.toContain('Array with no pickup');
     expect(t).not.toContain('Stacked array on the ground');
     expect(t).toContain('Position');
     expect(off.pages[0]!.ratio).toBe(on.pages[0]!.ratio);

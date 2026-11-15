@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Locator } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { changedPdf, closeSettings, closeVenue, editCard, inSettings, inVenue, openJson, openPdf, openSettings, openVenue, plotControls, samplePdf, save, savedName, start } from './helpers';
+import { openMenu, changedPdf, closeSettings, closeVenue, editCard, inSettings, inVenue, openJson, openPdf, openSettings, openVenue, plotControls, samplePdf, save, savedName, start } from './helpers';
 
 /** Today as YYYY-MM-DD in the local time zone, which the app writes into the name of a revision. */
 const today = new Date().toLocaleDateString('en-CA');
@@ -71,6 +71,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
   // Reopen what was saved, in a fresh page.
+  await openMenu(page);
   await page.getByRole('button', { name: 'New' }).click();
   await expect(page.getByRole('heading', { name: 'Open a Soundvision report' })).toBeVisible();
   await openJson(page, 'Main stage.arraysheet.json', draft.text);
@@ -93,6 +94,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
   // Opening the approved file locks it too; a new revision is editable and unsaved.
   await openJson(page, 'Main stage - Rev B.arraysheet.json', approved.text);
   await expect(page.getByText('Read-only · Main stage - Rev B.arraysheet.json')).toBeVisible();
+  await openMenu(page);
   await page.getByRole('button', { name: 'Create new revision' }).click();
   await expect(page.getByText('Draft · Rev C')).toBeVisible();
   await expect(page.getByText('● Unsaved changes')).toBeVisible();
@@ -125,6 +127,7 @@ test('notes for the show are typed in their own Notes panel below the rigging su
 
   const draft = await save(page);
   expect(draft.json['job']).toMatchObject({ notes: 'Bring ear plugs.' });
+  await openMenu(page);
   await page.getByRole('button', { name: 'New' }).click();
   await openJson(page, 'saved.arraysheet.json', draft.text);
   await expect(showNotes()).toHaveValue('Bring ear plugs.');
@@ -144,6 +147,7 @@ test('the show date is picked in Show details, saved as YYYY-MM-DD, printed UK s
   await expect(date).toHaveValue('2026-10-23');
   const draft = await save(page);
   expect(draft.json['job']).toMatchObject({ show_date: '2026-10-23' });
+  await openMenu(page);
   await page.getByRole('button', { name: 'New' }).click();
   await openJson(page, 'saved.arraysheet.json', draft.text);
   await expect(page.getByLabel('Show date')).toHaveValue('2026-10-23');
@@ -251,7 +255,8 @@ test('each array can be saved as an image, one at a time or all together', async
 
   const names: string[] = [];
   page.on('download', (d) => names.push(savedName(d)));
-  await page.getByRole('button', { name: 'Save selected as images' }).click();
+  await openMenu(page);
+  await page.getByRole('button', { name: /Download Images/ }).click();
   await expect.poll(() => names.length, { timeout: 15_000 }).toBe(9);
   expect(new Set(names).size).toBe(9);
   expect(names).toContain('Example Arena - Example Show - SB28 L Front.png');
@@ -262,7 +267,8 @@ test('images are not offered while an offset is not a number', async ({ page }) 
   await start(page);
   await openPdf(page, samplePdf('a'));
   await plotControls(page).getByLabel('Ground offset for every array (m)').fill('x');
-  await expect(page.getByRole('button', { name: 'Save selected as images' })).toBeDisabled();
+  await openMenu(page);
+  await expect(page.getByRole('button', { name: /Download Images/ })).toBeDisabled();
   await expect(page.getByRole('button', { name: /as an image$/ })).toHaveCount(0);
 });
 
@@ -278,6 +284,7 @@ test('the choice of arrays to print is saved with the file, and a read-only file
   expect((draft.json['print'] as boolean[])[4]).toBe(false); // array 4 is the third card: the first two stand for mirrors 1 and 3
 
   // It comes back after reopening.
+  await openMenu(page);
   await page.getByRole('button', { name: 'New' }).click();
   await openJson(page, 'chosen.arraysheet.json', draft.text);
   await expect(page.getByTestId('print-count')).toContainText('8 of 9 arrays');
@@ -296,6 +303,7 @@ test('the choice of arrays to print is saved with the file, and a read-only file
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
 
   // A new revision starts from the choices in force, and is a draft that can be saved.
+  await openMenu(page);
   await page.getByRole('button', { name: 'Create new revision' }).click();
   await expect(page.getByTestId('print-count')).toContainText('8 of 9 arrays');
   const next = await save(page);
@@ -309,7 +317,8 @@ test('images follow the choice of arrays', async ({ page }) => {
   for (let i = 1; i < 9; i++) await cards.nth(i).getByLabel('Print this array').uncheck();
   const names: string[] = [];
   page.on('download', (d) => names.push(savedName(d)));
-  await page.getByRole('button', { name: 'Save selected as images' }).click();
+  await openMenu(page);
+  await page.getByRole('button', { name: /Download Images/ }).click();
   await expect.poll(() => names.length).toBe(1);
   expect(names[0]).toBe('Example Arena - Example Show - KARA II L Main.png');
 });
@@ -319,6 +328,7 @@ test('Download PDF makes the sheet in one click, with no print window', async ({
   await openPdf(page, samplePdf('a'));
   await page.getByLabel('Show', { exact: true }).fill('Main stage');
   await page.getByLabel('Venue').fill('Grand Hall');
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   expect(savedName(download)).toBe('Main stage - Grand Hall.pdf');
   const bytes = readFileSync(await download.path());
@@ -340,15 +350,17 @@ test('Download PDF follows the choice of arrays and is off when none is chosen',
   await openPdf(page, samplePdf('b'));
   const cards = page.locator('.card');
   for (let i = 1; i < 8; i++) await cards.nth(i).getByLabel('Print this array').uncheck();
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
   expect(Math.max(...items.map((i) => i.page))).toBe(3); // one card, the plot, then the rigging page
 
   await cards.nth(0).getByLabel('Print this array').uncheck();
+  await openMenu(page);
   await expect(page.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
 });
 
-test('Print / export rigging plot and summary leaves the cards out of the print view, then puts them back', async ({ page }) => {
+test('Print rigging plot and summary leaves the cards out of the print view, then puts them back', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
   await expect(page.getByTestId('print-card')).toHaveCount(9);
@@ -361,7 +373,7 @@ test('Print / export rigging plot and summary leaves the cards out of the print 
       window.dispatchEvent(new Event('afterprint'));
     };
   });
-  await page.getByTestId('plot-preview').getByRole('button', { name: 'Print / export rigging plot and summary' }).click();
+  await page.getByTestId('plot-preview').getByRole('button', { name: 'Print rigging plot and summary' }).click();
   const seen = await page.evaluate(() => (window as unknown as { seen: { cards: number; pages: string[] } }).seen);
   expect(seen.cards).toBe(0);
   expect(seen.pages).toHaveLength(2);
@@ -445,6 +457,7 @@ test('a title and a note are saved, come back on reopening, and stay with the ar
   expect(json.notes[at]).toBe('Hang at 2 m');
   expect(json.titles.filter(Boolean)).toHaveLength(1);
 
+  await openMenu(page);
   await page.getByRole('button', { name: 'New' }).click();
   await openJson(page, 'x.arraysheet.json', saved.text);
   const again = page.locator('.card', { hasText: 'Left outfill' });
@@ -495,6 +508,7 @@ test('a deleted array stays in the saved file, can be restored after reopening, 
   expect(json.titles).toHaveLength(18);
   expect(json.notes).toHaveLength(18);
 
+  await openMenu(page);
   await page.getByRole('button', { name: 'New' }).click();
   await openJson(page, 'x.arraysheet.json', saved.text);
   await expect(page.getByText('9 of 17 arrays shown')).toBeVisible();
@@ -765,4 +779,29 @@ test('the on-screen plot has white space around it, stays on white, and does not
   expect(svgBox!.x - box!.x).toBeGreaterThanOrEqual(14);
   expect(svgBox!.x + svgBox!.width).toBeLessThanOrEqual(box!.x + box!.width - 14 + 1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+test('on a phone the Menu closes after a choice and on Escape', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  const toggle = page.getByTestId('header-menu-toggle');
+  test.skip(!(await toggle.isVisible()), 'the Menu button is for phones only');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  await openMenu(page);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('Download rigging plot PDF saves the plot and the rigging summary only, named with Rigging plot', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await page.getByLabel('Show', { exact: true }).fill('Main stage');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-plot-pdf-button').click()]);
+  expect(savedName(download)).toBe('Main stage - Rigging plot.pdf');
+  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
+  expect(Math.max(...items.map((i) => i.page))).toBe(2);
+  expect(items.map((i) => i.text).join(' ')).toContain('Rigging summary');
 });

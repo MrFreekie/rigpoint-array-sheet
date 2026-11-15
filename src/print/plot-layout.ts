@@ -751,8 +751,8 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const legend: [() => void, string][] = [
     ...(showOutlines
       ? ([
-          [() => dashedBox(ops, swatch(), false), 'Array with pickups: outline from the pickup to max depth typed in the app'],
-          [() => dashedBox(ops, swatch(), true), 'Array with no pickup: support not stated in the report'],
+          [() => dashedBox(ops, swatch(), false), 'Flown Array Outline'],
+          [() => dashedBox(ops, swatch(), true), 'Array with no pickup'],
         ] as [() => void, string][])
       : []),
     ...(showPosition ? ([[() => ops.push({ op: 'circle', cx: COLUMN.x0 + sw / 2, cy: y + 1.2, r: dotR, width: 0.1, color: 'dot', fill: true }), 'Position']] as [() => void, string][]) : []),

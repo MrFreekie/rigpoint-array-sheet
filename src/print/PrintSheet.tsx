@@ -399,7 +399,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
         </>
       ) : null}
       {cloud ? (
-        <>
+        <div className="as-cloud-block">
           <p className="as-rigging-heading">{CLOUD_LINK_HEADING}</p>
           <div className="as-cloud" data-testid="print-cloud-link">
             <a href={cloud.url} className="as-cloud-qr">
@@ -415,7 +415,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
               </p>
             </div>
           </div>
-        </>
+        </div>
       ) : null}
       <div className="as-small-print" data-testid="print-small-print">
         {SMALL_PRINT.map((p, i) => (

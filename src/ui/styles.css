@@ -1124,3 +1124,7 @@ select {
   font-size: 0.85rem;
   color: var(--muted, #5a6475);
 }
+
+.show-title .status-chip + .tag {
+  margin-left: 0.9rem;
+}

@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { openPdf, samplePdf, savedName, start } from './helpers';
+import { openMenu, openPdf, samplePdf, savedName, start } from './helpers';
 
 async function openTuning(page: Page) {
   await page.getByRole('button', { name: 'Tuning', exact: true }).click();
@@ -79,6 +79,8 @@ test.describe('the PDF', () => {
     expect(sheet).toContain('SUBS: 4 ms');
 
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await openMenu(page);
     const [main] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
     const text = (await readPdfItems(new Uint8Array(readFileSync(await main.path())))).map((i) => i.text).join(' ');
     expect(text).toContain('Rigging summary');

@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { readPdfItems } from '../src/files/pdf-items';
-import { changedPdf, editCard, inSettings, openPdf, plotControls, samplePdf, save, start } from './helpers';
+import { openMenu, changedPdf, editCard, inSettings, openPdf, plotControls, samplePdf, save, start } from './helpers';
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'PDF printing is Chromium-only in Playwright');
 
@@ -137,6 +137,7 @@ test('notes for the show print on the rigging page only, in the print view and i
   expect(pdfPages(await printToPdf(page, 'notes.pdf'))).toBe(before);
 
   await page.emulateMedia({ media: 'screen' });
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
   const count = Math.max(...items.map((i) => i.page));
@@ -267,6 +268,7 @@ test('the sheet is not printable while the report has an error', async ({ page }
   await start(page);
   await openPdf(page, samplePdf('a'));
   await plotControls(page).getByLabel('Ground offset for every array (m)').fill('x');
+  await openMenu(page);
   await expect(page.getByRole('button', { name: 'Print / PDF' })).toBeDisabled();
 });
 
@@ -302,10 +304,14 @@ test('with no array chosen there is nothing to print', async ({ page }) => {
   await openPdf(page, samplePdf('b'));
   const cards = page.locator('.card');
   for (let i = 0; i < 8; i++) await cards.nth(i).getByLabel('Print this array').uncheck();
+  await openMenu(page);
   await expect(page.getByRole('button', { name: 'Print / PDF' })).toBeDisabled();
+  await openMenu(page);
   await expect(page.getByRole('button', { name: 'Print / PDF' })).toHaveAttribute('title', 'Choose at least one array to print');
-  await expect(page.getByRole('button', { name: 'Save selected as images' })).toBeDisabled();
+  await openMenu(page);
+  await expect(page.getByRole('button', { name: /Download Images/ })).toBeDisabled();
   await cards.nth(0).getByLabel('Print this array').check();
+  await openMenu(page);
   await expect(page.getByRole('button', { name: 'Print / PDF' })).toBeEnabled();
 });
 
@@ -366,6 +372,7 @@ for (const rows of [20, 21, 22, 24]) {
     await expect(page.locator('.card')).not.toHaveCount(0);
 
     // The page of the array in the downloaded PDF.
+    await openMenu(page);
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
     const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
     const count = Math.max(...items.map((i) => i.page));
@@ -448,6 +455,7 @@ test('a card with a title and a long note is as tall as the plan says, and the P
   await expectNothingClipped(page);
 
   await page.emulateMedia({ media: 'screen' });
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
   const text = items.map((i) => i.text).join(' ');
@@ -522,13 +530,13 @@ test('report E: the rigging page lists the fixations, and the print view and Dow
   expect(names.filter((t) => t.includes('…'))).toEqual([]);
   expect(rigging.fixationRows).toHaveLength(8 * 4 + 1);
   for (const h of rigging.fixationRows) expect(h).toBeCloseTo(14.0625, 0);
-  expect(rigging.pickupRow).toBeGreaterThan(rigging.fixationRows[1] ?? 0);
-  expect(Math.abs(rigging.pickupRow - (13 * 96) / 72)).toBeLessThanOrEqual(1); // the PDF draws the pickup rows 13 pt high
+  expect(rigging.pickupRow).toBeCloseTo(14.0625, 0); // every rigging table has the same rows
   expect(rigging.scale).toBeGreaterThan(0.78); // the QR code stands under the small print, the array weights table lists the total weight of every array as its own item, so about 0.80 for this report
   expect(rigging.scale).toBeLessThan(1);
 
   const printPages = pdfPages(await printToPdf(page, 'fixations.pdf'));
   await page.emulateMedia({ media: 'screen' });
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
   expect(Math.max(...items.map((i) => i.page))).toBe(printPages);
@@ -568,6 +576,7 @@ test('a long array name is cut in the middle, keeping its end, in both rigging t
   expect(overflowing).toBe(0);
 
   await page.emulateMedia({ media: 'screen' });
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
   const final = Math.max(...items.map((i) => i.page));
@@ -620,6 +629,7 @@ test('unticking the side labels takes the four side names off the plot in the pr
   await inSettings(page, (d) => d.getByLabel('Show side labels on the rigging plot').uncheck());
   for (const side of ['House left', 'House right', 'Stage', 'Audience']) await expect(preview).not.toContainText(side);
   await expect(preview).toContainText('Soundvision origin');
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
   const text = items.map((i) => i.text);
@@ -659,6 +669,7 @@ for (const name of ['a', 'c', 'e'] as const) {
     await expectNothingClipped(page);
 
     await page.emulateMedia({ media: 'screen' });
+    await openMenu(page);
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
     const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
     const count = Math.max(...items.map((i) => i.page));
@@ -696,6 +707,7 @@ test('picking a pickup symbol and writing a value for the 1 t symbol in Settings
   await expect(page.getByTestId('print-plot').getByText('1.5 t', { exact: true }).first()).toHaveCount(1);
   await page.emulateMedia({ media: 'screen' });
 
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
   const text = items.map((i) => i.text);
@@ -835,6 +847,7 @@ test('the Rigging Points table starts with the plot numbers, on screen, in the p
   await expectNothingClipped(page);
 
   await page.emulateMedia({ media: 'screen' });
+  await openMenu(page);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
   const lastPage = Math.max(...items.map((i) => i.page));

@@ -2,7 +2,7 @@
 // These run on every browser project, including the 375 px phone.
 
 import { expect, test, type Page } from '@playwright/test';
-import { inSettings, openJson, openPdf, openSettings, samplePdf, save, start } from './helpers';
+import { openMenu, inSettings, openJson, openPdf, openSettings, samplePdf, save, start } from './helpers';
 
 const card = (page: Page, name: string) => page.locator('.card', { has: page.getByRole('heading', { name, exact: true }) });
 const summary = (page: Page, name: string) => card(page, name).getByTestId('carts-summary');
@@ -71,6 +71,7 @@ test('hand cut carts and the sizes are saved, and come back on reopening', async
   expect(json.carts[0]).toEqual({ manual: true, breaks: [6, 9, 12] });
   expect(json.carts.filter((x) => x.manual)).toHaveLength(1);
 
+  await openMenu(page);
   await page.getByRole('button', { name: 'New' }).click();
   await openJson(page, 'carts.arraysheet.json', saved.text);
   await expect(summary(page, MAIN)).toHaveText(HAND_CUT);

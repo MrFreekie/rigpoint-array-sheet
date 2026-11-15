@@ -2,7 +2,7 @@
 // These run on every browser project, including the 375 px phone.
 
 import { expect, test, type Locator } from '@playwright/test';
-import { changedPdf, openJson, openPdf, samplePdf, save, start } from './helpers';
+import { openMenu, changedPdf, openJson, openPdf, samplePdf, save, start } from './helpers';
 
 const card = (page: import('@playwright/test').Page, name: string) => page.locator('.card', { has: page.getByRole('heading', { name, exact: true }) });
 const feeder = (c: Locator, n: number) => c.getByLabel(new RegExp(`^Feeder, enclosure ${n} of `));
@@ -33,6 +33,7 @@ test('a feeder and a way are picked for each enclosure, saved, and come back on 
   expect(json.patch[at]?.[0]).toEqual({ feeder: '1', way: '4' });
   expect(json.patch[at]?.[1]).toEqual({ feeder: '', way: '0' });
 
+  await openMenu(page);
   await page.getByRole('button', { name: 'New', exact: true }).click();
   await openJson(page, 'x.arraysheet.json', saved.text);
   const again = card(page, 'KARA II L Out');
@@ -53,6 +54,7 @@ test('the dropdowns are switched off on a read-only file, and the patch is kept'
   await expect(feeder(c, 1)).toBeDisabled();
   await expect(way(c, 3)).toBeDisabled();
   await expect(way(c, 3)).toHaveValue('7');
+  await openMenu(page);
   await page.getByRole('button', { name: 'New', exact: true }).click();
   await openJson(page, 'x.arraysheet.json', approved.text);
   await expect(way(card(page, 'KARA II L Out'), 3)).toHaveValue('7');
