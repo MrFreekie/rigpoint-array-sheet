@@ -37,7 +37,6 @@ test('report E: the rigging summary on screen lists the fixations and the line t
   await openPdf(page, samplePdf('e'));
   await expect(page.locator('.card')).not.toHaveCount(0);
   const summary = page.locator('section[aria-labelledby=rigging-heading]');
-  await expect(summary).toContainText('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
   const table = summary.getByTestId('rigging-fixations');
   await expect(table.locator('thead th')).toHaveText(['Array', 'Fixation', 'X (m)', 'Y (m)', 'Z (m)']);
   await expect(table.locator('tbody tr')).toHaveCount(8 * 4);
@@ -67,7 +66,7 @@ test('save, reopen, approve and lock', async ({ page }) => {
 
   const draft = await save(page);
   expect(savedName(draft.download)).toBe('Main stage.arraysheet.json');
-  expect(draft.json).toMatchObject({ format: 'arraysheet/19', status: 'draft', revision: '' });
+  expect(draft.json).toMatchObject({ format: 'arraysheet/20', status: 'draft', revision: '' });
   expect(draft.json['job']).toMatchObject({ show: 'Main stage', default_offset: '0.3', origin: 'Iron Line' });
   await expect(page.getByText('Saved · Main stage.arraysheet.json')).toBeVisible();
 
@@ -349,30 +348,38 @@ test('Download PDF follows the choice of arrays and is off when none is chosen',
   await expect(page.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
 });
 
-test('Print only the rigging plot and the rigging summary leaves the cards out of the print view and Download PDF', async ({ page }) => {
+test('Print / export rigging plot and summary leaves the cards out of the print view, then puts them back', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
   await expect(page.getByTestId('print-card')).toHaveCount(9);
-  const only = page.getByLabel('Print only the rigging plot and the rigging summary');
-  await expect(only).not.toBeChecked();
-  await only.check();
-  await expect(page.getByTestId('print-card')).toHaveCount(0);
-  await expect(page.getByTestId('print-page')).toHaveCount(2);
-  await expect(page.getByTestId('print-page').first()).toContainText('Rigging plot');
-  await expect(page.getByTestId('print-page').last()).toContainText('Rigging summary');
-  await expect(page.getByTestId('print-page').last()).toContainText('Page 2 of 2');
-  // The arrays are still chosen for printing, and the card choices are untouched.
-  await expect(page.getByTestId('print-count')).toContainText('All 9 arrays');
-
-  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
-  const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
-  expect(Math.max(...items.map((i) => i.page))).toBe(2);
-  const text = (n: number) => items.filter((i) => i.page === n).map((i) => i.text).join(' ');
-  expect(text(1)).toContain('Rigging plot');
-  expect(text(2)).toContain('Rigging summary');
-
-  await only.uncheck();
+  await expect(page.getByLabel('Print only the rigging plot and the rigging summary')).toHaveCount(0);
+  // Stand in for the print window: note what the print view holds when it opens, then close it.
+  await page.evaluate(() => {
+    const w = window as unknown as { seen?: { cards: number; pages: string[] } };
+    window.print = () => {
+      w.seen = { cards: document.querySelectorAll('[data-testid=print-card]').length, pages: Array.from(document.querySelectorAll('[data-testid=print-page]')).map((p) => p.textContent ?? '') };
+      window.dispatchEvent(new Event('afterprint'));
+    };
+  });
+  await page.getByTestId('plot-preview').getByRole('button', { name: 'Print / export rigging plot and summary' }).click();
+  const seen = await page.evaluate(() => (window as unknown as { seen: { cards: number; pages: string[] } }).seen);
+  expect(seen.cards).toBe(0);
+  expect(seen.pages).toHaveLength(2);
+  expect(seen.pages[0]).toContain('Rigging plot');
+  expect(seen.pages[1]).toContain('Rigging summary');
   await expect(page.getByTestId('print-card')).toHaveCount(9);
+  await expect(page.getByTestId('print-count')).toContainText('All 9 arrays');
+});
+
+test('Save image saves the rigging plot as a PNG named for the show', async ({ page }) => {
+  await start(page);
+  await openPdf(page, samplePdf('a'));
+  await page.getByLabel('Show', { exact: true }).fill('Main stage');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('plot-preview').getByRole('button', { name: 'Save image' }).click()]);
+  expect(savedName(download)).toBe('Main stage - Rigging plot.png');
+  const bytes = readFileSync(await download.path());
+  expect([...bytes.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  expect(bytes.readUInt32BE(16)).toBeGreaterThan(2000); // width in pixels
 });
 
 test('Download DXF saves the plot in millimetres at full size, and says so beside the button', async ({ page }) => {
@@ -661,7 +668,7 @@ test('a venue can be imported, shown by layer, replaced and removed, and it neve
 
   // It is saved in the file and comes back with the layer still off.
   const saved = await save(page);
-  expect((saved.json['format'] as string)).toBe('arraysheet/19');
+  expect((saved.json['format'] as string)).toBe('arraysheet/20');
   expect(saved.text).not.toContain('Label');
   await openJson(page, 'venue.arraysheet.json', saved.text);
   const again = (await openVenue(page)).getByTestId('venue-panel').getByRole('group', { name: /Layers to show/ });

@@ -1,6 +1,7 @@
 // Turning a document into a saved file and back. Opening is strict: the text is untrusted until
 // it has passed the size limit, the format check, any upgrade steps and the schema.
 
+import { cloudUrlOf } from './cloud-url';
 import { canonicalDepth } from '../engine/depth';
 import { canonicalExtra, type ExtraText } from '../engine/extra-weight';
 import { defaultPair, isDefaultPair, SHAPES, symbolValue, type MarkerPair, type SymbolValues } from '../engine/markers';
@@ -33,6 +34,8 @@ export function docToFile(doc: Doc, appVersion: string, now: Date): ArrayFile {
       grid_m: doc.job.gridM,
       notes: doc.job.notes,
       show_date: doc.job.showDate,
+      // Text that is not a web address is not saved: the file refuses it.
+      cloud_url: cloudUrlOf(doc.job),
     },
     offsets: Array.from({ length: count }, (_, i) => doc.offsets[i] ?? ''),
     print: Array.from({ length: count }, (_, i) => !doc.noPrint[i]),
@@ -153,6 +156,7 @@ export function openFileText(text: string, fileName: string | null): OpenedFile 
       gridM: f.job.grid_m,
       notes: f.job.notes,
       showDate: f.job.show_date,
+      cloudUrl: f.job.cloud_url,
     },
     offsets,
     titles,

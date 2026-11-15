@@ -367,7 +367,7 @@
 }
 
 .as-rigging-heading {
-  margin: 3mm 0 0;
+  margin: 6mm 0 0;
   font-size: 7pt;
   font-weight: 700;
   line-height: 1.4;
@@ -390,7 +390,7 @@
 }
 
 .as-table-second {
-  margin-top: 3mm;
+  margin-top: 6mm;
 }
 
 /* The fixation list is long, so its rows are a pocket card's: 7 pt text in a row 10.5 pt high. */
@@ -457,6 +457,36 @@
 
 .as-qr p {
   margin: 0;
+}
+
+.as-cloud {
+  display: flex;
+  gap: 3mm;
+  align-items: flex-start;
+  margin-top: 0.5mm;
+}
+
+.as-cloud-qr {
+  flex: none;
+  line-height: 0;
+}
+
+.as-cloud-label {
+  margin: 3mm 0 0;
+  font-size: 8pt;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.as-cloud-url {
+  margin: 1mm 0 0;
+  font-size: 7pt;
+  overflow-wrap: anywhere;
+}
+
+.as-cloud-url a {
+  color: #000;
+  text-decoration: underline;
 }
 
 .as-small-print {

@@ -83,7 +83,7 @@ export function App() {
 
   const dirty = doc !== null && isDirty(doc);
   const locked = doc !== null && isLocked(doc);
-  // Print only the rigging plot and the rigging summary. A choice for this session, not saved in the file.
+  // Set while the rigging plot and the rigging summary print without the array cards. Not saved in the file.
   const [cardsOff, setCardsOff] = useState(false);
   const model = useMemo(() => (doc ? sheetModel(doc, showMirrors, cardsOff) : null), [doc, showMirrors, cardsOff]);
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
@@ -237,6 +237,17 @@ export function App() {
 
   function onPrint() {
     flushSync(() => setPrintedAt(new Date()));
+    window.print();
+  }
+
+  /** The rigging plot and the rigging summary alone: the cards are left out while the print window is open. */
+  function onPrintPlot() {
+    flushSync(() => {
+      setCardsOff(true);
+      setPrintedAt(new Date());
+    });
+    const done = () => setCardsOff(false);
+    window.addEventListener('afterprint', done, { once: true });
     window.print();
   }
 
@@ -705,8 +716,7 @@ export function App() {
             onPrinted={setPrinted}
             onOnPlot={setOnPlot}
             onPlotPrinted={setPlotPrinted}
-            cardsOff={cardsOff}
-            onCardsOff={setCardsOff}
+            onPrintPlot={doc.result.ok && !model?.badOffsets ? onPrintPlot : null}
             onPlotShow={setPlotShow}
             onUnderlay={setUnderlay}
             onLayer={setLayerHidden}
@@ -795,8 +805,7 @@ interface ReportProps {
   onPrinted: (i: number, printed: boolean) => void;
   onOnPlot: (i: number, on: boolean) => void;
   onPlotPrinted: (printed: boolean) => void;
-  cardsOff: boolean;
-  onCardsOff: (off: boolean) => void;
+  onPrintPlot: (() => void) | null;
   onPlotShow: (patch: Partial<PlotShow>) => void;
   onUnderlay: (underlay: Underlay | null) => void;
   onLayer: (name: string, hidden: boolean) => void;
@@ -804,7 +813,7 @@ interface ReportProps {
   onAllImages: () => void;
 }
 
-function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onExtra, onDepth, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, cardsOff, onCardsOff, onPlotShow, onUnderlay, onLayer, onImage, onAllImages }: ReportProps) {
+function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo, onRestore, showMirrors, onShowMirrors, locked, busy, onJob, onStatus, onRevision, onOffset, onTitle, onNote, onMarker, onExtra, onDepth, onPatch, onCartBreak, onCartReset, onPrinted, onOnPlot, onPlotPrinted, onPrintPlot, onPlotShow, onUnderlay, onLayer, onImage, onAllImages }: ReportProps) {
   const { report, ok } = doc.result;
   const printCount = model ? model.entries.filter((e) => e.print).length : 0;
   return (
@@ -861,10 +870,6 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                 ? `All ${printCount} arrays shown are chosen for printing and as images.`
                 : `${printCount} of ${model.entries.length} arrays shown are chosen for printing and as images.`}
             </p>
-            <label className="check-field" data-testid="cards-off-field">
-              <input type="checkbox" checked={cardsOff} onChange={(e) => onCardsOff(e.target.checked)} />
-              <span>Print only the rigging plot and the rigging summary (leave out the array cards, for this session)</span>
-            </label>
             <p className="muted source-line">
               {report.document.fileName ? `Project: ${report.document.fileName}. ` : ''}
               {report.document.version ? `Soundvision ${report.document.version}. ` : ''}
@@ -910,7 +915,7 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
               ))}
             </div>
           </section>
-          <RiggingPlotPreview doc={doc} model={model} locked={locked} onJob={onJob} onPlotPrinted={onPlotPrinted} onPlotShow={onPlotShow} onUnderlay={onUnderlay} onLayer={onLayer} />
+          <RiggingPlotPreview doc={doc} model={model} locked={locked} onJob={onJob} onPlotPrinted={onPlotPrinted} onPlotShow={onPlotShow} onUnderlay={onUnderlay} onLayer={onLayer} onPrintPlot={onPrintPlot} />
           <RiggingSummary rows={riggingRows(model.sources, model.live, extraKgFor(doc, model), pointLabelOf(model))} weights={riggingWeights(model.sources, model.live, extraKgFor(doc, model))} fixations={riggingFixations(model.sources, model.live)} />
           <NotesPanel doc={doc} locked={locked} onJob={onJob} />
         </>

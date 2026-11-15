@@ -1,3 +1,4 @@
+import { CLOUD_URL_MAX, isCloudUrl } from '../files/cloud-url';
 import { SHOW_NOTES_MAX } from '../schema/array-file';
 import type { Doc, Job } from './document';
 import { plain } from './plain';
@@ -26,6 +27,26 @@ export function NotesPanel({ doc, locked, onJob }: Props) {
         />
         <span id="show-notes-count" className="field-hint">
           {doc.job.notes.length} of {SHOW_NOTES_MAX} characters. Printed at the end of the rigging summary page.
+        </span>
+      </label>
+      <label className="field">
+        <span>Cloud link</span>
+        <input
+          type="url"
+          inputMode="url"
+          value={doc.job.cloudUrl}
+          maxLength={CLOUD_URL_MAX}
+          placeholder="https://"
+          disabled={locked}
+          onChange={(e) => onJob({ cloudUrl: e.target.value.trim() })}
+          aria-describedby="cloud-url-hint"
+          aria-invalid={doc.job.cloudUrl !== '' && !isCloudUrl(doc.job.cloudUrl)}
+          data-testid="cloud-url"
+        />
+        <span id="cloud-url-hint" className="field-hint">
+          {doc.job.cloudUrl !== '' && !isCloudUrl(doc.job.cloudUrl)
+            ? 'Not printed or saved: this is not a web address starting http:// or https://.'
+            : 'A short link to the hosted PDF. Printed under the notes as a link and a QR code that invite the crew to find the most up to date version.'}
         </span>
       </label>
     </section>

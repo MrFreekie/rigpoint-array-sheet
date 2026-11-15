@@ -21,6 +21,7 @@ const FIELD_NAMES: Record<string, string> = {
   grid_m: 'Grid size',
   notes: 'Notes',
   show_date: 'Show date',
+  cloud_url: 'Cloud link',
   titles: 'Card titles',
   deleted: 'Deleted arrays',
   markers: 'Pickup symbols',

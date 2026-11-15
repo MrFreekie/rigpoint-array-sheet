@@ -65,7 +65,7 @@ describe('the additional weight in a saved file', () => {
     const i = indexOf(doc, 'KARA II L Main');
     const typed = withExtra(withExtra(doc, i, 'front', '12.50'), i, 'rear', '.5');
     const saved = JSON.parse(serialiseDoc(typed, '0.1.0', NOW));
-    expect(saved.format).toBe('arraysheet/19');
+    expect(saved.format).toBe('arraysheet/20');
     expect(saved.extra_weight).toHaveLength(doc.result.report.sources.length);
     expect(saved.extra_weight[i]).toEqual({ front: '12.5', rear: '0.5' });
     expect(saved.extra_weight[0 === i ? 1 : 0]).toEqual({ front: '', rear: '' });

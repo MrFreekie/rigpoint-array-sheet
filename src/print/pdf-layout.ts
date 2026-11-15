@@ -2,7 +2,8 @@
 // browser): one pocket card, and the rigging summary page. pdf-export.ts draws them with pdf-lib.
 // Sizes match the print stylesheet, so the downloaded PDF and the printed sheet look alike.
 
-import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, extraTableRows, extrasUsed, riggingNote, riggingWeightsNote, weightTableColumns, weightTableRows, weightTableWidthsMm, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
+import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_LEFT_COLUMNS, EXTRA_TABLE_TITLE, EXTRA_TABLE_WIDTHS_MM, extraTableRows, extrasUsed, weightTableColumns, weightTableRows, weightTableWidthsMm, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
+import { CLOUD_LINK_HEADING, CLOUD_LINK_LABEL } from '../files/cloud-url';
 import { showDateText } from '../files/show-date';
 import { NOT_STATED } from '../ui/format';
 import { clipMiddle, clipToWidth, noteLines, wrap, wrapAfterLead, type DrawOp, type Measure } from './array-image';
@@ -17,10 +18,21 @@ const mm = (n: number) => n * PT_PER_MM;
 /** Points to the CSS pixels the page planner works in. */
 export const ptToPx = (pt: number) => (pt / PT_PER_MM) * PX_PER_MM;
 
+/** A clickable area of a page, in the same points as the ops, that opens an address. */
+export interface LinkArea {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  url: string;
+}
+
 export interface Laid {
   width: number;
   height: number;
   ops: DrawOp[];
+  /** The areas that are links, in the PDF. The print view draws its own anchors. */
+  links?: LinkArea[];
 }
 
 /** Height of a fact row and of a table row in the print stylesheet, as Chromium lays them out: 14.0625 CSS pixels. */
@@ -180,7 +192,7 @@ export const RIGGING_PICKUP_COLUMNS = ['Point', 'Array', 'Pickup', 'Position no.
 export const RIGGING_FIXATION_COLUMNS = ['Array', 'Fixation', 'X (m)', 'Y (m)', 'Z (m)'];
 /** Column widths on the 192 mm rigging page; the print stylesheet's tables use the same shares. */
 export const RIGGING_PICKUP_WIDTHS_MM = [14, 60, 18, 26, 16, 16, 16, 26];
-/** The columns of the Rigging Points table that are left aligned: Array and Pickup. Every other column is centred. */
+/** The columns of the Soundvision Array Pickup Points table that are left aligned: Array and Pickup. Every other column is centred. */
 export const RIGGING_PICKUP_LEFT_COLUMNS = [1, 2];
 /** Where the Array column sits in the Rigging Points table. */
 export const RIGGING_PICKUP_ARRAY_COLUMN = 1;
@@ -220,6 +232,27 @@ export interface RiggingInput {
   /** Dark squares of the QR code, and the address it holds. */
   qr: boolean[][];
   qrUrl: string;
+  /** The cloud link under the notes: the address and its QR code. Left out when the show has none. */
+  cloud?: { url: string; qr: boolean[][] };
+}
+
+/** The dark squares of a QR code as rectangles, in a square of this size (points) with its quiet zone, top left at x, y. */
+function pushQr(ops: DrawOp[], qr: boolean[][], x: number, y: number, size: number) {
+  const quiet = 4;
+  const unit = size / (qr.length + 2 * quiet);
+  qr.forEach((row, r) => {
+    let c = 0;
+    while (c < row.length) {
+      if (!row[c]) {
+        c++;
+        continue;
+      }
+      let end = c;
+      while (end < row.length && row[end]) end++;
+      ops.push({ op: 'rect', x: x + (c + quiet) * unit, y: y + (r + quiet) * unit, w: (end - c) * unit, h: unit, fill: '#000000', stroke: null, lineWidth: 0 });
+      c = end;
+    }
+  });
 }
 
 /** The rigging summary page, with the small print and, at the bottom, the QR code. Width is the page less the margins. */
@@ -264,7 +297,7 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     ops.push(textOp(0, y, 'No flown array in this report has a pickup position.', 7));
     y += 7 * 1.5;
   } else {
-    ops.push(textOp(0, y, 'Rigging Points', 7, { bold: true }));
+    ops.push(textOp(0, y, 'Soundvision Array Pickup Points', 7, { bold: true }));
     y += 7 * 1.4;
     table(
       RIGGING_PICKUP_COLUMNS,
@@ -275,14 +308,14 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     );
   }
   const heading = (text: string) => {
-    y += mm(3);
+    y += mm(6);
     ops.push(textOp(0, y, text, 7, { bold: true }));
     y += 7 * 1.4;
   };
   const used = extrasUsed(input.rows);
   if (used) {
-    heading('Additional weight, typed in the app');
-    table(EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, extraTableRows(input.rows, NOT_STATED), true);
+    heading(EXTRA_TABLE_TITLE);
+    table(EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, extraTableRows(input.rows, NOT_STATED), true, EXTRA_TABLE_LEFT_COLUMNS);
   }
   const weights = input.weights ?? [];
   if (weights.length > 0) {
@@ -290,7 +323,7 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
     table(weightTableColumns(used), weightTableWidthsMm(used), weightTableRows(weights, used, NOT_STATED), true, 1);
   }
   if (input.fixations.length > 0) {
-    y += mm(3);
+    y += mm(6);
     table(
       RIGGING_FIXATION_COLUMNS,
       RIGGING_FIXATION_WIDTHS_MM,
@@ -298,20 +331,6 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
       true,
     );
   }
-  const note = riggingNote(input.rows.length > 0, input.fixations.length > 0);
-  if (note) {
-    y += 4;
-    ops.push(textOp(0, y, note, 7));
-    y += 7 * 1.3;
-  }
-  if (weights.length > 0) {
-    y += 2;
-    for (const line of wrap(riggingWeightsNote(used), 7, false, W, measure)) {
-      ops.push(textOp(0, y, line, 7));
-      y += 7 * 1.3;
-    }
-  }
-
   // The show notes, last of the content: a small heading, then the text with the person's line breaks kept.
   if (input.notes) {
     y += mm(3);
@@ -321,6 +340,29 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
       if (line) ops.push(textOp(0, y, line, 8));
       y += 8 * 1.3;
     }
+  }
+
+  // The cloud link, under the notes: its QR code on the left, the invitation and the address on the right.
+  const links: LinkArea[] = [];
+  if (input.cloud) {
+    y += mm(3);
+    ops.push(textOp(0, y, CLOUD_LINK_HEADING, 7, { bold: true }));
+    y += 7 * 1.4;
+    const box = mm(22);
+    pushQr(ops, input.cloud.qr, 0, y, box);
+    links.push({ x: 0, y, w: box, h: box, url: input.cloud.url });
+    const tx = box + mm(3);
+    let ty = y + mm(3);
+    for (const line of wrap(CLOUD_LINK_LABEL, 8, true, W - tx, measure)) {
+      ops.push(textOp(tx, ty, line, 8, { bold: true }));
+      ty += 8 * 1.3;
+    }
+    ty += 2;
+    const w = measure(input.cloud.url, 7, false);
+    ops.push(textOp(tx, ty, input.cloud.url, 7));
+    ops.push({ op: 'line', x1: tx, y1: ty + 7 * 1.1, x2: tx + w, y2: ty + 7 * 1.1, width: 0.4, color: '#000000' });
+    links.push({ x: tx, y: ty, w, h: 7 * 1.2, url: input.cloud.url });
+    y += box;
   }
 
   // The approved disclaimer, word for word.
@@ -343,25 +385,10 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
 
   // The QR code at the bottom of the page, in the middle, 30 mm square with its quiet zone, and the address under it.
   y += mm(4);
-  const quiet = 4;
-  const modules = input.qr.length + 2 * quiet;
   const qrSize = mm(30);
-  const unit = qrSize / modules;
   const qx = (W - qrSize) / 2;
   const qy = y;
-  input.qr.forEach((row, r) => {
-    let c = 0;
-    while (c < row.length) {
-      if (!row[c]) {
-        c++;
-        continue;
-      }
-      let end = c;
-      while (end < row.length && row[end]) end++;
-      ops.push({ op: 'rect', x: qx + (c + quiet) * unit, y: qy + (r + quiet) * unit, w: (end - c) * unit, h: unit, fill: '#000000', stroke: null, lineWidth: 0 });
-      c = end;
-    }
-  });
+  pushQr(ops, input.qr, qx, qy, qrSize);
   let cy = qy + qrSize + 2;
   ops.push(textOp(qx + qrSize / 2, cy, 'RigPoint Array Sheet', 5.5, { align: 'center' }));
   cy += 5.5 * 1.2;
@@ -371,5 +398,5 @@ export function layoutRiggingPage(input: RiggingInput, measure: Measure, widthMm
   }
   y = cy;
 
-  return { width: W, height: y, ops };
+  return { width: W, height: y, ops, links };
 }

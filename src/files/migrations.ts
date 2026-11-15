@@ -140,6 +140,12 @@ export const MIGRATIONS: Record<number, Migration> = {
     const sources = (file['report'] as { sources?: unknown } | undefined)?.sources;
     return { ...file, max_depth_m: Array.isArray(sources) ? sources.map(() => '') : [] };
   },
+  // Version 20 added the cloud link, the address of the hosted PDF, printed under the notes as a link and a QR code. Earlier
+  // files had none. An older copy of the app would drop the address when it saved, so it refuses version 20 files.
+  19: (file) => {
+    const job = file['job'];
+    return typeof job === 'object' && job !== null && !Array.isArray(job) ? { ...file, job: { ...job, cloud_url: '' } } : file;
+  },
 };
 
 export function migrate(

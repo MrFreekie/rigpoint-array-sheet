@@ -22,7 +22,7 @@ async function downloadedText(page: Page): Promise<string[]> {
 test('a weight typed on a card is added on the plot and listed on its own on the rigging summary', async ({ page }) => {
   await start(page);
   await openPdf(page, samplePdf('a'));
-  await expect(page.getByTestId('rigging-array-weights')).toContainText('Total array weight (kg)');
+  await expect(page.getByTestId('rigging-array-weights')).toContainText('Soundvision Array Weight (kg)');
   await expect(page.getByTestId('rigging-extra-weights')).toHaveCount(0);
   await type(page, MAIN, '10');
   await type(page, OUT, '0.35');
@@ -31,7 +31,7 @@ test('a weight typed on a card is added on the plot and listed on its own on the
   await expect(preview(page)).toContainText('184.65 kg');
   await expect(preview(page)).toContainText(/Loads include any additional\s*weight typed in the app\./);
   const extra = page.getByTestId('rigging-extra-weights');
-  await expect(extra).toContainText('Additional weight, typed in the app');
+  await expect(extra).toContainText('Rigging Point Static Loads');
   await expect(extra.locator('tbody tr', { hasText: MAIN })).toContainText('424.2');
   const weights = page.getByTestId('rigging-array-weights');
   await expect(weights.locator('tbody tr', { hasText: OUT })).toContainText('184.3');
@@ -57,7 +57,7 @@ test('the weights are saved with the file and come back, and a read-only file ca
   await openPdf(page, samplePdf('a'));
   await type(page, MAIN, '12.50');
   const saved = await save(page);
-  expect(saved.json['format']).toBe('arraysheet/19');
+  expect(saved.json['format']).toBe('arraysheet/20');
   const typed = (saved.json['extra_weight'] as { front: string; rear: string }[]).filter((e) => e.front !== '' || e.rear !== '');
   expect(typed).toHaveLength(1);
   expect(Object.values(typed[0] ?? {}).sort()).toEqual(['', '12.5']);
@@ -77,10 +77,10 @@ test.describe('printing', () => {
     await openPdf(page, samplePdf('a'));
     await type(page, MAIN, '10');
     const text = await downloadedText(page);
-    for (const t of ['Additional weight, typed in the app', 'Array weights', 'Report load (kg)', 'Pickup total (kg)', '424.2']) expect(text.some((x) => x.includes(t)), t).toBe(true);
+    for (const t of ['Rigging Point Static Loads', 'Array weights', 'Report load (kg)', 'Pickup total (kg)', '424.2']) expect(text.some((x) => x.includes(t)), t).toBe(true);
     const sheet = page.getByTestId('print-page').last();
     await expect(sheet.getByTestId('print-extra-weights')).toContainText('424.2');
-    await expect(sheet.getByTestId('print-array-weights')).toContainText('Total array weight (kg)');
+    await expect(sheet.getByTestId('print-array-weights')).toContainText('Soundvision Array Weight (kg)');
     await expect(sheet.getByTestId('print-pickups')).toContainText('414.2');
     const plotPage = page.getByTestId('print-page').filter({ hasText: 'Rigging plot' });
     await expect(plotPage).toContainText(/Loads include any additional\s*weight typed in the app\./);
@@ -90,8 +90,8 @@ test.describe('printing', () => {
     await start(page);
     await openPdf(page, samplePdf('a'));
     const text = await downloadedText(page);
-    expect(text.some((x) => x.includes('Total array weight (kg)'))).toBe(true);
-    expect(text.some((x) => x.includes('Additional weight, typed in the app'))).toBe(false);
+    expect(text.some((x) => x.includes('Soundvision Array Weight (kg)'))).toBe(true);
+    expect(text.some((x) => x.includes('Rigging Point Static Loads'))).toBe(false);
     expect(text.some((x) => x.includes('Loads include any additional weight'))).toBe(false);
   });
 });

@@ -500,7 +500,6 @@ test('report E: the rigging page lists the fixations, and the print view and Dow
   await expect(table.locator('tbody tr')).toHaveCount(8 * 4); // eight stacks, the one that collapses into a mirror included
   await expect(table.locator('tbody tr').filter({ has: page.locator('td:first-child', { hasText: /^KARA II 2$/ }) }).first().locator('td')).toHaveText(['KARA II 2', 'Fr', '-2.84', '4.6', '1']);
   await expect(last.getByTestId('print-pickups')).toBeVisible();
-  await expect(last).toContainText('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
   await expect(last.getByTestId('print-qr')).toBeVisible();
   await expect(last.getByTestId('print-small-print')).toBeVisible();
   await expect(last).not.toHaveClass(/as-page-overflow/);
@@ -545,7 +544,6 @@ test('a report without fixations has no fixation table on the rigging page', asy
   await expect(page.locator('.card')).not.toHaveCount(0);
   await page.emulateMedia({ media: 'print' });
   await expect(pages(page).last().getByTestId('print-fixations')).toHaveCount(0);
-  await expect(pages(page).last()).toContainText('Every pickup is listed, including those of mirrored arrays, because their positions differ.');
 });
 
 test('a long array name is cut in the middle, keeping its end, in both rigging tables, in the print view and the PDF', async ({ page }) => {
@@ -714,7 +712,7 @@ test('picking a pickup symbol and writing a value for the 1 t symbol in Settings
   // The choices are saved with the file, in the new format: the shapes on the pickups, the values for the job.
   const { json } = await save(page);
   const markers = json['markers'] as { front: { shape: string }; rear: { shape: string } }[];
-  expect(json['format']).toBe('arraysheet/19');
+  expect(json['format']).toBe('arraysheet/20');
   expect(markers.some((m) => m.front.shape === 'two')).toBe(true);
   expect(markers.every((m) => !('text' in m.front) && !('text' in m.rear))).toBe(true);
   expect(json['symbol_values']).toEqual({ two: '2 t', one: '1.5 t', half: '0.5 t', quarter: '0.25 t' });
@@ -822,7 +820,7 @@ test('the Rigging Points table starts with the plot numbers, on screen, in the p
   await openPdf(page, samplePdf('c'));
   await expect(page.locator('.card')).not.toHaveCount(0);
   const screen = page.getByTestId('rigging-pickups');
-  await expect(screen.locator('caption')).toHaveText('Rigging Points');
+  await expect(screen.locator('caption')).toHaveText('Soundvision Array Pickup Points');
   await expect(screen.locator('thead th').first()).toHaveText('Point');
   const numbers = await screen.locator('tbody tr td:first-child').allInnerTexts();
   expect(numbers.length).toBeGreaterThan(0);
@@ -831,7 +829,7 @@ test('the Rigging Points table starts with the plot numbers, on screen, in the p
 
   await page.emulateMedia({ media: 'print' });
   const last = pages(page).last();
-  await expect(last.locator('.as-rigging-heading', { hasText: 'Rigging Points' })).toBeVisible();
+  await expect(last.locator('.as-rigging-heading', { hasText: 'Soundvision Array Pickup Points' })).toBeVisible();
   await expect(last.getByTestId('print-pickups').locator('thead th').first()).toHaveText('Point');
   expect(await last.getByTestId('print-pickups').locator('tbody tr td:first-child').allInnerTexts()).toEqual(numbers);
   await expectNothingClipped(page);
@@ -841,7 +839,7 @@ test('the Rigging Points table starts with the plot numbers, on screen, in the p
   const items = await readPdfItems(new Uint8Array(readFileSync(await download.path())));
   const lastPage = Math.max(...items.map((i) => i.page));
   const texts = items.filter((i) => i.page === lastPage).map((i) => i.text);
-  expect(texts).toContain('Rigging Points');
+  expect(texts).toContain('Soundvision Array Pickup Points');
   expect(texts).toContain('Point');
   for (const n of numbers) expect(texts).toContain(n);
 });

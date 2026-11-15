@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../testing/fixtures';
 import { rng } from '../testing/random';
-import { flySheetColumn, minus, parseOffset, riggingFixations, riggingNote, riggingRows } from './sheet';
+import { flySheetColumn, minus, parseOffset, riggingFixations, riggingRows } from './sheet';
 import type { ArraySource } from './types';
 
 const a = parseFixture('a').report.sources;
@@ -171,14 +171,6 @@ describe('riggingFixations, report E', () => {
   });
 });
 
-describe('riggingNote', () => {
-  it('names only what is listed', () => {
-    expect(riggingNote(true, true)).toBe('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
-    expect(riggingNote(true, false)).toBe('Every pickup is listed, including those of mirrored arrays, because their positions differ.');
-    expect(riggingNote(false, true)).toBe('Every fixation is listed, including those of mirrored arrays, because their positions differ.');
-    expect(riggingNote(false, false)).toBeNull();
-  });
-});
 
 describe('flySheetColumn fixations, report E', () => {
   it('copies the fixations as printed, and does not take the ground offset off their Z', () => {

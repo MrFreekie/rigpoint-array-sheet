@@ -4,7 +4,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { APP_URL } from '../app-info';
-import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_WIDTHS_MM, extraTableRows, extrasUsed, riggingFixations, riggingNote, riggingRows, riggingWeights, riggingWeightsNote, weightTableColumns, weightTableRows, weightTableWidthsMm } from '../engine/sheet';
+import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_LEFT_COLUMNS, EXTRA_TABLE_TITLE, EXTRA_TABLE_WIDTHS_MM, extraTableRows, extrasUsed, riggingFixations, riggingRows, riggingWeights, weightTableColumns, weightTableRows, weightTableWidthsMm } from '../engine/sheet';
 import type { Doc } from '../files/doc';
 import { NOT_STATED, num } from '../ui/format';
 import { extraKgFor, type SheetModel } from '../ui/sheet-model';
@@ -13,6 +13,7 @@ import { CARD_TABLE_WIDTHS_MM, cardContent, FIXATION_COLUMNS, FIXATION_NUMBER_MM
 import { CREDIT_TEXT, pageFooterText } from './footer';
 import { panelHeader, type PanelHeader } from './panel-header';
 import { qrMatrix, qrPath, qrSize } from './qr';
+import { CLOUD_LINK_HEADING, CLOUD_LINK_LABEL, cloudUrlOf } from '../files/cloud-url';
 import { PlotSvg } from './PlotSvg';
 import { plotForPrint, pointLabelOf } from './plot-input';
 import { layoutPlotPages, plotPageCount, PRINT_PALETTE } from './plot-layout';
@@ -166,11 +167,16 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
   const weights = useMemo(() => riggingWeights(model.sources, model.printedSources, extraOf), [model.sources, model.printedSources, extraOf]);
   const extrasOn = extrasUsed(rigging);
   const fixations = useMemo(() => riggingFixations(model.sources, model.printedSources), [model.sources, model.printedSources]);
-  const note = riggingNote(rigging.length > 0, fixations.length > 0);
   const showNotes = riggingNotes(doc.job);
   // Names too long for their column are cut with an ellipsis, by the same rule as the PDF.
   const rigMeasure = useMemo(() => canvasMeasurePt(), []);
   const cell = (text: string, column: number, widthsMm: number[], size = 8) => clipRiggingCell(text, widthsMm[column] ?? 0, false, rigMeasure, size);
+  const cloudUrl = cloudUrlOf(doc.job);
+  const cloud = useMemo(() => {
+    if (!cloudUrl) return null;
+    const matrix = qrMatrix(cloudUrl);
+    return { url: cloudUrl, path: qrPath(matrix), size: qrSize(matrix) };
+  }, [cloudUrl]);
   const qr = useMemo(() => {
     const matrix = qrMatrix(APP_URL);
     return { path: qrPath(matrix), size: qrSize(matrix) };
@@ -262,7 +268,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
         <p className="as-rigging-note">No flown array in this report has a pickup position.</p>
       ) : (
         <>
-          <p className="as-rigging-heading">Rigging Points</p>
+          <p className="as-rigging-heading">Soundvision Array Pickup Points</p>
           <table className="as-table" data-testid="print-pickups">
             <colgroup>
               {RIGGING_PICKUP_WIDTHS_MM.map((w, i) => (
@@ -295,7 +301,7 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
       )}
       {extrasOn ? (
         <>
-          <p className="as-rigging-heading">Additional weight, typed in the app</p>
+          <p className="as-rigging-heading">{EXTRA_TABLE_TITLE}</p>
           <table className="as-table as-table-second" data-testid="print-extra-weights">
             <colgroup>
               {EXTRA_TABLE_WIDTHS_MM.map((w, i) => (
@@ -305,16 +311,17 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
             <thead>
               <tr>
                 {EXTRA_TABLE_COLUMNS.map((h, i) => (
-                  <th key={h} className={i >= 2 ? 'n' : undefined}>{h}</th>
+                  <th key={h} className={EXTRA_TABLE_LEFT_COLUMNS.includes(i) ? undefined : 'n'}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {extraTableRows(rigging, NOT_STATED).map((r, i) => (
                 <tr key={i}>
-                  <td>{cell(r[0] ?? '', 0, EXTRA_TABLE_WIDTHS_MM, 7)}</td>
-                  <td>{r[1]}</td>
-                  {r.slice(2).map((v, k) => (
+                  <td className="n">{r[0]}</td>
+                  <td>{cell(r[1] ?? '', 1, EXTRA_TABLE_WIDTHS_MM, 7)}</td>
+                  <td>{r[2]}</td>
+                  {r.slice(3).map((v, k) => (
                     <td key={k} className="n">
                       {v}
                     </td>
@@ -383,14 +390,31 @@ export function PrintSheet({ doc, model, footer, checks, onOverflow }: Props) {
           </tbody>
         </table>
       ) : null}
-      {note ? <p className="as-rigging-note">{note}</p> : null}
-      {weights.length > 0 ? <p className="as-rigging-note">{riggingWeightsNote(extrasOn)}</p> : null}
       {showNotes ? (
         <>
           <p className="as-rigging-heading">Notes</p>
           <p className="as-rigging-notes" data-testid="print-show-notes">
             {showNotes}
           </p>
+        </>
+      ) : null}
+      {cloud ? (
+        <>
+          <p className="as-rigging-heading">{CLOUD_LINK_HEADING}</p>
+          <div className="as-cloud" data-testid="print-cloud-link">
+            <a href={cloud.url} className="as-cloud-qr">
+              <svg viewBox={`0 0 ${cloud.size} ${cloud.size}`} width="22mm" height="22mm" role="img" aria-label={`QR code for ${cloud.url}`}>
+                <rect width={cloud.size} height={cloud.size} fill="#fff" />
+                <path d={cloud.path} fill="#000" />
+              </svg>
+            </a>
+            <div>
+              <p className="as-cloud-label">{CLOUD_LINK_LABEL}</p>
+              <p className="as-cloud-url">
+                <a href={cloud.url}>{cloud.url}</a>
+              </p>
+            </div>
+          </div>
         </>
       ) : null}
       <div className="as-small-print" data-testid="print-small-print">

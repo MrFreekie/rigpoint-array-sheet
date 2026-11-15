@@ -1,19 +1,17 @@
-import { EXTRA_TABLE_COLUMNS, extraTableRows, extrasUsed, riggingNote, riggingWeightsNote, weightTableColumns, weightTableRows, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
+import { EXTRA_TABLE_COLUMNS, EXTRA_TABLE_LEFT_COLUMNS, EXTRA_TABLE_TITLE, extraTableRows, extrasUsed, weightTableColumns, weightTableRows, type FixationRow, type RiggingRow, type RiggingWeight } from '../engine/sheet';
 import { NOT_STATED, num } from './format';
 
 export function RiggingSummary({ rows, weights = [], fixations = [] }: { rows: readonly RiggingRow[]; weights?: readonly RiggingWeight[]; fixations?: readonly FixationRow[] }) {
   const used = extrasUsed(rows);
-  const note = riggingNote(rows.length > 0, fixations.length > 0);
   return (
     <section className="panel" aria-labelledby="rigging-heading">
       <h2 id="rigging-heading">Rigging summary</h2>
-      {note ? <p className="muted">{note}</p> : null}
       {rows.length === 0 ? (
         <p className="muted">No flown array in this report has a pickup position.</p>
       ) : (
         <div className="table-wrap" data-testid="rigging-pickups">
           <table>
-            <caption>Rigging Points</caption>
+            <caption>Soundvision Array Pickup Points</caption>
             <thead>
               <tr>
                 <th scope="col" className="n">Point</th>
@@ -46,11 +44,11 @@ export function RiggingSummary({ rows, weights = [], fixations = [] }: { rows: r
       {used ? (
         <div className="table-wrap" data-testid="rigging-extra-weights">
           <table>
-            <caption>Additional weight, typed in the app</caption>
+            <caption>{EXTRA_TABLE_TITLE}</caption>
             <thead>
               <tr>
                 {EXTRA_TABLE_COLUMNS.map((h, i) => (
-                  <th key={h} scope="col" className={i >= 2 ? 'n' : undefined}>
+                  <th key={h} scope="col" className={EXTRA_TABLE_LEFT_COLUMNS.includes(i) ? undefined : 'n'}>
                     {h}
                   </th>
                 ))}
@@ -59,9 +57,10 @@ export function RiggingSummary({ rows, weights = [], fixations = [] }: { rows: r
             <tbody>
               {extraTableRows(rows, NOT_STATED).map((r, i) => (
                 <tr key={i}>
-                  <th scope="row">{r[0]}</th>
-                  <td>{r[1]}</td>
-                  {r.slice(2).map((v, k) => (
+                  <td className="n">{r[0]}</td>
+                  <th scope="row">{r[1]}</th>
+                  <td>{r[2]}</td>
+                  {r.slice(3).map((v, k) => (
                     <td key={k} className="n">
                       {v}
                     </td>
@@ -98,7 +97,6 @@ export function RiggingSummary({ rows, weights = [], fixations = [] }: { rows: r
               ))}
             </tbody>
           </table>
-          <p className="muted">{riggingWeightsNote(used)}</p>
         </div>
       ) : null}
       {fixations.length > 0 ? (

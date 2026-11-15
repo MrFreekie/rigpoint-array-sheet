@@ -40,6 +40,8 @@ export interface Job {
   notes: string;
   /** The date of the show as YYYY-MM-DD, or blank. Printed UK style wherever the show and venue are. */
   showDate: string;
+  /** The address of the hosted copy of the PDF, or blank. Printed under the notes as a link and a QR code. */
+  cloudUrl: string;
 }
 
 export interface Doc {
@@ -123,7 +125,7 @@ export interface PlotShow {
 
 export const SHOW_ALL: PlotShow = { position: true, outlines: true };
 
-export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true, gridM: GRID_DEFAULT_M, notes: '', showDate: '' };
+export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true, gridM: GRID_DEFAULT_M, notes: '', showDate: '', cloudUrl: '' };
 
 export function newDoc(result: ParseResult, sourceName: string): Doc {
   return {

@@ -10,7 +10,7 @@ const NOW = new Date('2026-10-22T10:30:00.000Z');
 
 function sample(name: 'a' | 'b' | 'd' | 'e' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `report-${name}.pdf`);
-  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3', origin: 'Iron Line', sideLabels: false, gridM: 10, notes: '', showDate: '' };
+  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3', origin: 'Iron Line', sideLabels: false, gridM: 10, notes: '', showDate: '', cloudUrl: '' };
   doc.offsets = { 0: '1.5', 4: '-0.2' };
   doc.revision = 'B';
   doc.status = 'issued';
@@ -62,7 +62,7 @@ describe('origin', () => {
 describe('show date', () => {
   it('is saved as YYYY-MM-DD and comes back', () => {
     const doc = sample();
-    doc.job = { ...doc.job, showDate: '2026-10-23' };
+    doc.job = { ...doc.job, showDate: '2026-10-23', cloudUrl: '' };
     expect(JSON.parse(serialiseDoc(doc, '0.1.0', NOW)).job.show_date).toBe('2026-10-23');
     expect(roundTrip(doc).doc.job.showDate).toBe('2026-10-23');
     expect(roundTrip(sample()).doc.job.showDate).toBe('');
@@ -329,7 +329,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/19');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/20');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -374,8 +374,20 @@ describe('opening a bad file', () => {
     expect(() => open('{"format":"loadsheet/1"}')).toThrow(/not a RigPoint Array Sheet file/);
   });
 
+  it('keeps the cloud link through a save and open, and refuses one that is not a web address or is too long', () => {
+    const doc = sample();
+    doc.job = { ...doc.job, cloudUrl: 'https://example.com/a1' };
+    expect(roundTrip(doc).doc.job.cloudUrl).toBe('https://example.com/a1');
+    expect(docToFile(doc, '0.1.0', NOW).job.cloud_url).toBe('https://example.com/a1');
+    // Text that is not a web address is left out of the file rather than making it unreadable.
+    doc.job = { ...doc.job, cloudUrl: 'not a link' };
+    expect(docToFile(doc, '0.1.0', NOW).job.cloud_url).toBe('');
+    expect(() => open(edited((f) => (f.job.cloud_url = 'javascript:alert(1)')))).toThrow(/cloud link/i);
+    expect(() => open(edited((f) => (f.job.cloud_url = `https://example.com/${'a'.repeat(100)}`)))).toThrow(/cloud link/i);
+  });
+
   it('refuses a file from a newer version', () => {
-    expect(() => open(edited((f) => (f.format = 'arraysheet/20')))).toThrow(/newer version/);
+    expect(() => open(edited((f) => (f.format = 'arraysheet/21')))).toThrow(/newer version/);
   });
 
   it('refuses a file over the size limit', () => {

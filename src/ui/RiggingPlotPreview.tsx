@@ -1,5 +1,5 @@
-import { useId, useMemo, useState } from 'react';
-import { localDateText, suggestedDxfName } from '../files/file-name';
+import { useId, useMemo, useRef, useState } from 'react';
+import { localDateText, suggestedDxfName, suggestedPlotImageName } from '../files/file-name';
 import { downloadBlob } from '../files/download';
 import { canvasMeasurePt, estimateWidth } from '../print/array-image';
 import { PlotSvg } from '../print/PlotSvg';
@@ -26,9 +26,12 @@ interface Props {
   onPlotShow: (patch: Partial<PlotShow>) => void;
   onUnderlay: (underlay: Underlay | null) => void;
   onLayer: (name: string, hidden: boolean) => void;
+  /** Print the rigging plot and the rigging summary without the array cards (the print window also saves as PDF). Null when nothing can be printed. */
+  onPrintPlot: (() => void) | null;
 }
 
-export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, onPlotShow, onUnderlay, onLayer }: Props) {
+export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, onPlotShow, onUnderlay, onLayer, onPrintPlot }: Props) {
+  const framesRef = useRef<HTMLDivElement>(null);
   const hintId = useId();
   const badDefault = effectiveOffset({ ...doc, offsets: {} }, 0).value === null;
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +42,17 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, o
     const content = plotContent(doc, model);
     return content ? layoutPlotPages({ ...content, footer: () => '' }, measure()) : [];
   }, [doc, model]);
+
+  async function onSaveImage() {
+    setError(null);
+    try {
+      const svgs = Array.from(framesRef.current?.querySelectorAll<SVGSVGElement>('svg') ?? []);
+      const { plotImageBlob } = await import('../print/plot-image');
+      downloadBlob(suggestedPlotImageName(fileTitle(doc), doc.revision, localDateText()), await plotImageBlob(svgs));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The rigging plot image could not be made.');
+    }
+  }
 
   function onDownloadDxf() {
     setError(null);
@@ -64,14 +78,14 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, o
             : 'No array is on the plot. Tick Include on rigging plot on an array card to put it here.'}
         </p>
       ) : (
-        <>
+        <div ref={framesRef}>
           {pages.map((p, i) => (
             // White space around the page on screen only. The plot stays on white in both themes, as it prints.
             <div key={i} className="plot-frame">
               <PlotSvg page={p} palette={SCREEN_PALETTE} testId="plot-svg" label={i === 0 ? 'Rigging plot' : 'Rigging plot, table continued'} />
             </div>
           ))}
-        </>
+        </div>
       )}
       <div className="plot-controls" data-testid="plot-controls">
         <label className="field">
@@ -124,6 +138,9 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, o
         </label>
         {pages.length > 0 ? (
           <div className="plot-download">
+            <button type="button" className="button" data-testid="plot-image-button" onClick={() => void onSaveImage()}>
+              Save image
+            </button>{' '}
             <button type="button" className="button" onClick={onDownloadDxf}>
               Download DXF
             </button>{' '}
@@ -136,6 +153,18 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, o
             ) : null}
           </div>
         ) : null}
+        <div className="plot-download">
+          <button
+            type="button"
+            className="button"
+            data-testid="print-plot-button"
+            disabled={onPrintPlot === null}
+            onClick={() => onPrintPlot?.()}
+            title={onPrintPlot === null ? 'Fix the problems with the report or the ground offsets first' : 'Print the rigging plot and the rigging summary without the array cards, or save them as a PDF from the print window'}
+          >
+            Print / export rigging plot and summary
+          </button>
+        </div>
         {error ? <p role="alert">{error}</p> : null}
       </div>
       {venueOpen ? <VenueDialog underlay={doc.underlay} locked={locked} onUnderlay={onUnderlay} onLayer={onLayer} onClose={() => setVenueOpen(false)} /> : null}

@@ -1,6 +1,6 @@
 // Builds the PDF and reads it back with the app's own PDF reader, so the tests see what a person would.
 
-import { PDFArray, PDFDocument, decodePDFRawStream, type PDFRawStream } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFName, decodePDFRawStream, type PDFRawStream } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 import { readPdfItems } from '../files/pdf-items';
 import { parseFixture } from '../testing/fixtures';
@@ -21,7 +21,7 @@ const FOOTER = printFooter({
 
 function sampleDoc(name: 'a' | 'b' | 'c' | 'e' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `${name}.pdf`);
-  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '', origin: 'DSE', sideLabels: true, gridM: 10, notes: '', showDate: '' };
+  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '', origin: 'DSE', sideLabels: true, gridM: 10, notes: '', showDate: '', cloudUrl: '' };
   return doc;
 }
 
@@ -53,6 +53,22 @@ describe('renderPdf', () => {
     expect(bytes.byteLength).toBeGreaterThan(5_000);
   });
 
+  it('prints the cloud link under the notes as a link area and a QR code, and nothing without one', async () => {
+    const doc = sampleDoc();
+    doc.job = { ...doc.job, notes: 'Bring spare cable', cloudUrl: 'https://example.com/a1' };
+    const withLink = await make(doc);
+    expect(withLink.text(withLink.pages)).toContain('Cloud Link');
+    expect(withLink.text(withLink.pages)).toContain('https://example.com/a1');
+    const pdf = await PDFDocument.load(withLink.bytes);
+    const annots = pdf.getPages()[withLink.pages - 1]!.node.Annots();
+    expect(annots?.size()).toBe(2);
+    const uris = [0, 1].map((i) => pdf.context.lookup(annots!.get(i), PDFDict).lookup(PDFName.of('A'), PDFDict).get(PDFName.of('URI'))?.toString());
+    expect(uris).toEqual(['(https://example.com/a1)', '(https://example.com/a1)']);
+    const without = await make(sampleDoc());
+    expect(without.all).not.toContain('Cloud Link');
+    expect((await PDFDocument.load(without.bytes)).getPages()[without.pages - 1]!.node.Annots()?.size() ?? 0).toBe(0);
+  });
+
   it('puts four arrays on a page, then the rigging plot, then the rigging summary last: report A is five pages', async () => {
     const { pages, text } = await make(sampleDoc());
     expect(pages).toBe(5); // 9 arrays = 4 + 4 + 1, then the plot, then the rigging page
@@ -72,7 +88,7 @@ describe('renderPdf', () => {
 
   it('prints the show date, UK style, on every panel, the plot and the rigging page, and nothing when there is none', async () => {
     const doc = sampleDoc();
-    doc.job = { ...doc.job, showDate: '2026-10-23' };
+    doc.job = { ...doc.job, showDate: '2026-10-23', cloudUrl: '' };
     const withDate = await make(doc);
     for (let p = 1; p <= withDate.pages; p++) expect(withDate.text(p), `page ${p}`).toContain('23/10/2026');
     const without = await make(sampleDoc());
@@ -216,7 +232,6 @@ describe('renderPdf', () => {
     expect(last).toContain('Array Fixation X (m) Y (m) Z (m)');
     expect(last).toContain('KARA II 1 Fr'); // the stack that collapses into KARA II 2 is listed with its own positions
     expect(last).toContain('KARA II 2 Fr -2.84 4.6 1');
-    expect(last).toContain('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
     // The fixation rows are on the rigging page and nowhere else as a table.
     expect(text(1)).not.toContain('Array Fixation');
   });
@@ -234,7 +249,6 @@ describe('renderPdf', () => {
   it('has no fixation table and keeps the old line when the report states no fixations', async () => {
     const { text } = await make(sampleDoc());
     expect(text(5)).not.toContain('Fixation');
-    expect(text(5)).toContain('Every pickup is listed, including those of mirrored arrays, because their positions differ.');
   });
 
   it('cuts the middle of an array name that is too long for its column, keeping its end, in both rigging tables', async () => {

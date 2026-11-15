@@ -1,4 +1,4 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/19").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/20").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
@@ -20,11 +20,12 @@ import {
   MAX_WARNINGS_PER_SOURCE,
 } from '../files/limits';
 import { REVISION_PATTERN } from '../files/revision';
+import { CLOUD_URL_MAX, isCloudUrl } from '../files/cloud-url';
 import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 19;
+export const FORMAT_VERSION = 20;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -120,6 +121,7 @@ export const ArrayFileSchema = z
       grid_m: z.number({ error: 'Grid size must be a number' }).min(GRID_MIN_M, { error: `Grid size must be at least ${GRID_MIN_M} m` }).max(GRID_MAX_M, { error: `Grid size must be at most ${GRID_MAX_M} m` }),
       notes: text('Show notes', SHOW_NOTES_MAX),
       show_date: text('Show date', 10),
+      cloud_url: text('Cloud link', CLOUD_URL_MAX),
     }),
     offsets: z.array(text('Ground offset', 20), { error: 'Offsets must be a list' }),
     print: z.array(z.boolean({ error: 'Print must be true or false' }), { error: 'Print choices must be a list' }),
@@ -219,6 +221,9 @@ export const ArrayFileSchema = z
     }
     if (file.job.show_date !== '' && !isShowDate(file.job.show_date)) {
       ctx.addIssue({ code: 'custom', path: ['job', 'show_date'], message: 'The show date must be a real date or blank' });
+    }
+    if (file.job.cloud_url !== '' && !isCloudUrl(file.job.cloud_url)) {
+      ctx.addIssue({ code: 'custom', path: ['job', 'cloud_url'], message: 'The cloud link must be a web address (http or https) or blank' });
     }
     // The show notes may hold line breaks, nothing else that is not text.
     // eslint-disable-next-line no-control-regex

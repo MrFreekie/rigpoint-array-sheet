@@ -1,7 +1,7 @@
 // An additional weight on the rigging plot, the rigging summary and the small print.
 
 import { describe, expect, it } from 'vitest';
-import { EXTRA_TABLE_COLUMNS, extraTableRows, extrasUsed, riggingRows, riggingWeights, riggingWeightsNote, weightTableColumns, weightTableRows } from '../engine/sheet';
+import { EXTRA_TABLE_COLUMNS, extraTableRows, extrasUsed, riggingRows, riggingWeights, weightTableColumns, weightTableRows } from '../engine/sheet';
 import { parseFixture } from '../testing/fixtures';
 import { NOT_STATED } from '../ui/format';
 import { extraKgFor, sheetModel } from '../ui/sheet-model';
@@ -108,9 +108,8 @@ describe('the rigging summary with an additional weight', () => {
     expect(extrasUsed(rows)).toBe(false);
     const weights = riggingWeights(sources());
     expect(weights.length).toBeGreaterThan(0);
-    expect(weightTableColumns(false)).toEqual(['Array', 'Total array weight (kg)']);
+    expect(weightTableColumns(false)).toEqual(['Array', 'Soundvision Array Weight (kg)']);
     expect(weightTableRows(weights, false, NOT_STATED)[0]).toEqual([weights[0]!.source, String(weights[0]!.total)]);
-    expect(riggingWeightsNote(false)).toBe('Total array weight is the figure the report states.');
   });
 
   it('lists each weight typed as its own line, with the report load, the weight and the two added together', () => {
@@ -118,8 +117,8 @@ describe('the rigging summary with an additional weight', () => {
     const model = sheetModel(doc, false);
     const rows = riggingRows(model.sources, model.live, extraKgFor(doc, model));
     expect(extrasUsed(rows)).toBe(true);
-    const lines = extraTableRows(rows, NOT_STATED);
-    expect(EXTRA_TABLE_COLUMNS).toEqual(['Array', 'Pickup', 'Report load (kg)', 'Additional (kg)', 'Pickup total (kg)']);
+    const lines = extraTableRows(rows, NOT_STATED).map((l) => l.slice(1));
+    expect(EXTRA_TABLE_COLUMNS).toEqual(['Point', 'Array', 'Pickup', 'Report load (kg)', 'Additional (kg)', 'Pickup total (kg)']);
     expect(lines).toContainEqual(['KARA II L Main', 'Single', '414.2', '10', '424.2']);
     // The mirror image that the card stands for takes the same weight.
     expect(lines).toContainEqual(['KARA II R Main', 'Single', '414.2', '10', '424.2']);
@@ -133,7 +132,7 @@ describe('the rigging summary with an additional weight', () => {
     const model = sheetModel(doc, false);
     const weights = riggingWeights(model.sources, model.live, extraKgFor(doc, model));
     const lines = weightTableRows(weights, true, NOT_STATED);
-    expect(weightTableColumns(true)).toEqual(['Array', 'Total array weight (kg)', 'Additional weight (kg)', 'Pickups with additional (kg)']);
+    expect(weightTableColumns(true)).toEqual(['Array', 'Soundvision Array Weight (kg)', 'Additional weight (kg)', 'Total (kg)']);
     expect(lines).toContainEqual(['KARA II L Main', '414.2', '10', '424.2']);
     expect(lines).toContainEqual(['KARA II L Out', '184.3', '0.35', '184.65']);
     // An array with nothing typed shows its total and a blank sum: a weight never changes the total the report states.
@@ -145,7 +144,6 @@ describe('the rigging summary with an additional weight', () => {
     const plain = w.find((x) => x.source === 'K2 Left')!;
     expect(plain.extra).toBeNull();
     expect(weightTableRows(w, true, NOT_STATED).find((r) => r[0] === 'K2 Left')).toEqual(['K2 Left', String(plain.total), '0', '']);
-    expect(riggingWeightsNote(true)).toContain('typed in the app');
   });
 
   it('puts both tables, their headings and the note on the page, and nothing about weights typed when none is', () => {
@@ -162,11 +160,11 @@ describe('the rigging summary with an additional weight', () => {
       qrUrl: 'https://example.com/',
     });
     const typed = drawTexts(layoutRiggingPage(input(riggingRows(model.sources, model.live, extraOf), riggingWeights(model.sources, model.live, extraOf)), estimateWidth).ops);
-    for (const t of ['Additional weight, typed in the app', 'Array weights', 'Report load (kg)', 'Additional (kg)', 'Pickup total (kg)', 'Total array weight (kg)', 'Additional weight (kg)', '424.2', '184.65']) expect(typed).toContain(t);
+    for (const t of ['Rigging Point Static Loads', 'Array weights', 'Report load (kg)', 'Additional (kg)', 'Pickup total (kg)', 'Soundvision Array Weight (kg)', 'Additional weight (kg)', '424.2', '184.65']) expect(typed).toContain(t);
     const plain = drawTexts(layoutRiggingPage(input(riggingRows(sources()), riggingWeights(sources())), estimateWidth).ops);
     expect(plain).toContain('Array weights');
-    expect(plain).toContain('Total array weight (kg)');
-    expect(plain).not.toContain('Additional weight, typed in the app');
+    expect(plain).toContain('Soundvision Array Weight (kg)');
+    expect(plain).not.toContain('Rigging Point Static Loads');
     expect(plain).not.toContain('Additional (kg)');
   });
 });

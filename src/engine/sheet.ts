@@ -177,9 +177,13 @@ export function riggingWeights(sources: readonly ArraySource[], include?: Readon
 }
 
 /** The columns of the table that lists the additional weights, the only table that shows a typed figure beside the report's. */
-export const EXTRA_TABLE_COLUMNS = ['Array', 'Pickup', 'Report load (kg)', 'Additional (kg)', 'Pickup total (kg)'];
+export const EXTRA_TABLE_COLUMNS = ['Point', 'Array', 'Pickup', 'Report load (kg)', 'Additional (kg)', 'Pickup total (kg)'];
+/** The heading of that table. */
+export const EXTRA_TABLE_TITLE = 'Rigging Point Static Loads';
+/** The columns of that table that are left aligned: Array and Pickup. Every other column is centred. */
+export const EXTRA_TABLE_LEFT_COLUMNS = [1, 2];
 /** Column widths in mm on the 192 mm rigging page, for the table above. */
-export const EXTRA_TABLE_WIDTHS_MM = [74, 20, 30, 30, 38];
+export const EXTRA_TABLE_WIDTHS_MM = [14, 60, 20, 30, 30, 38];
 
 /**
  * The rows of the additional weight table: every pickup of an array that has an additional weight, with the report's load,
@@ -188,13 +192,13 @@ export const EXTRA_TABLE_WIDTHS_MM = [74, 20, 30, 30, 38];
 export function extraTableRows(rows: readonly RiggingRow[], dash: string): string[][] {
   return rows
     .filter((r) => r.arrayHasExtra)
-    .map((r) => [r.source, r.location, r.load === null ? dash : kgText(r.load), kgText(r.extra ?? 0), r.load === null ? dash : kgText(sumKg(r.load, r.extra ?? 0))]);
+    .map((r) => [r.point, r.source, r.location, r.load === null ? dash : kgText(r.load), kgText(r.extra ?? 0), r.load === null ? dash : kgText(sumKg(r.load, r.extra ?? 0))]);
 }
 
 /** The columns of the array weights table. The typed and summed columns appear only when an additional weight is in use. */
 export const weightTableColumns = (used: boolean): string[] =>
-  used ? ['Array', 'Total array weight (kg)', 'Additional weight (kg)', 'Pickups with additional (kg)'] : ['Array', 'Total array weight (kg)'];
-export const weightTableWidthsMm = (used: boolean): number[] => (used ? [50, 46, 46, 50] : [120, 72]);
+  used ? ['Array', 'Soundvision Array Weight (kg)', 'Additional weight (kg)', 'Total (kg)'] : ['Array', 'Soundvision Array Weight (kg)'];
+export const weightTableWidthsMm = (used: boolean): number[] => (used ? [40, 58, 44, 50] : [120, 72]);
 
 /** The rows of the array weights table. The total is the report's figure, always shown as its own item. `dash` stands for a figure that is not stated. */
 export function weightTableRows(weights: readonly RiggingWeight[], used: boolean, dash: string): string[][] {
@@ -203,13 +207,6 @@ export function weightTableRows(weights: readonly RiggingWeight[], used: boolean
     if (!used) return [w.source, total];
     return [w.source, total, w.extra === null ? '0' : kgText(w.extra), w.extra === null ? '' : w.pickupSum === null ? dash : kgText(w.pickupSum)];
   });
-}
-
-/** The line that says which weights are the report's and which were typed. */
-export function riggingWeightsNote(used: boolean): string {
-  return used
-    ? "Total array weight is the figure the report states. Additional weight is typed in the app and is not in the report. Pickups with additional is the report's pickup loads plus that additional weight."
-    : 'Total array weight is the figure the report states.';
 }
 
 /** True when any pickup row carries an additional weight, so the page lists them. */
@@ -235,13 +232,6 @@ export function riggingFixations(sources: readonly ArraySource[], include?: Read
     for (const f of s.fixations ?? []) rows.push({ source: s.name, name: f.name, x: f.at.x, y: f.at.y, z: f.at.z });
   }
   return rows;
-}
-
-/** The line under the rigging tables. Null when there is nothing listed. */
-export function riggingNote(pickups: boolean, fixations: boolean): string | null {
-  if (!pickups && !fixations) return null;
-  const what = pickups && fixations ? 'pickup and fixation' : pickups ? 'pickup' : 'fixation';
-  return `Every ${what} is listed, including those of mirrored arrays, because their positions differ.`;
 }
 
 /** A ground offset typed by the user: blank means 0, anything that is not a number is rejected. */

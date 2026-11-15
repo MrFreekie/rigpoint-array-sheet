@@ -2,7 +2,7 @@
 
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { flySheetColumn, riggingFixations, riggingNote, riggingRows } from '../engine/sheet';
+import { flySheetColumn, riggingFixations, riggingRows } from '../engine/sheet';
 import type { Problem } from '../engine/types';
 import { parseFixture } from '../testing/fixtures';
 import { App } from './App';
@@ -194,14 +194,12 @@ describe('RiggingSummary', () => {
 
   it('names only pickups in its line when the report states no fixations, and shows no fixation table', () => {
     const html = renderToStaticMarkup(<RiggingSummary rows={riggingRows(b)} fixations={riggingFixations(b)} />);
-    expect(html).toContain(riggingNote(true, false));
     expect(html).not.toContain('rigging-fixations');
   });
 
   it('lists the fixations of report E under the pickups, with the line that covers both', () => {
     const e = parseFixture('e').report.sources;
     const html = renderToStaticMarkup(<RiggingSummary rows={riggingRows(e)} fixations={riggingFixations(e)} />);
-    expect(html).toContain('Every pickup and fixation is listed, including those of mirrored arrays, because their positions differ.');
     expect(html).toContain('rigging-fixations');
     expect(html).toContain('>Fixation<');
     expect(html).toContain('<td>Fr</td><td class="n">-2.84</td><td class="n">4.6</td><td class="n">1</td>');
@@ -240,7 +238,7 @@ describe('rigging plot', () => {
   });
 
   it('shows the under development note above the plot', () => {
-    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} locked={false} onJob={() => {}} onPlotPrinted={() => {}} onPlotShow={() => {}} onUnderlay={() => {}} onLayer={() => {}} />);
+    const html = renderToStaticMarkup(<RiggingPlotPreview doc={doc} model={sheetModel(doc, false)} locked={false} onJob={() => {}} onPlotPrinted={() => {}} onPlotShow={() => {}} onUnderlay={() => {}} onLayer={() => {}} onPrintPlot={null} />);
     expect(html).toContain(PLOT_DEVELOPMENT_NOTE);
     expect(html).toContain('data-testid="plot-svg"');
   });
@@ -248,7 +246,7 @@ describe('rigging plot', () => {
 
 describe('the controls under the rigging plot', () => {
   const preview = (d: Doc, locked = false) =>
-    renderToStaticMarkup(<RiggingPlotPreview doc={d} model={sheetModel(d, false)} locked={locked} onJob={() => {}} onPlotPrinted={() => {}} onPlotShow={() => {}} onUnderlay={() => {}} onLayer={() => {}} />);
+    renderToStaticMarkup(<RiggingPlotPreview doc={d} model={sheetModel(d, false)} locked={locked} onJob={() => {}} onPlotPrinted={() => {}} onPlotShow={() => {}} onUnderlay={() => {}} onLayer={() => {}} onPrintPlot={null} />);
 
   it('hold Show position and Show outlines, ticked until they are hidden, and still switched on for a read-only file', () => {
     const d = newDoc(parseFixture('a'), 'a.pdf');
@@ -304,7 +302,7 @@ describe('the controls under the rigging plot', () => {
   it('are still there, with Print rigging plot switched off, when no array is on the plot', () => {
     let d = newDoc(parseFixture('a'), 'a.pdf');
     d.result.report.sources.forEach((_, i) => (d = withOnPlot(d, i, false)));
-    const out = renderToStaticMarkup(<RiggingPlotPreview doc={d} model={sheetModel(d, true)} locked={false} onJob={() => {}} onPlotPrinted={() => {}} onPlotShow={() => {}} onUnderlay={() => {}} onLayer={() => {}} />);
+    const out = renderToStaticMarkup(<RiggingPlotPreview doc={d} model={sheetModel(d, true)} locked={false} onJob={() => {}} onPlotPrinted={() => {}} onPlotShow={() => {}} onUnderlay={() => {}} onLayer={() => {}} onPrintPlot={null} />);
     expect(out).toContain('No array is on the plot');
     expect(out).toContain('Origin (P0)');
     expect(out).toContain('Ground offset for every array (m)');

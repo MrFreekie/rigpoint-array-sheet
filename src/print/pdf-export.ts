@@ -3,8 +3,9 @@
 // twice for A6 panels), then the rigging plot (a landscape drawing turned onto the sheet), then the rigging summary page.
 // Text uses the PDF's built-in Helvetica, so nothing is fetched and no font is embedded.
 
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { PDFDocument, PDFString, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import { APP_URL } from '../app-info';
+import { cloudUrlOf } from '../files/cloud-url';
 import { riggingFixations, riggingRows, riggingWeights } from '../engine/sheet';
 import type { Doc } from '../files/doc';
 import { extraKgFor, type SheetModel } from '../ui/sheet-model';
@@ -246,6 +247,7 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
       notes: riggingNotes(doc.job),
       qr: qrMatrix(APP_URL),
       qrUrl: APP_URL,
+      ...(cloudUrlOf(doc.job) ? { cloud: { url: cloudUrlOf(doc.job), qr: qrMatrix(cloudUrlOf(doc.job)) } } : {}),
     },
     measure,
   );
@@ -253,6 +255,19 @@ export async function renderPdf(input: PdfInput): Promise<Uint8Array> {
   if (draft) drawWatermark(last, fonts.bold, margin, margin, pageW, mm(PAGE_H_MM), 90);
   const fit = fitScale(ptToPx(rigging.height), FULL_H_MM, MIN_FULL_SCALE);
   drawOps(last, fonts, safe, rigging.ops, margin + pad, margin + pad, fit.scale);
+  // The cloud link is clickable: the QR code and the address each open it.
+  for (const l of rigging.links ?? []) {
+    const x = margin + pad + l.x * fit.scale;
+    const top = margin + pad + l.y * fit.scale;
+    const annot = pdf.context.obj({
+      Type: 'Annot',
+      Subtype: 'Link',
+      Rect: [x, A4.h - top - l.h * fit.scale, x + l.w * fit.scale, A4.h - top],
+      Border: [0, 0, 0],
+      A: { Type: 'Action', S: 'URI', URI: PDFString.of(l.url) },
+    });
+    last.node.addAnnot(pdf.context.register(annot));
+  }
   drawPageFooter(last, fonts, safe, footerFor(total));
 
   return pdf.save();

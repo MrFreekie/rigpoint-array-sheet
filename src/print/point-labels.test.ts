@@ -64,13 +64,13 @@ describe('the Point column of the rigging summary', () => {
     for (const n of names) expect(rows.filter((r) => r.source === n).every((r) => /^PA\d+$/.test(r.point))).toBe(true);
   });
 
-  it('prints the Rigging Points heading and a centred Point column in the PDF layout, with a blank cell left empty', () => {
+  it('prints the Soundvision Array Pickup Points heading and a centred Point column in the PDF layout, with a blank cell left empty', () => {
     const doc = newDoc(parseFixture('a'), 'a.pdf');
     const base = rowsOf(doc).rows;
     const rows = base.map((r, i) => (i === 0 ? { ...r, point: '' } : r));
     const laid = layoutRiggingPage({ rows, fixations: [], subtitle: '', notes: '', qr: qrMatrix('https://example.test/'), qrUrl: 'https://example.test/' }, estimateWidth);
     const texts = laid.ops.filter((o): o is Extract<DrawOp, { op: 'text' }> => o.op === 'text');
-    expect(texts.some((o) => o.text === 'Rigging Points' && o.bold)).toBe(true);
+    expect(texts.some((o) => o.text === 'Soundvision Array Pickup Points' && o.bold)).toBe(true);
     const head = texts.find((o) => o.text === 'Point')!;
     expect(head.align).toBe('center');
     const labels = texts.filter((o) => /^PA\d+$/.test(o.text));
@@ -79,7 +79,7 @@ describe('the Point column of the rigging summary', () => {
     // The pickups with no number draw nothing in that cell, not a dash.
     expect(texts.filter((o) => o.text === '–').length).toBe(0);
     // Array stays left of the numbers, and the heading comes before the first header cell.
-    const heading = texts.findIndex((o) => o.text === 'Rigging Points');
+    const heading = texts.findIndex((o) => o.text === 'Soundvision Array Pickup Points');
     expect(heading).toBeGreaterThanOrEqual(0);
     expect(heading).toBeLessThan(texts.findIndex((o) => o.text === 'Point'));
   });
