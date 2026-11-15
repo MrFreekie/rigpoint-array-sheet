@@ -164,7 +164,7 @@ describe('cardContent', () => {
     expect(c.subtitle).toBe('MAINS · vertical, flown array');
     expect(c.context).toBe('Main stage · Grand Hall · Issued Rev B · Z-axis zero: Arena floor');
     expect(c.facts).toEqual([
-      ['Total mass', '414.2 kg'], ['Front motor load', '414.2 kg'], ['Top height', '9.4 m'],
+      ['Total weight', '414.2 kg'], ['Front motor load', '414.2 kg'], ['Top height', '9.4 m'],
       ['Bottom height', '5.75 m'], ['Top site', '3.8°'], ['Azimuth', '0°'],
       ['Frame/Bar Hole', 'M-BUMP+MBAR hole A / 6'],
     ]);
@@ -182,7 +182,7 @@ describe('cardContent', () => {
 
   it('a two-motor array lists both loads and both pickups', () => {
     const c = card(docB, 'FL KARA II L');
-    expect(c.facts.slice(0, 3)).toEqual([['Total mass', '235.4 kg'], ['Front motor load', '182.7 kg'], ['Rear motor load', '52.7 kg']]);
+    expect(c.facts.slice(0, 3)).toEqual([['Total weight', '235.4 kg'], ['Front motor load', '182.7 kg'], ['Rear motor load', '52.7 kg']]);
     expect(c.facts.find(([l]) => l === 'Pickups')?.[1]).toBe('Front 16, Rear 0');
   });
 

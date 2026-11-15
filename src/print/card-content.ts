@@ -109,7 +109,7 @@ export function frameFacts(
 export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
   const c = entry.column;
 
-  const facts: CardContent['facts'] = [['Total mass', kg(c.totalMass)]];
+  const facts: CardContent['facts'] = [['Total weight', kg(c.totalMass)]];
   if (c.motors !== null) {
     facts.push(['Front motor load', kg(c.frontMotorLoad)]);
     if (c.motors > 1 || c.rearMotorLoad !== null) facts.push(['Rear motor load', kg(c.rearMotorLoad)]);

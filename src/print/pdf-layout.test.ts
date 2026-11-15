@@ -408,7 +408,7 @@ describe('canvasMeasurePt without a canvas', () => {
   it('falls back to the estimate, and the plan is the same as one made with the estimate', () => {
     vi.stubGlobal('document', { createElement: () => ({ getContext: () => null }) });
     const measure = canvasMeasurePt();
-    expect(measure('Total mass', 7, true)).toBe(estimateWidth('Total mass', 7, true));
+    expect(measure('Total weight', 7, true)).toBe(estimateWidth('Total weight', 7, true));
     const c = content(docA, 'KARA II L Main', false);
     expect(layoutPocketCard(c, measure)).toEqual(layoutPocketCard(c, estimateWidth));
     expect(planPages([{ item: 0, heightPx: ptToPx(layoutPocketCard(c, measure).height) }])[0]?.kind).toBe('grid');

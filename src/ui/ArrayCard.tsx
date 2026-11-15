@@ -132,7 +132,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
       ) : null}
 
       <dl className="facts">
-        <dt>Total mass</dt>
+        <dt>Total weight</dt>
         <dd>{kg(c.totalMass)}</dd>
         {c.motors !== null ? (
           <>
