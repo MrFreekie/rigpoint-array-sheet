@@ -494,6 +494,11 @@ export function App() {
               </span>
             ) : null}
           </p>
+          {doc?.result.ok && doc.result.report.document.fileName ? (
+            <p className="project-title" data-testid="project-title">
+              Project: {doc.result.report.document.fileName}
+            </p>
+          ) : null}
           <p className="file-state" role="status">
             {!doc ? (
               <span>Nothing is stored or sent anywhere</span>
@@ -841,7 +846,7 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
               <p className="muted source-line" data-testid="mirrors-line">
                 {showMirrors
                   ? `The ${model.mirrorPairs} mirrored ${model.mirrorPairs === 1 ? 'array is' : 'arrays are'} shown too. `
-                  : `${model.mirrorPairs} exact mirror ${model.mirrorPairs === 1 ? 'image is' : 'images are'} hidden, because ${model.mirrorPairs === 1 ? 'its partner stands' : 'their partners stand'} for ${model.mirrorPairs === 1 ? 'it' : 'them'}. `}
+                  : `${model.mirrorPairs} exact mirror ${model.mirrorPairs === 1 ? 'image is' : 'images are'} hidden. `}
                 <button type="button" className="button" aria-pressed={showMirrors} onClick={() => onShowMirrors(!showMirrors)}>
                   {showMirrors ? 'Hide them' : 'Show them'}
                 </button>
@@ -871,7 +876,6 @@ function Report({ doc, model, problems, undoLabel, undoButton, onDelete, onUndo,
                 : `${printCount} of ${model.entries.length} arrays shown are chosen for printing and as images.`}
             </p>
             <p className="muted source-line">
-              {report.document.fileName ? `Project: ${report.document.fileName}. ` : ''}
               {report.document.version ? `Soundvision ${report.document.version}. ` : ''}
               {report.document.date ? `Report dated ${report.document.date}.` : ''}
             </p>

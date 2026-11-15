@@ -26,7 +26,7 @@ export function NotesPanel({ doc, locked, onJob }: Props) {
           aria-describedby="show-notes-count"
         />
         <span id="show-notes-count" className="field-hint">
-          {doc.job.notes.length} of {SHOW_NOTES_MAX} characters. Printed at the end of the rigging summary page.
+          {doc.job.notes.length} of {SHOW_NOTES_MAX} characters.
         </span>
       </label>
       <label className="field">

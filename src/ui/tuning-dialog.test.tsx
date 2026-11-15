@@ -21,7 +21,6 @@ describe('Tuning sheet', () => {
     expect(out).toContain('KARA II L Main');
     expect(out).toContain('180 Hz, 2 dB');
     expect(out).toContain('<div>4.17 ms</div><div class="tuning-small">SUBS: 4 ms</div>');
-    expect(out).toContain('A blank means the report states nothing the app could read for it.');
     expect(out.match(/<tbody>[\s\S]*<\/tbody>/)?.[0].match(/<tr>/g)).toHaveLength(18);
   });
 

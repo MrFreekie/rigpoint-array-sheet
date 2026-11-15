@@ -30,7 +30,6 @@ test('the Tuning button opens a table with the delay and the group line of an ar
   await expect(main).toContainText('Default');
   // Mirror images that the cards hide are still listed.
   await expect(dialog.getByRole('row', { name: /SB28 R Rear/ })).toContainText('4.17 ms');
-  await expect(dialog).toContainText('A blank means the report states nothing the app could read for it.');
 
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();

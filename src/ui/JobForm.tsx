@@ -26,7 +26,6 @@ export function JobForm({ doc, locked, onJob, onStatus, onRevision }: Props) {
         <label className="field">
           <span>Show date</span>
           <input type="date" value={doc.job.showDate} disabled={locked} onChange={(e) => onJob({ showDate: e.target.value })} />
-          <span className="field-hint">Optional. Printed as day, month, year with the show details.</span>
         </label>
         <label className="field">
           <span>System engineer</span>

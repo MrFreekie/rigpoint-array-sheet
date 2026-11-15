@@ -70,7 +70,6 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, o
     <section className="panel" aria-labelledby="plot-heading" data-testid="plot-preview">
       <h2 id="plot-heading">Rigging plot</h2>
       <p className="muted">{PLOT_DEVELOPMENT_NOTE}</p>
-      <p className="muted">The side labels are in Settings.</p>
       {pages.length === 0 ? (
         <p className="muted">
           {model.hasPlot
@@ -122,19 +121,18 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, o
           <button type="button" className="button" data-testid="venue-button" onClick={() => setVenueOpen(true)}>
             {venueButtonLabel(doc.underlay)}
           </button>
-          <span className="field-hint">A grey drawing of the venue under the plot.</span>
         </div>
         <label className="check-field">
           <input type="checkbox" checked={plotShown(doc).position} onChange={(e) => onPlotShow({ position: e.target.checked })} />
-          <span>Show position (the dot at the Position of each array)</span>
+          <span>Show position</span>
         </label>
         <label className="check-field">
           <input type="checkbox" checked={plotShown(doc).outlines} onChange={(e) => onPlotShow({ outlines: e.target.checked })} />
-          <span>Show outlines (the box of each array)</span>
+          <span>Show outlines</span>
         </label>
         <label className="check-field">
           <input type="checkbox" checked={model.printsPlot} disabled={!model.hasPlot} onChange={(e) => onPlotPrinted(e.target.checked)} />
-          <span>Print rigging plot (the plot is the page before the rigging summary)</span>
+          <span>Print rigging plot</span>
         </label>
         {pages.length > 0 ? (
           <div className="plot-download">
@@ -148,7 +146,7 @@ export function RiggingPlotPreview({ doc, model, locked, onJob, onPlotPrinted, o
             {doc.underlay ? (
               <label className="check-field">
                 <input type="checkbox" checked={venueInDxf} onChange={(e) => setVenueInDxf(e.target.checked)} />
-                <span>Include venue in the DXF (the layers that are shown, on layers named VENUE_ and the SketchUp layer name)</span>
+                <span>Include venue in the DXF</span>
               </label>
             ) : null}
           </div>

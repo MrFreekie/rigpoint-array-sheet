@@ -309,7 +309,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
               aria-describedby={`${id}-note-count`}
             />
             <span id={`${id}-note-count`} className="muted">
-              {note.length} of {NOTES_MAX} characters. Printed on the card.
+              {note.length} of {NOTES_MAX} characters.
             </span>
           </label>
 
@@ -323,9 +323,10 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
             />
           ))}
 
-          {c.pickups.map((p) => (
+          {c.pickups.map((p, k) => (
             <ExtraWeightField
               key={p.which}
+              hint={k === 0}
               label={c.pickups.length > 1 ? `Additional weight, ${p.which} pickup (kg)` : 'Additional weight (kg)'}
               value={extras[p.which]}
               disabled={locked === true}
@@ -370,7 +371,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
 }
 
 /** The additional weight of one pickup, typed in kilograms. It is added to the pickup's load and the array's total, and shown as its own item. */
-function ExtraWeightField({ label, value, disabled, onChange }: { label: string; value: string; disabled: boolean; onChange: (text: string) => void }) {
+function ExtraWeightField({ label, value, disabled, onChange, hint }: { label: string; value: string; disabled: boolean; onChange: (text: string) => void; hint: boolean }) {
   const id = useId();
   return (
     <label className="field extra-field" htmlFor={id}>
@@ -385,11 +386,13 @@ function ExtraWeightField({ label, value, disabled, onChange }: { label: string;
         onChange={(e) => {
           if (isTypingExtra(e.target.value)) onChange(e.target.value);
         }}
-        aria-describedby={`${id}-help`}
+        aria-describedby={hint ? `${id}-help` : undefined}
       />
-      <span id={`${id}-help`} className="muted">
-        Optional. Added to this pickup's load and the array's total on the plot, and listed on its own on the rigging summary.
-      </span>
+      {hint ? (
+        <span id={`${id}-help`} className="muted">
+          Optional. Added to this pickup's load and the array's total on the plot, and listed on its own on the rigging summary.
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -421,7 +424,7 @@ function DepthField({ label, value, disabled, onChange }: { label: string; value
       <span id={`${id}-help`} className={bad ? 'field-error' : 'muted'}>
         {bad
           ? `Enter a number of metres above 0 and up to ${DEPTH_MAX_M}, such as 1.25.`
-          : "Shown in Soundvision but not in the report. The rigging plot draws this array's outline only when it is typed."}
+          : 'Shown in Soundvision but not in the report.'}
       </span>
     </label>
   );

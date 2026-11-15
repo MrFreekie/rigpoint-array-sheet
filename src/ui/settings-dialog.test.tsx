@@ -44,11 +44,11 @@ describe('Settings', () => {
     expect(out).toContain('placeholder="one block"');
   });
 
-  it('lists a saved type the report does not have, marked as not in this report', () => {
+  it('does not list a saved type the report does not have', () => {
     const d = withCartSizes(docOf('a'), [{ type: 'K2', size: 4 }, { type: 'KARA II', size: 3 }]);
     const out = html(d);
-    expect(out).toContain('not in this report');
-    expect(out).toContain('>K2<');
+    expect(out).not.toContain('not in this report');
+    expect(out).not.toContain('>K2<');
   });
 
   it('leaves out a type whose only arrays are deleted', () => {
@@ -85,13 +85,13 @@ describe('Settings', () => {
 
   it('switches off every field and button that changes the file when the file is read-only', () => {
     const d = docOf('a');
-    const fields = new Set([...reportTypes(sheetModel(d, false)), ...d.cartSizes.map((c) => c.type)].map((t) => t.toLowerCase())).size;
+    const fields = new Set(reportTypes(sheetModel(d, false)).map((t) => t.toLowerCase())).size;
     const out = html(d, true);
     // The reset buttons for the cart sizes and the symbols are disabled too.
     const buttons = out.match(/<button[^>]*disabled=""[^>]*>[^<]*</g) ?? [];
     expect(buttons.map((b) => b.replace(/<[^>]*>/g, '').replace('<', ''))).toEqual(expect.arrayContaining(['Reset to the usual sizes']));
     const inputs = out.match(/<input[^>]*disabled=""/g) ?? [];
-    // Every size field (the report's types and the saved ones), the four symbol fields, the grid size and the side labels tick. The mirrors tick stays on: it is a view choice.
+    // Every size field (the report's types), the four symbol fields, the grid size and the side labels tick. The mirrors tick stays on: it is a view choice.
     expect(inputs.length).toBe(fields + 4 + 1 + 1);
     expect(out).not.toMatch(/<input type="checkbox"(?![^>]*disabled)[^>]*>(?=<span>Show side labels)/);
   });

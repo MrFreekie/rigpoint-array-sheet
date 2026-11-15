@@ -11,7 +11,7 @@ The PDF is read on your device. Nothing is uploaded.
 
 You will see one of three messages above the cards:
 
-- READ OK: every line in the array sections was understood and the report's own figures agree with each other. This does not check the design.
+- READ OK: every line in the array sections was understood and the report's own figures agree with each other.
 - CHECK: something looks odd, such as a line the app did not understand. Each item names the array. Compare it with the PDF.
 - ERROR: the report cannot be relied on, for example because it is in pounds or feet. The cards are not shown.
 

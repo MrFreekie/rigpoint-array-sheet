@@ -6,7 +6,6 @@ import type { ArrayTuning } from '../engine/types';
 
 export const TUNING_COLUMNS = ['Array', 'Delay', 'Gain', 'Autofilter', 'LF Contour', 'Zoom'] as const;
 
-export const TUNING_FOOTNOTE = 'A blank means the report states nothing the app could read for it.';
 
 export interface TuningLine {
   text: string;

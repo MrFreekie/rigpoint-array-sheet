@@ -5,7 +5,7 @@ export function ProblemsPanel({ problems, ok }: { problems: readonly Problem[]; 
   if (problems.length === 0) {
     return (
       <p className="banner banner-ok" role="status">
-        <span className="tag tag-ok">READ OK</span> Every line in the array sections was understood and the report's own figures agree with each other. This does not check the design.
+        <span className="tag tag-ok">READ OK</span> Every line in the array sections was understood and the report's own figures agree with each other.
       </p>
     );
   }

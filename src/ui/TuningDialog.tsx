@@ -4,7 +4,7 @@
 
 import type { Doc } from '../files/doc';
 import { Dialog } from './Dialog';
-import { hasTuning, noTuningNotice, tuningRows, TUNING_COLUMNS, TUNING_FOOTNOTE } from './tuning-rows';
+import { hasTuning, noTuningNotice, tuningRows, TUNING_COLUMNS } from './tuning-rows';
 
 interface Props {
   doc: Doc;
@@ -57,7 +57,6 @@ export function TuningDialog({ doc, locked, busy, onPdf, onImage, onClose }: Pro
               </tbody>
             </table>
           </div>
-          <p className="muted">{TUNING_FOOTNOTE}</p>
         </>
       )}
       <div className="dialog-actions">

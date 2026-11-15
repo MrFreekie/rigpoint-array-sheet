@@ -7,7 +7,7 @@ import { readPdfItems } from '../files/pdf-items';
 import { parseFixture } from '../testing/fixtures';
 import { newDoc, type Doc } from '../ui/document';
 import { sheetModel } from '../ui/sheet-model';
-import { tuningRows, TUNING_FOOTNOTE } from '../ui/tuning-rows';
+import { tuningRows } from '../ui/tuning-rows';
 import { estimateWidth, layoutCardImage, type DrawOp } from './array-image';
 import { cardContent } from './card-content';
 import { CREDIT_TEXT, printFooter } from './footer';
@@ -36,7 +36,7 @@ describe('layoutTuningPages', () => {
     expect(pages).toHaveLength(1);
     const all = texts(pages[0]!.ops);
     expect(all).toEqual(expect.arrayContaining(['Tuning sheet', 'Main stage · Grand Hall', 'Array', 'Delay', 'Gain', 'Autofilter', 'LF Contour', 'Zoom']));
-    expect(all).toEqual(expect.arrayContaining(['KARA II L Main', '180 Hz, 2 dB', '4.17 ms', 'SUBS: 4 ms', 'SUBS: -2 dB', TUNING_FOOTNOTE, CREDIT_TEXT]));
+    expect(all).toEqual(expect.arrayContaining(['KARA II L Main', '180 Hz, 2 dB', '4.17 ms', 'SUBS: 4 ms', 'SUBS: -2 dB', CREDIT_TEXT]));
     expect(all.some((t) => t.includes('Page 1 of 1'))).toBe(true);
   });
 
@@ -55,8 +55,6 @@ describe('layoutTuningPages', () => {
       expect(texts(p.ops)).toEqual(expect.arrayContaining(['Array', 'LF Contour']));
       expect(texts(p.ops).some((t) => t.includes(`Page ${n + 1} of ${pages.length}`))).toBe(true);
     });
-    expect(texts(pages[pages.length - 1]!.ops)).toContain(TUNING_FOOTNOTE);
-    expect(texts(pages[0]!.ops)).not.toContain(TUNING_FOOTNOTE);
   });
 
   it('keeps every cell inside the page, wrapping a long autofilter line', () => {
@@ -134,7 +132,6 @@ describe('renderTuningPdf', () => {
     expect(text).toContain('KARA II L Main');
     expect(text).toContain('180 Hz, 2 dB');
     expect(text).toContain('SUBS: 4 ms');
-    expect(text).toContain(TUNING_FOOTNOTE);
     expect(text).toContain(CREDIT_TEXT);
     expect(text).toContain('Page 1 of 1');
   });
@@ -163,7 +160,6 @@ describe('the tuning sheet stays out of the other outputs', () => {
     expect(text).not.toContain('Tuning sheet');
     expect(text).not.toContain('LF Contour');
     expect(text).not.toContain('SUBS: 4 ms');
-    expect(text).not.toContain(TUNING_FOOTNOTE);
   });
 
   it('is not on the cards or their images', () => {

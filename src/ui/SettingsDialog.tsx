@@ -43,7 +43,7 @@ export function reportTypes(model: SheetModel): string[] {
 }
 
 /** One type's boxes per cart. Blank means the type is not cut into carts. A value that is not a whole number from 1 to 24 is not kept. */
-function SizeField({ type, size, disabled, note, onSize }: { type: string; size: number | undefined; disabled: boolean; note?: string; onSize: (size: number | undefined) => void }) {
+function SizeField({ type, size, disabled, onSize }: { type: string; size: number | undefined; disabled: boolean; onSize: (size: number | undefined) => void }) {
   const id = useId();
   const [text, setText] = useState(size === undefined ? '' : String(size));
   // When the size changes from outside (Reset to the usual sizes), show it. Adjusting state while rendering, not in an effect.
@@ -58,7 +58,6 @@ function SizeField({ type, size, disabled, note, onSize }: { type: string; size:
     <div className="settings-size">
       <label htmlFor={id}>
         {type}
-        {note ? <span className="muted"> ({note})</span> : null}
       </label>
       <input
         id={id}
@@ -178,8 +177,6 @@ function GridField({ value, disabled, onValue }: { value: number; disabled: bool
 
 export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onSymbolValue, onSymbolValuesReset, showMirrors, onShowMirrors, onClose }: Props) {
   const types = reportTypes(model);
-  const inReport = new Set(types.map((t) => t.toLowerCase()));
-  const elsewhere = doc.cartSizes.filter((c) => !inReport.has(c.type.trim().toLowerCase()));
   const setSize = (type: string, size: number | undefined) => {
     const key = type.trim().toLowerCase();
     const same = (c: CartSize) => c.type.trim().toLowerCase() === key;
@@ -198,9 +195,6 @@ export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onSymbo
           <div className="settings-sizes" role="group" aria-label="Boxes per cart, for each type of enclosure">
             {types.map((t) => (
               <SizeField key={t.toLowerCase()} type={t} size={sizeFor(doc.cartSizes, t)} disabled={locked} onSize={(size) => setSize(t, size)} />
-            ))}
-            {elsewhere.map((c) => (
-              <SizeField key={c.type.toLowerCase()} type={c.type} size={c.size} disabled={locked} note="not in this report" onSize={(size) => setSize(c.type, size)} />
             ))}
           </div>
           <p>

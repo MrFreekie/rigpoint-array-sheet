@@ -35,7 +35,7 @@ describe('ArrayCard', () => {
     const pair = card('FL KARA II L', b);
     expect(pair).toContain('Additional weight, front pickup (kg)');
     expect(pair).toContain('Additional weight, rear pickup (kg)');
-    expect(pair).toContain('Optional. Added to this pickup&#x27;s load');
+    expect(pair.match(/Optional\. Added to this pickup/g)).toHaveLength(1);
     const field = (html: string) => /<input[^>]*id="[^"]*"[^>]*value="7"[^>]*>/.exec(html)?.[0] ?? '';
     const typed = card('KARA II L Main', a, { extras: { front: '7', rear: '7' } });
     expect(field(typed)).toContain('value="7"');
@@ -151,7 +151,7 @@ describe('ProblemsPanel', () => {
   it('says READ OK in words when nothing was found', () => {
     const html = renderToStaticMarkup(<ProblemsPanel problems={[]} ok />);
     expect(html).toContain('READ OK');
-    expect(html).toContain('This does not check the design');
+    expect(html).not.toContain('This does not check the design');
   });
 
   it('lists checks with the array name and the word CHECK', () => {
@@ -285,7 +285,7 @@ describe('the controls under the rigging plot', () => {
     const out = preview(d);
     expect(out).toContain('data-testid="venue-button"');
     expect(out).toMatch(/data-testid="venue-button"[^>]*>Venue</);
-    expect(out).toContain('The side labels are in Settings.');
+    expect(out).not.toContain('The side labels are in Settings.');
     expect(out).not.toContain('and the venue under the plot are in Settings');
   });
 

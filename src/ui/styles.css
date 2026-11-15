@@ -949,3 +949,9 @@ select {
   font-weight: 400;
   color: var(--muted, inherit);
 }
+
+.project-title {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}

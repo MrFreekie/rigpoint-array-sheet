@@ -5,7 +5,7 @@
 import { CREDIT_TEXT } from './footer';
 import { clipToWidth, wrap, type DrawOp, type ImageLayout, type Measure } from './array-image';
 import type { PanelHeader } from './panel-header';
-import { TUNING_COLUMNS, TUNING_FOOTNOTE, type TuningRow } from '../ui/tuning-rows';
+import { TUNING_COLUMNS, type TuningRow } from '../ui/tuning-rows';
 
 export const TUNING_TITLE = 'Tuning sheet';
 
@@ -147,8 +147,6 @@ export function layoutTuningPages(input: TuningSheetInput, measure: Measure, geo
       ops.push({ op: 'line', x1: margin, y1: top + row.height, x2: right, y2: top + row.height, width: 0.7, color: '#777' });
       top += row.height;
     }
-
-    if (n === pages.length - 1) text(TUNING_FOOTNOTE, margin, top + font * 0.4, small, { color: GREY });
 
     const bottom = geometry.height ?? top + noteH + footerH + margin;
     const footY = bottom - margin - footerH + font * 0.5;
