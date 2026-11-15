@@ -54,6 +54,7 @@ export function plotContent(doc: Doc, model: SheetModel): PlotContent | null {
     notDrawn,
     origin: doc.job.origin,
     sideLabels: doc.job.sideLabels,
+    gridM: doc.job.gridM,
     showPosition: plotShown(doc).position,
     showOutlines: plotShown(doc).outlines,
     symbolValues: Object.fromEntries(SHAPES.map((shape) => [shape, symbolValue(doc.symbolValues, shape)])) as SymbolValues,

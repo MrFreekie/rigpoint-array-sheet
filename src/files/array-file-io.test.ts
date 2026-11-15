@@ -10,7 +10,7 @@ const NOW = new Date('2026-10-22T10:30:00.000Z');
 
 function sample(name: 'a' | 'b' | 'd' | 'e' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `report-${name}.pdf`);
-  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3', origin: 'Iron Line', sideLabels: false, notes: '', showDate: '' };
+  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme', zAxisZero: 'Arena floor', defaultOffset: '0.3', origin: 'Iron Line', sideLabels: false, gridM: 10, notes: '', showDate: '' };
   doc.offsets = { 0: '1.5', 4: '-0.2' };
   doc.revision = 'B';
   doc.status = 'issued';
@@ -329,7 +329,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/17');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/18');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -375,7 +375,7 @@ describe('opening a bad file', () => {
   });
 
   it('refuses a file from a newer version', () => {
-    expect(() => open(edited((f) => (f.format = 'arraysheet/18')))).toThrow(/newer version/);
+    expect(() => open(edited((f) => (f.format = 'arraysheet/19')))).toThrow(/newer version/);
   });
 
   it('refuses a file over the size limit', () => {

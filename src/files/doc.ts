@@ -3,6 +3,7 @@
 
 import { autoBreaks, cartRows, defaultCartSizes, forcedBreaks, groupsOf, normaliseBreaks, sizeFor, toggleBreak, trackCarts, type CartSize } from '../engine/carts';
 import { matchByName } from '../engine/compare';
+import { GRID_DEFAULT_M } from '../engine/grid';
 import { EMPTY_EXTRA, trackExtras, type ExtraText } from '../engine/extra-weight';
 import { cleanSymbolValue, defaultPair, defaultSymbolValues, isDefaultPair, SHAPES, sameSymbolValues, symbolValue, trackMarkers, type Marker, type MarkerPair, type PickupSide, type Shape, type SymbolValues } from '../engine/markers';
 import { fitPatch, patchUsed, trackPatches, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
@@ -33,6 +34,8 @@ export interface Job {
   origin: string;
   /** Whether the rigging plot names the sides (House left, House right, Stage, Audience). Off suits a show in the round. */
   sideLabels: boolean;
+  /** The spacing of the grid lines on the rigging plot, in metres. */
+  gridM: number;
   /** Notes about the whole show, for the crew. Printed on the rigging summary. */
   notes: string;
   /** The date of the show as YYYY-MM-DD, or blank. Printed UK style wherever the show and venue are. */
@@ -115,7 +118,7 @@ export interface PlotShow {
 
 export const SHOW_ALL: PlotShow = { position: true, outlines: true };
 
-export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true, notes: '', showDate: '' };
+export const EMPTY_JOB: Job = { show: '', venue: '', engineer: '', company: '', zAxisZero: '', defaultOffset: '', origin: '', sideLabels: true, gridM: GRID_DEFAULT_M, notes: '', showDate: '' };
 
 export function newDoc(result: ParseResult, sourceName: string): Doc {
   return {

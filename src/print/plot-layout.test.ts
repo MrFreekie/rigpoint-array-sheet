@@ -147,6 +147,26 @@ describe('the plot page', () => {
     expect(t).toContain('+Y');
   });
 
+  it('draws the grid at the size typed in Settings, names it, and leaves the scale alone', () => {
+    const gridLines = (ops: PlotOp[]) => ops.filter((o) => o.op === 'line' && o.color === 'grid').length;
+    const gridNote = (ops: PlotOp[]) => texts(ops).find((t) => t.startsWith('Grid '));
+    const usual = pages('e').pages[0]!;
+    const fine = pages('e', (d) => (d.job.gridM = 5)).pages[0]!;
+    const coarse = pages('e', (d) => (d.job.gridM = 25)).pages[0]!;
+    expect(gridNote(usual.ops)).toBe('Grid 10 m');
+    expect(gridNote(fine.ops)).toBe('Grid 5 m');
+    expect(gridNote(coarse.ops)).toBe('Grid 25 m');
+    expect(gridLines(fine.ops)).toBeGreaterThan(gridLines(usual.ops));
+    expect(gridLines(coarse.ops)).toBeLessThan(gridLines(usual.ops));
+    expect(texts(fine.ops).find((t) => t.startsWith('Scale '))).toBe(texts(usual.ops).find((t) => t.startsWith('Scale ')));
+  });
+
+  it('widens a grid too fine to read on paper and names the step drawn', () => {
+    const ops = pages('e', (d) => (d.job.gridM = 1)).pages[0]!.ops;
+    const note = texts(ops).find((t) => t.startsWith('Grid '))!;
+    expect(note).toMatch(/^Grid \d+ m$/);
+  });
+
   it('labels the sides of the plan', () => {
     const t = texts(pages('a').pages[0]!.ops);
     for (const side of ['House left', 'House right', 'Stage', 'Audience']) expect(t).toContain(side);

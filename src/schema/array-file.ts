@@ -1,9 +1,10 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/17").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/18").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
 import { CART_SIZE_MAX, CART_SIZES_MAX, CART_TYPE_MAX } from '../engine/carts';
 import { EXTRA_WEIGHT_MAX_KG, isValidExtra } from '../engine/extra-weight';
+import { GRID_MAX_M, GRID_MIN_M } from '../engine/grid';
 import { SHAPES, SYMBOL_VALUE_MAX } from '../engine/markers';
 import { PATCH_DIGITS } from '../engine/patch';
 import { UNDERLAY_MAX_EDGES, UNDERLAY_MAX_LAYERS, UNDERLAY_NAME_MAX, UNDERLAY_STEPS, unpackEdges } from '../engine/underlay';
@@ -22,7 +23,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 17;
+export const FORMAT_VERSION = 18;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */
@@ -111,6 +112,7 @@ export const ArrayFileSchema = z
       default_offset: text('Ground offset', 20),
       origin: text('Origin (P0)', ORIGIN_MAX),
       side_labels: z.boolean({ error: 'Side labels must be true or false' }),
+      grid_m: z.number({ error: 'Grid size must be a number' }).min(GRID_MIN_M, { error: `Grid size must be at least ${GRID_MIN_M} m` }).max(GRID_MAX_M, { error: `Grid size must be at most ${GRID_MAX_M} m` }),
       notes: text('Show notes', SHOW_NOTES_MAX),
       show_date: text('Show date', 10),
     }),

@@ -18,6 +18,7 @@ const FIELD_NAMES: Record<string, string> = {
   default_offset: 'Ground offset for every array',
   origin: 'Origin (P0)',
   side_labels: 'Side labels',
+  grid_m: 'Grid size',
   notes: 'Notes',
   show_date: 'Show date',
   titles: 'Card titles',

@@ -20,7 +20,7 @@ const FOOTER = printFooter({ appVersion: '0.1.0', soundvisionVersion: '2026.3.1'
 
 function sampleDoc(name: 'a' | 'e' = 'a'): Doc {
   const doc = newDoc(parseFixture(name), `${name}.pdf`);
-  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '', origin: 'DSE', sideLabels: true, notes: '', showDate: '' };
+  doc.job = { show: 'Main stage', venue: 'Grand Hall', engineer: 'Sam', company: 'Acme Audio', zAxisZero: 'Arena floor', defaultOffset: '', origin: 'DSE', sideLabels: true, gridM: 10, notes: '', showDate: '' };
   return doc;
 }
 

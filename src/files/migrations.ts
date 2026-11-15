@@ -127,6 +127,12 @@ export const MIGRATIONS: Record<number, Migration> = {
   // saved before it read tuning. Nothing in an older file changes; the step makes older copies of the app refuse every
   // version 17 file, because they would drop the tuning when they saved.
   16: (file) => file,
+  // Version 18 added the grid size of the rigging plot, in metres. Earlier files drew a 10 m grid. An older copy of the app
+  // would drop the size when it saved, so it refuses version 18 files.
+  17: (file) => {
+    const job = file['job'];
+    return typeof job === 'object' && job !== null && !Array.isArray(job) ? { ...file, job: { ...job, grid_m: 10 } } : file;
+  },
 };
 
 export function migrate(

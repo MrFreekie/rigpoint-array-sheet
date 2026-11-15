@@ -4,6 +4,7 @@
 
 import { useId, useState } from 'react';
 import { CART_SIZE_MAX, defaultCartSizes, sizeFor, type CartSize } from '../engine/carts';
+import { GRID_DEFAULT_M, GRID_MAX_M, GRID_MIN_M, gridText, parseGridM } from '../engine/grid';
 import { cleanSymbolValue, DEFAULT_SYMBOL_VALUES, SHAPE_NAME, SHAPES, SYMBOL_VALUE_MAX, symbolValue, type Shape } from '../engine/markers';
 import { Dialog } from './Dialog';
 import type { Doc, Job } from './document';
@@ -129,6 +130,52 @@ function SymbolRow({ shape, value, disabled, onValue }: { shape: Shape; value: s
   );
 }
 
+/**
+ * The grid spacing of the rigging plot in metres. A value that is not a number from 1 to 100 is not kept; a blank field goes
+ * back to 10 m when the person leaves it.
+ */
+function GridField({ value, disabled, onValue }: { value: number; disabled: boolean; onValue: (m: number) => void }) {
+  const id = useId();
+  const [text, setText] = useState(gridText(value));
+  const [seen, setSeen] = useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    setText(gridText(value));
+  }
+  const bad = text.trim() !== '' && parseGridM(text) === null;
+  return (
+    <div className="field">
+      <label htmlFor={id}>Grid size (m)</label>
+      <input
+        id={id}
+        type="text"
+        inputMode="decimal"
+        value={text}
+        disabled={disabled}
+        maxLength={6}
+        aria-invalid={bad}
+        aria-describedby={`${id}-hint`}
+        autoComplete="off"
+        onChange={(e) => {
+          const next = e.target.value.replace(/[^0-9.,]/g, '');
+          setText(next);
+          const m = parseGridM(next);
+          if (m !== null) onValue(m);
+        }}
+        onBlur={() => {
+          if (text.trim() === '') {
+            onValue(GRID_DEFAULT_M);
+            setText(gridText(GRID_DEFAULT_M));
+          }
+        }}
+      />
+      <span id={`${id}-hint`} className={bad ? 'field-error' : 'field-hint'}>
+        {bad ? `Enter a number from ${GRID_MIN_M} to ${GRID_MAX_M}.` : `The spacing of the grid lines on the plot, from ${GRID_MIN_M} to ${GRID_MAX_M} m. Usually ${GRID_DEFAULT_M}. It does not change the scale.`}
+      </span>
+    </div>
+  );
+}
+
 export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onSymbolValue, onSymbolValuesReset, showMirrors, onShowMirrors, onClose }: Props) {
   const types = reportTypes(model);
   const inReport = new Set(types.map((t) => t.toLowerCase()));
@@ -172,6 +219,7 @@ export function SettingsDialog({ doc, model, locked, onJob, onCartSizes, onSymbo
             </label>
             <span className="field-hint">Names House left, House right, Stage and Audience. Turn off for a show in the round.</span>
           </div>
+          <GridField value={doc.job.gridM} disabled={locked} onValue={(gridM) => onJob({ gridM })} />
           <div className="field" role="group" aria-labelledby="settings-symbols">
             <h4 id="settings-symbols" className="settings-subhead">
               Symbols

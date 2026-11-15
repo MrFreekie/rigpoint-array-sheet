@@ -91,8 +91,8 @@ describe('Settings', () => {
     const buttons = out.match(/<button[^>]*disabled=""[^>]*>[^<]*</g) ?? [];
     expect(buttons.map((b) => b.replace(/<[^>]*>/g, '').replace('<', ''))).toEqual(expect.arrayContaining(['Reset to the usual sizes']));
     const inputs = out.match(/<input[^>]*disabled=""/g) ?? [];
-    // Every size field (the report's types and the saved ones), the four symbol fields and the side labels tick. The mirrors tick stays on: it is a view choice.
-    expect(inputs.length).toBe(fields + 4 + 1);
+    // Every size field (the report's types and the saved ones), the four symbol fields, the grid size and the side labels tick. The mirrors tick stays on: it is a view choice.
+    expect(inputs.length).toBe(fields + 4 + 1 + 1);
     expect(out).not.toMatch(/<input type="checkbox"(?![^>]*disabled)[^>]*>(?=<span>Show side labels)/);
   });
 });

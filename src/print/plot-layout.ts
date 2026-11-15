@@ -2,6 +2,7 @@
 // the print view, the on-screen preview and the PDF draw the same thing. The page is printed turned a quarter turn
 // anticlockwise onto the portrait sheet; the renderers do that turn, nothing here knows about it.
 
+import { GRID_DEFAULT_M, gridText } from '../engine/grid';
 import { markerPrims, SHAPES, symbolValue, type Shape, type SymbolValues } from '../engine/markers';
 import { type PlotArray, type PlotPoint, type Pt2 } from '../engine/plot';
 import { UNDERLAY_STEPS, type UnderlayLayer } from '../engine/underlay';
@@ -32,13 +33,14 @@ export const PRINT_PALETTE: PlotPalette = { ink: '#000000', grey: '#555555', gri
 
 /** The standard ratios, 1:n, the plot may use. The largest drawing that fits is chosen. */
 export const STANDARD_RATIOS = [50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 2500];
-export const GRID_M = 10;
 /** A pickup marker is 250 mm across in the real world, but never smaller than this on paper. */
 export const MARKER_REAL_M = 0.25;
 export const MARKER_MIN_MM = 2;
 /** Points above this many go on a second page. */
 export const PLOT_TABLE_ROWS = 24;
 const CONTINUED_ROWS = 40;
+/** The closest the grid lines are drawn on paper. */
+const GRID_MIN_MM = 1.5;
 
 export const CHECK_BAR_MM = 100;
 export const CHECK_BAR_TEXT = 'This bar is 100 mm long when printed at 100 percent. Measure it to check the scale.';
@@ -72,6 +74,8 @@ export interface PlotInput {
   origin: string;
   /** Name the sides of the plan (House left, House right, Stage, Audience). Off for a show in the round. */
   sideLabels: boolean;
+  /** The spacing of the grid lines in metres. 10 when left out. It never changes the scale or the page. */
+  gridM?: number;
   /** Draw the Position dot of every array. On when left out. Hiding it moves nothing else. */
   showPosition?: boolean;
   /** Draw the outline of every array. On when left out. Hiding it moves nothing else. */
@@ -485,8 +489,8 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const e = extent(input);
   const availW = FRAME.x1 - FRAME.x0 - PAD.left - PAD.right;
   const availH = FRAME.y1 - FRAME.y0 - PAD.top - PAD.bottom;
-  const wM = Math.max(e.x1 - e.x0, GRID_M);
-  const hM = Math.max(e.y1 - e.y0, GRID_M);
+  const wM = Math.max(e.x1 - e.x0, GRID_DEFAULT_M);
+  const hM = Math.max(e.y1 - e.y0, GRID_DEFAULT_M);
   const { ratio, fits } = chooseRatio(wM, hM, availW, availH);
   const s = 1000 / ratio; // millimetres on paper per metre
   const cxAvail = FRAME.x0 + PAD.left + availW / 2;
@@ -508,13 +512,18 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   // The venue, under everything else, cut to the frame. It has no say in the scale: that comes from the arrays and the origin.
   ops.push(...venueOps(input.venue, X, Y, FRAME));
 
-  // Grid every 10 m in world coordinates, then the frame.
-  for (let gx = Math.ceil((FRAME.x0 - ox) / s / GRID_M) * GRID_M; X(gx) <= FRAME.x1; gx += GRID_M) {
-    if (gx !== 0) ops.push(line(X(gx), FRAME.y0, X(gx), FRAME.y1, 0.12, 'grid'));
-  }
-  for (let gy = Math.ceil((oy - FRAME.y1) / s / GRID_M) * GRID_M; Y(gy) >= FRAME.y0; gy += GRID_M) {
-    if (gy !== 0) ops.push(line(FRAME.x0, Y(gy), FRAME.x1, Y(gy), 0.12, 'grid'));
-  }
+  // Grid every gridM metres in world coordinates, counted from the origin, then the frame. Whole steps keep the sums exact.
+  // A grid closer than 1.5 mm on paper turns the plan grey, so the step doubles up until it is not; the note names the step drawn.
+  let grid = input.gridM ?? GRID_DEFAULT_M;
+  const base = grid;
+  while (grid * s < GRID_MIN_MM) grid += base;
+  const gridSteps = (lo: number, hi: number): number[] => {
+    const out: number[] = [];
+    for (let k = Math.ceil(lo / grid); k * grid <= hi; k++) if (k !== 0) out.push(k * grid);
+    return out;
+  };
+  for (const gx of gridSteps((FRAME.x0 - ox) / s, (FRAME.x1 - ox) / s)) ops.push(line(X(gx), FRAME.y0, X(gx), FRAME.y1, 0.12, 'grid'));
+  for (const gy of gridSteps((oy - FRAME.y1) / s, (oy - FRAME.y0) / s)) ops.push(line(FRAME.x0, Y(gy), FRAME.x1, Y(gy), 0.12, 'grid'));
   const edge = 0.2;
   ops.push(
     line(FRAME.x0 + edge, FRAME.y0, FRAME.x1, FRAME.y0, 0.4),
@@ -707,7 +716,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
   const scaleText = `Scale 1:${ratio}${fits ? '' : ' (does not fit; reduce the arrays drawn)'}`;
   const gridX = Math.max(34, measure(scaleText, 6, true) / PT_PER_MM + 4);
   ops.push(text(0, FRAME.y1 + 1.6, scaleText, 6, { bold: true }));
-  ops.push(text(gridX, FRAME.y1 + 1.6, `Grid ${GRID_M} m`, 6, { color: 'grey' }));
+  ops.push(text(gridX, FRAME.y1 + 1.6, `Grid ${gridText(grid)} m`, 6, { color: 'grey' }));
   const barY = FRAME.y1 + 8;
   ops.push(line(1, barY, 1 + barMm, barY, 0.6), line(1, barY - 1.2, 1, barY + 1.2, 0.3), line(1 + barMm, barY - 1.2, 1 + barMm, barY + 1.2, 0.3));
   ops.push(text(1 + barMm + 2, barY - 1.2, `${barM} m`, 5.5));
