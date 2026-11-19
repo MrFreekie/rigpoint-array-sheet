@@ -1,4 +1,4 @@
-// Zod schema for saved files (*.arraysheet.json, format "arraysheet/20").
+// Zod schema for saved files (*.arraysheet.json, format "arraysheet/21").
 // Every opened file is untrusted: it is validated here before anything reads it.
 
 import { z } from 'zod';
@@ -25,7 +25,7 @@ import { isShowDate } from '../files/show-date';
 import { ProblemSchema, ReportSchema } from './report';
 
 export const FORMAT_NAME = 'arraysheet';
-export const FORMAT_VERSION = 20;
+export const FORMAT_VERSION = 21;
 export const FORMAT = `${FORMAT_NAME}/${FORMAT_VERSION}`;
 
 /** The longest Origin (P0) note the file accepts. */

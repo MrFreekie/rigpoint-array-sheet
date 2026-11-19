@@ -2,11 +2,14 @@
 // this, so they show the same thing as each other and as the screen.
 
 import { isPatchColumn, PATCH_COLOURS, PATCH_COLUMNS, type PatchColour, type PatchDigit } from '../engine/patch';
-import { enclosureLabel } from '../engine/types';
+import { enclosureLabel, pickupName } from '../engine/types';
 import { STATUS_LABELS, type Status } from '../files/doc';
 import { showDateText } from '../files/show-date';
 import { degrees, kg, metres, NOT_STATED, num } from '../ui/format';
 import type { SheetEntry } from '../ui/sheet-model';
+
+/** What a card needs of a pickup to name it and show its position. */
+type CardPickup = { which: 'front' | 'rear'; side?: 'left' | 'right' | undefined; position: number | string };
 
 export interface CardContext {
   show: string;
@@ -82,12 +85,18 @@ export function warningText(w: { title: string; message: string }): string {
 
 /**
  * The pickup row of a card, the same on the screen card, the print view, the PNG and the PDF. An array with one pickup shows
- * the position number as its frame and bar hole; with two, each pickup is named front or rear.
+ * the position number as its frame and bar hole; with two, each pickup is named front or rear, or left or right when the report
+ * names them so.
  */
-export function pickupFact(pickups: readonly { which: 'front' | 'rear'; position: number | string }[]): [label: string, value: string] {
+export function pickupFact(pickups: readonly CardPickup[]): [label: string, value: string] {
   if (pickups.length === 0) return ['Pickups', NOT_STATED];
   if (pickups.length === 1) return ['Frame/Bar Hole', String(pickups[0]?.position)];
-  return ['Pickups', pickups.map((p) => `${p.which === 'front' ? 'Front' : 'Rear'} ${p.position}`).join(', ')];
+  return ['Pickups', pickups.map((p) => `${pickupName(p)} ${p.position}`).join(', ')];
+}
+
+/** The labels of the front and the rear motor load: Left and Right when the report names the pickups so. */
+export function motorLoadLabels(pickups: readonly CardPickup[]): [front: string, rear: string] {
+  return pickups.some((p) => p.side !== undefined) ? ['Left motor load', 'Right motor load'] : ['Front motor load', 'Rear motor load'];
 }
 
 /**
@@ -97,7 +106,7 @@ export function pickupFact(pickups: readonly { which: 'front' | 'rear'; position
  */
 export function frameFacts(
   bumper: string | null,
-  pickups: readonly { which: 'front' | 'rear'; position: number | string }[],
+  pickups: readonly CardPickup[],
 ): [label: string, value: string][] {
   if (pickups.length === 1) {
     const hole = String(pickups[0]?.position);
@@ -111,8 +120,9 @@ export function cardContent(entry: SheetEntry, ctx: CardContext): CardContent {
 
   const facts: CardContent['facts'] = [['Total weight', kg(c.totalMass)]];
   if (c.motors !== null) {
-    facts.push(['Front motor load', kg(c.frontMotorLoad)]);
-    if (c.motors > 1 || c.rearMotorLoad !== null) facts.push(['Rear motor load', kg(c.rearMotorLoad)]);
+    const [frontLoad, rearLoad] = motorLoadLabels(c.pickups);
+    facts.push([frontLoad, kg(c.frontMotorLoad)]);
+    if (c.motors > 1 || c.rearMotorLoad !== null) facts.push([rearLoad, kg(c.rearMotorLoad)]);
   }
   // The ground offset row is only there when an offset is in use, or when the one typed cannot be read.
   if (entry.offset.value !== 0) facts.push(['Ground offset', entry.offset.value === null ? NOT_STATED : metres(entry.offset.value)]);

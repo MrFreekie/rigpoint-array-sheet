@@ -68,7 +68,7 @@ describe('following a typed weight through Update from PDF', () => {
   it('drops one it cannot follow and says which', () => {
     const next = structuredClone(report);
     const target = next.sources.find((s) => s.name === 'KARA II L Main')!;
-    target.pickups = target.pickups.map((p) => ({ ...p, position: p.position + 1 }));
+    target.pickups = target.pickups.map((p) => ({ ...p, position: Number(p.position) + 1 }));
     const { kept, reset } = trackExtras(report, next, { [main]: { front: '12.5', rear: '' } });
     expect(kept).toEqual({});
     expect(reset).toEqual([{ array: 'KARA II L Main', side: 'front', weight: '12.5' }]);

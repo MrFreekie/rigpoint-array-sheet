@@ -122,7 +122,7 @@ describe('Update from PDF keeps a symbol only for the same pickup', () => {
     const next = structuredClone(saved);
     const target = next.sources[pairIndex]!;
     const rear = target.pickups.find((p) => p.which === 'rear')!;
-    rear.position += 1;
+    rear.position = Number(rear.position) + 1;
     const t = trackMarkers(saved, next, { [pairIndex]: choice() });
     expect(t.kept[pairIndex]).toEqual({ front: { shape: 'two' }, rear: { shape: 'one' } });
     expect(t.reset).toEqual([{ array: pair.name, side: 'rear', shape: 'half' }]);

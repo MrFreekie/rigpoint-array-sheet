@@ -3,7 +3,7 @@
 // azimuth is 180 degrees less the other. The test is strict: every figure the sheet shows must match. If anything
 // differs, even by 0.01, the arrays are not paired.
 
-import type { ArraySource, Point3 } from './types';
+import type { ArraySource, Pickup, Point3 } from './types';
 
 const same = (a: number | null, b: number | null) => a === b;
 /** An angle taken modulo 360, as the shortest distance from zero. */
@@ -32,6 +32,34 @@ function mirroredPoint(a: Point3 | null, b: Point3 | null): boolean {
 
 /** Fr and Fl, Rr and Rl change places in a mirror image. */
 const swapSide = (name: string) => name.replace(/[rl]$/, (c) => (c === 'r' ? 'l' : 'r'));
+
+const otherSide = (side: 'left' | 'right') => (side === 'left' ? 'right' : 'left');
+
+/**
+ * True when every pickup of `a` has its partner in `b`: the same position number and a mirrored place. Pickups the report names
+ * left or right pair by name, and across the centre line the left one of an array is the right one of its mirror. Other pickups
+ * pair in the order they are listed.
+ */
+function mirroredPickups(a: readonly Pickup[], b: readonly Pickup[], mirrored: (p: Point3, q: Point3) => boolean, swapSides: boolean): boolean {
+  if (a.length !== b.length) return false;
+  const used = new Set<Pickup>();
+  for (let i = 0; i < a.length; i++) {
+    const p = a[i];
+    if (!p) return false;
+    const wanted = p.side === undefined ? undefined : swapSides ? otherSide(p.side) : p.side;
+    const q = p.side === undefined ? b[i] : b.find((x) => x.side === wanted && !used.has(x));
+    if (!q || q.side !== wanted || (p.side === undefined && p.which !== q.which) || p.position !== q.position || !mirrored(p.at, q.at)) return false;
+    used.add(q);
+  }
+  return true;
+}
+
+/** True when the weights of two arrays match. With `swapMotors` the two motor loads are compared crosswise, as they are across a mirror when the pickups are named left and right. */
+function sameWeights(a: ArraySource, b: ArraySource, swapMotors: boolean): boolean {
+  const w = a.weights;
+  const v = b.weights;
+  return same(w.total, v.total) && same(w.enclosures, v.enclosures) && same(w.frontMotorLoad, swapMotors ? v.rearMotorLoad : v.frontMotorLoad) && same(w.rearMotorLoad, swapMotors ? v.frontMotorLoad : v.rearMotorLoad);
+}
 
 function swapPanflex(p: string | null): string | null {
   if (p === null) return null;
@@ -69,14 +97,9 @@ export function isMirror(a: ArraySource, b: ArraySource, across: MirrorAxis = 'l
   const da = a.dimensions;
   const db = b.dimensions;
   if ((da === null) !== (db === null) || (da && db && (da.x !== db.x || da.y !== db.y || da.z !== db.z))) return false;
-  if (JSON.stringify(a.weights) !== JSON.stringify(b.weights)) return false;
-
-  if (a.pickups.length !== b.pickups.length) return false;
-  for (let i = 0; i < a.pickups.length; i++) {
-    const p = a.pickups[i];
-    const q = b.pickups[i];
-    if (!p || !q || p.which !== q.which || p.position !== q.position || !mirroredPoint(p.at, q.at)) return false;
-  }
+  const sided = a.pickups.some((p) => p.side !== undefined);
+  if (!sameWeights(a, b, sided)) return false;
+  if (!mirroredPickups(a.pickups, b.pickups, (p, q) => mirroredPoint(p, q), true)) return false;
 
   const fa = a.fixations ?? [];
   const fb = b.fixations ?? [];
@@ -119,14 +142,8 @@ function isMirrorFrontBack(a: ArraySource, b: ArraySource): boolean {
   const da = a.dimensions;
   const db = b.dimensions;
   if ((da === null) !== (db === null) || (da && db && (da.x !== db.x || da.y !== db.y || da.z !== db.z))) return false;
-  if (JSON.stringify(a.weights) !== JSON.stringify(b.weights)) return false;
-
-  if (a.pickups.length !== b.pickups.length) return false;
-  for (let i = 0; i < a.pickups.length; i++) {
-    const p = a.pickups[i];
-    const q = b.pickups[i];
-    if (!p || !q || p.which !== q.which || p.position !== q.position || !mirroredFrontBack(p.at, q.at)) return false;
-  }
+  if (!sameWeights(a, b, false)) return false;
+  if (!mirroredPickups(a.pickups, b.pickups, (p, q) => mirroredFrontBack(p, q), false)) return false;
 
   if ((a.fixations ?? []).length > 0 || (b.fixations ?? []).length > 0) return false;
   if ((a.fixationCount ?? null) !== (b.fixationCount ?? null) || (a.fixationCount ?? 0) > 0) return false;

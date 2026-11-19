@@ -43,6 +43,16 @@ describe('ArrayCard', () => {
     expect(field(card('KARA II L Main', a, { extras: { front: '7', rear: '7' }, locked: true }))).toContain('disabled');
   });
 
+  it('names the pickups left and right in the Edit box, and on the card, when the report does', () => {
+    const plain = byName(b, 'FL KARA II L');
+    const sided = { ...plain, pickups: plain.pickups.map((p) => ({ ...p, side: p.which === 'front' ? ('left' as const) : ('right' as const) })) };
+    const html = card(sided.name, [sided]);
+    for (const text of ['Plot symbol, left pickup', 'Plot symbol, right pickup', 'Additional weight, left pickup (kg)', 'Additional weight, right pickup (kg)', 'Left motor load', 'Right motor load', 'Left ', 'Right ']) expect(html).toContain(text);
+    expect(html).toContain('Pickup to max depth (m)');
+    for (const text of ['front pickup', 'rear pickup', 'Front motor load', 'Rear motor load', 'Rear pickup to max depth']) expect(html).not.toContain(text);
+    expect(card(plain.name, b)).toContain('Rear pickup to max depth (m)');
+  });
+
   it('labels the rows of a stack laid out in columns', () => {
     const html = card('SB28 L', parseFixture('d').report.sources);
     expect(html).toContain('Col #');

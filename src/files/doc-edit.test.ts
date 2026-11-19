@@ -336,7 +336,8 @@ describe('plot symbols', () => {
     expect(markerOf(same, i, 'front')).toEqual(choose);
     expect(markerOf(same, i, 'rear')).toEqual({ shape: 'half' });
     const changed = structuredClone(parseFixture('c'));
-    changed.report.sources[i]!.pickups.find((p) => p.which === 'rear')!.position += 1;
+    const rear = changed.report.sources[i]!.pickups.find((p) => p.which === 'rear')!;
+    rear.position = Number(rear.position) + 1;
     const next = updatedDoc(set, changed, 'c3.pdf');
     expect(markerOf(next, i, 'front')).toEqual(choose);
     expect(markerOf(next, i, 'rear')).toEqual({ shape: 'one' });

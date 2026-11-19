@@ -5,6 +5,7 @@
 import { GRID_DEFAULT_M, gridText } from '../engine/grid';
 import { markerPrims, SHAPES, symbolValue, type Shape, type SymbolValues } from '../engine/markers';
 import { type PlotArray, type PlotPoint, type Pt2 } from '../engine/plot';
+import { pickupName } from '../engine/types';
 import { UNDERLAY_STEPS, type UnderlayLayer } from '../engine/underlay';
 import { NOT_STATED } from '../ui/format';
 import { clipMiddle, clipToWidth, wrap, type Measure } from './array-image';
@@ -362,7 +363,7 @@ function footerOps(input: PlotInput, page: number, measure: Measure): PlotOp[] {
 
 /** The table rows as strings. */
 export function tableRow(p: PlotPoint, values: Readonly<SymbolValues>): string[] {
-  return [p.label, p.source, p.single ? 'Single' : p.which === 'front' ? 'Front' : 'Rear', p.load === null ? NOT_STATED : String(p.load), symbolValue(values, p.marker.shape), p.at.x.toFixed(2), p.at.y.toFixed(2), p.spacing === null ? '' : p.spacing.toFixed(2)];
+  return [p.label, p.source, p.single ? 'Single' : pickupName(p), p.load === null ? NOT_STATED : String(p.load), symbolValue(values, p.marker.shape), p.at.x.toFixed(2), p.at.y.toFixed(2), p.spacing === null ? '' : p.spacing.toFixed(2)];
 }
 
 /** The array name on at most two lines, cut in the middle of the second if it is still too long. */

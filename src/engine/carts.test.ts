@@ -47,9 +47,13 @@ describe('autoBreaks', () => {
   });
 
   it('breaks where the type changes even when the type is uncut', () => {
-    const breaks = cut(rows(['K1-SB', 2], ['K1', 12]));
+    const breaks = cut(rows(['SB28', 2], ['KS28', 12]));
     expect(breaks).toEqual([2]);
     expect(groupsOf(breaks, 14)).toEqual([2, 12]);
+  });
+
+  it('cuts K1 into carts of four by default', () => {
+    expect(cut(rows(['K1', 12]))).toEqual([4, 8]);
   });
 
   it('does not cut a run that is no longer than its size', () => {

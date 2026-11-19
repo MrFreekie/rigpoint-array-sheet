@@ -92,6 +92,8 @@ export const TUNING_FIGURE_MAX = 20;
 export const AUTOFILTER_MAX = 120;
 /** The longest group name kept in a source's tuning. A longer group stays in the source's groups but states no tuning. */
 export const TUNING_GROUP_MAX = 300;
+/** The longest code kept for a pickup position that is not a number, such as EXT. The saved file refuses more. */
+export const PICKUP_CODE_MAX = 12;
 const POINT = '(-?[\\d.]+); (-?[\\d.]+); (-?[\\d.]+)';
 const DEGREES = '(-?[\\d.]+) \\S+';
 
@@ -283,8 +285,8 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     document.weightUnit ??= keyed(/^Weight unit:\s*(\S+)$/);
   }
 
-  function weight(m: RegExpMatchArray, field: keyof ArraySource['weights']) {
-    const value = num(m[1] ?? '');
+  function weight(figure: string | undefined, field: keyof ArraySource['weights']) {
+    const value = num(figure ?? '');
     if (source && value !== null) source.weights[field] = value;
   }
 
@@ -301,11 +303,16 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
       src.bumper = m[1] ?? null;
     } else if ((m = t.match(/^# motors:\s*(\d+)$/))) {
       src.motors = Number(m[1]);
-    } else if ((m = t.match(new RegExp(`^(Front|Rear) pickup position \\(X; Y; Z, m\\):\\s*(\\d+) \\(${POINT}\\)$`)))) {
-      const at = point(m, 3);
-      const position = num(m[2] ?? '');
-      if (at && position !== null) {
-        const pickup: Pickup = { which: m[1] === 'Front' ? 'front' : 'rear', position, at };
+    } else if ((m = t.match(new RegExp(`^(Front|Rear)(?: (left|right))? pickup position \\(X; Y; Z, m\\):\\s*(\\d+|[A-Za-z]{1,${PICKUP_CODE_MAX}}) \\(${POINT}\\)$`)))) {
+      const at = point(m, 4);
+      const side = m[2] === 'left' || m[2] === 'right' ? m[2] : undefined;
+      const position = num(m[3] ?? '') ?? m[3] ?? '';
+      // A code such as EXT is read only for a pickup the report names left or right, and only the front pair of them is known.
+      const known = side === undefined ? typeof position === 'number' : m[1] === 'Front';
+      if (at && known) {
+        // Left is the front slot and right is the rear one, so the plot, the weights and the symbols treat them as before.
+        const which = side === undefined ? (m[1] === 'Front' ? 'front' : 'rear') : side === 'left' ? 'front' : 'rear';
+        const pickup: Pickup = { which, ...(side === undefined ? {} : { side }), position, at };
         src.pickups.push(pickup);
       } else return false;
     } else if ((m = t.match(/^# fixations:\s*(\d+)$/))) {
@@ -332,13 +339,15 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
     } else if ((m = t.match(/^Bottom elevation:\s*(-?[\d.]+) m$/))) {
       src.bottomElevation = num(m[1] ?? '');
     } else if ((m = t.match(/^Total weight \(Enclosures \+ Frames\):\s*(-?[\d.]+) kg$/))) {
-      weight(m, 'total');
+      weight(m[1], 'total');
     } else if ((m = t.match(/^Total enclosure weight:\s*(-?[\d.]+) kg$/))) {
-      weight(m, 'enclosures');
+      weight(m[1], 'enclosures');
     } else if ((m = t.match(/^Front motor load:\s*(-?[\d.]+) kg$/))) {
-      weight(m, 'frontMotorLoad');
+      weight(m[1], 'frontMotorLoad');
     } else if ((m = t.match(/^Rear motor load:\s*(-?[\d.]+) kg$/))) {
-      weight(m, 'rearMotorLoad');
+      weight(m[1], 'rearMotorLoad');
+    } else if ((m = t.match(/^Front (left|right) motor load:\s*(-?[\d.]+) kg$/))) {
+      weight(m[2], m[1] === 'left' ? 'frontMotorLoad' : 'rearMotorLoad');
     } else {
       return false;
     }
@@ -483,7 +492,7 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
       note('check', msg.noEnclosureTable());
     } else {
       checkTable(s, note);
-      if (lacksAngle && s.mounting === 'flown' && s.cabinets.length > 1) note('check', msg.missingColumn('Angle'));
+      if (lacksAngle && s.mounting === 'flown' && s.cabinets.length > 1 && !allSameSite(s)) note('check', msg.missingColumn('Angle'));
     }
     if (s.motors !== null && s.pickups.length !== s.motors) note('check', msg.pickupCount(s.motors, s.pickups.length));
     if (s.fixationCount !== undefined && (s.fixations?.length ?? 0) !== s.fixationCount) {
@@ -506,6 +515,12 @@ export function parseSoundvision(items: readonly TextItem[]): ParseResult {
 function sameSiteAsAbove(src: ArraySource, site: number): boolean {
   const above = src.cabinets[src.cabinets.length - 1];
   return above?.site != null && Math.abs(above.site - site) <= SITE_TOLERANCE;
+}
+
+/** True when every row has the same site, as in a rigid array, so the table having no Angle column loses nothing. */
+function allSameSite(src: ArraySource): boolean {
+  const first = src.cabinets[0]?.site;
+  return first != null && src.cabinets.every((c) => c.site != null && Math.abs(c.site - first) <= SITE_TOLERANCE);
 }
 
 /**

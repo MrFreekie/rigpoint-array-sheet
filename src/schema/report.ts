@@ -2,7 +2,7 @@
 // (later phases: saved files, autosave) validates it here first, as untrusted input.
 
 import { z } from 'zod';
-import { AUTOFILTER_MAX, TUNING_FIGURE_MAX, TUNING_GROUP_MAX } from '../engine/parse';
+import { AUTOFILTER_MAX, PICKUP_CODE_MAX, TUNING_FIGURE_MAX, TUNING_GROUP_MAX } from '../engine/parse';
 import type { ParseResult } from '../engine/types';
 
 const num = () => z.number({ error: 'must be a number' }).finite({ error: 'must be a finite number' });
@@ -67,7 +67,8 @@ export const ArraySourceSchema = z.object({
   pickups: z.array(
     z.object({
       which: z.enum(['front', 'rear'], { error: 'Pickup must be "front" or "rear"' }),
-      position: num(),
+      side: z.enum(['left', 'right'], { error: 'Pickup side must be "left" or "right"' }).optional(),
+      position: z.union([num(), z.string({ error: 'must be text' }).regex(new RegExp(`^[A-Za-z]{1,${PICKUP_CODE_MAX}}$`), { error: `must be a number or a code of up to ${PICKUP_CODE_MAX} letters` })], { error: `must be a number or a code of up to ${PICKUP_CODE_MAX} letters` }),
       at: Point3Schema,
     }),
     { error: 'Pickups must be a list' },

@@ -13,6 +13,7 @@ export interface CartSize {
 
 /** The sizes a new file starts with. Soundvision prints the type as KARA II or K2, so each name is its own row. */
 export const DEFAULT_CART_SIZES: readonly CartSize[] = [
+  { type: 'K1', size: 4 },
   { type: 'K2', size: 4 },
   { type: 'KARA II', size: 3 },
   { type: 'KARA', size: 3 },

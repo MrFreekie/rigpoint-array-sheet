@@ -4,7 +4,7 @@ import { parseDepthM } from '../engine/depth';
 import { SHAPES, symbolValue, type PickupSide, type SymbolValues } from '../engine/markers';
 import { numberPickups, plotArrays } from '../engine/plot';
 import { depthOf, markerOf, plotShown, type Doc } from '../files/doc';
-import { extraKgFor, type SheetModel } from '../ui/sheet-model';
+import { choicesFrom, extraKgFor, type SheetModel } from '../ui/sheet-model';
 import { addKg, sumKg } from '../engine/extra-weight';
 import type { PointLabel } from '../engine/sheet';
 import { panelHeader } from './panel-header';
@@ -34,9 +34,11 @@ export function plotContent(doc: Doc, model: SheetModel): PlotContent | null {
   const { drawn, notDrawn } = plotArrays(model.sources, model.plottedSources, (i) => parseDepthM(depthOf(doc, i)));
   if (drawn.length === 0) return null;
   // A mirror image that a card stands for has no choice of its own: it takes its pickup's symbol from that card.
-  const standsFor = new Map<number, number>();
-  for (const e of model.entries) if (e.mirrorIndex !== undefined) standsFor.set(e.mirrorIndex, e.index);
-  const symbolOf = (arrayIndex: number, side: PickupSide) => markerOf(doc, standsFor.get(arrayIndex) ?? arrayIndex, side);
+  const from = choicesFrom(model);
+  const symbolOf = (arrayIndex: number, side: PickupSide) => {
+    const at = from(arrayIndex, side);
+    return markerOf(doc, at.index, at.side);
+  };
   // An additional weight typed for a pickup is added to its motor load and to its array's stated total, in whole hundredths.
   const extraOf = extraKgFor(doc, model);
   const points = numberPickups(drawn, undefined, symbolOf).map((p) => {

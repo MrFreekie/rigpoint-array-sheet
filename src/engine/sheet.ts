@@ -5,7 +5,7 @@
 
 import { addKg, kgText, sumKg } from './extra-weight';
 import { panflexLabel, type PanflexLabel } from './panflex';
-import type { ArraySource, Fixation, Pickup, SoundvisionWarning } from './types';
+import { pickupName, type ArraySource, type Fixation, type Pickup, type PickupWord, type SoundvisionWarning } from './types';
 
 export interface SheetRow {
   number: number;
@@ -93,10 +93,10 @@ export interface RiggingRow {
   /** The rigging point number as the rigging plot numbers it (PA1, PA2 ...), or blank when the array is not on the plot. */
   point: string;
   source: string;
-  /** 'Single' when the array has only one pickup, so it is not read as the front of a pair. */
-  location: 'Front' | 'Rear' | 'Single';
-  /** The pickup position number as the report prints it. */
-  pickupPosition: number;
+  /** 'Single' when the array has only one pickup, so it is not read as the front of a pair. Left and Right when the report names the pickups so. */
+  location: Capitalize<PickupWord> | 'Single';
+  /** The pickup position number as the report prints it, or its code, such as EXT, when it is not a number. */
+  pickupPosition: number | string;
   x: number;
   y: number;
   z: number;
@@ -127,7 +127,7 @@ export function riggingRows(
       rows.push({
         point: pointOf(index, p.which),
         source: s.name,
-        location: single ? 'Single' : p.which === 'front' ? 'Front' : 'Rear',
+        location: single ? 'Single' : pickupName(p),
         pickupPosition: p.position,
         x: p.at.x,
         y: p.at.y,

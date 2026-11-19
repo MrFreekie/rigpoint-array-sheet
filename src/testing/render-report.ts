@@ -67,7 +67,8 @@ export function renderReport(document: ReportDocument, sources: RenderedSource[]
     }
     if (s.motors !== null) line(`# motors: ${s.motors}`);
     for (const p of s.pickups) {
-      line(`${p.which === 'front' ? 'Front' : 'Rear'} pickup position (X; Y; Z, m): ${p.position} (${f(p.at.x)}; ${f(p.at.y)}; ${f(p.at.z)})`);
+      const named = p.side ? `Front ${p.side}` : p.which === 'front' ? 'Front' : 'Rear';
+      line(`${named} pickup position (X; Y; Z, m): ${p.position} (${f(p.at.x)}; ${f(p.at.y)}; ${f(p.at.z)})`);
     }
     if (s.position) line(`Position (X; Y; Z, m): ${f(s.position.x)}; ${f(s.position.y)}; ${f(s.position.z)}`);
     if (s.site !== null) line(`Site: ${f(s.site)} °`);
@@ -78,8 +79,10 @@ export function renderReport(document: ReportDocument, sources: RenderedSource[]
     if (s.bottomSite !== null) line(`Bottom site: ${f(s.bottomSite)} °`);
     if (s.weights.total !== null) line(`Total weight (Enclosures + Frames): ${f(s.weights.total)} kg`);
     if (s.weights.enclosures !== null) line(`Total enclosure weight: ${f(s.weights.enclosures)} kg`);
-    if (s.weights.frontMotorLoad !== null) line(`Front motor load: ${f(s.weights.frontMotorLoad)} kg`);
-    if (s.weights.rearMotorLoad !== null) line(`Rear motor load: ${f(s.weights.rearMotorLoad)} kg`);
+    // A report that names its pickups left and right names their motor loads so too.
+    const sided = s.pickups.some((p) => p.side !== undefined);
+    if (s.weights.frontMotorLoad !== null) line(`${sided ? 'Front left' : 'Front'} motor load: ${f(s.weights.frontMotorLoad)} kg`);
+    if (s.weights.rearMotorLoad !== null) line(`${sided ? 'Front right' : 'Rear'} motor load: ${f(s.weights.rearMotorLoad)} kg`);
     if (s.warnings.length > 0) {
       line('Mechanical warnings:');
       for (const w of s.warnings) {

@@ -4,7 +4,7 @@
 // All sums are made in whole hundredths of a kilogram, so no figure is ever printed as 589.8000001.
 
 import { matchByName } from './compare';
-import type { Report } from './types';
+import { pickupWord, type PickupWord, type Report } from './types';
 
 /** The largest additional weight for one pickup, in kilograms. */
 export const EXTRA_WEIGHT_MAX_KG = 100000;
@@ -63,7 +63,7 @@ export const kgText = (kg: number): string => String(Math.round(kg * 100) / 100)
 /** What follows from Update from PDF: the weights that carry over, by position in the new report, and the ones that cannot. */
 export interface TrackedExtras {
   kept: Record<number, ExtraText>;
-  reset: { array: string; side: PickupSideKey; weight: string }[];
+  reset: { array: string; side: PickupWord; weight: string }[];
 }
 
 /**
@@ -85,8 +85,8 @@ export function trackExtras(saved: Report, next: Report, extras: Readonly<Record
       if (text.trim() === '') continue;
       const was = old?.pickups.find((p) => p.which === side);
       const is = now?.pickups.find((p) => p.which === side);
-      if (was && is && was.position === is.position) out[side] = text;
-      else reset.push({ array: old?.name ?? '', side, weight: text });
+      if (was && is && was.position === is.position && was.side === is.side) out[side] = text;
+      else reset.push({ array: old?.name ?? '', side: was ? pickupWord(was) : side, weight: text });
     }
     if (j !== undefined && (out.front !== '' || out.rear !== '')) kept[j] = out;
   }

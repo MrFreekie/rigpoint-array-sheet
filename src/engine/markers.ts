@@ -2,7 +2,7 @@
 // as "1 t", set once for the whole job in Settings. A symbol is a guide only. Nothing here works out a load.
 
 import { matchByName } from './compare';
-import type { Report } from './types';
+import { pickupWord, type PickupWord, type Report } from './types';
 
 /** The four symbols: 2 ton, 1 ton (the default), half ton and quarter ton. Metric tonnes. */
 export const SHAPES = ['two', 'one', 'half', 'quarter'] as const;
@@ -102,7 +102,7 @@ export function markerPrims(shape: Shape, size: number): MarkerPrim[] {
 /** What follows from Update from PDF: the choices that carry over, by position in the new report, and the ones that cannot. */
 export interface TrackedMarkers {
   kept: Record<number, MarkerPair>;
-  reset: { array: string; side: PickupSide; shape: Shape }[];
+  reset: { array: string; side: PickupWord; shape: Shape }[];
 }
 
 /**
@@ -124,8 +124,8 @@ export function trackMarkers(saved: Report, next: Report, markers: Readonly<Reco
       if (isDefaultMarker(m)) continue;
       const was = old?.pickups.find((p) => p.which === side);
       const is = now?.pickups.find((p) => p.which === side);
-      if (was && is && was.position === is.position) out[side] = { ...m };
-      else reset.push({ array: old?.name ?? '', side, shape: m.shape });
+      if (was && is && was.position === is.position && was.side === is.side) out[side] = { ...m };
+      else reset.push({ array: old?.name ?? '', side: was ? pickupWord(was) : side, shape: m.shape });
     }
     if (j !== undefined && !isDefaultPair(out)) kept[j] = out;
   }

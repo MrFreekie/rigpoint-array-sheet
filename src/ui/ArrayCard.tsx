@@ -5,9 +5,9 @@ import { isTypingDepth, parseDepthM, DEPTH_MAX_M } from '../engine/depth';
 import { isTypingExtra, type ExtraText } from '../engine/extra-weight';
 import { SHAPE_NAME, SHAPES, symbolValue, type Marker, type MarkerPair, type PickupSide, type Shape, type SymbolValues } from '../engine/markers';
 import { PATCH_COLOURS, PATCH_DIGITS, type PatchDigit, type PatchField, type PatchRow, type PatchValue } from '../engine/patch';
-import { enclosureLabel } from '../engine/types';
+import { enclosureLabel, pickupWord } from '../engine/types';
 import type { CartsOf } from '../files/doc';
-import { FIXATION_COLUMNS, fixationName, frameFacts, warningText } from '../print/card-content';
+import { FIXATION_COLUMNS, fixationName, frameFacts, motorLoadLabels, warningText } from '../print/card-content';
 import { NOTES_MAX, TITLE_MAX } from '../schema/array-file';
 import { Dialog } from './Dialog';
 import { plain } from './plain';
@@ -136,11 +136,11 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
         <dd>{kg(c.totalMass)}</dd>
         {c.motors !== null ? (
           <>
-            <dt>Front motor load</dt>
+            <dt>{motorLoadLabels(c.pickups)[0]}</dt>
             <dd>{kg(c.frontMotorLoad)}</dd>
             {c.motors > 1 || c.rearMotorLoad !== null ? (
               <>
-                <dt>Rear motor load</dt>
+                <dt>{motorLoadLabels(c.pickups)[1]}</dt>
                 <dd>{kg(c.rearMotorLoad)}</dd>
               </>
             ) : null}
@@ -318,7 +318,7 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
           {c.pickups.map((p) => (
             <SymbolField
               key={p.which}
-              label={c.pickups.length > 1 ? `Plot symbol, ${p.which} pickup` : 'Plot symbol'}
+              label={c.pickups.length > 1 ? `Plot symbol, ${pickupWord(p)} pickup` : 'Plot symbol'}
               marker={markers[p.which]}
               values={symbolValues}
               onChange={(m) => onMarker(p.which, m)}
@@ -329,14 +329,14 @@ export function ArrayCard({ column: c, offsetText, offsetBad, defaultBad, onOffs
             <ExtraWeightField
               key={p.which}
               hint={k === 0}
-              label={c.pickups.length > 1 ? `Additional weight, ${p.which} pickup (kg)` : 'Additional weight (kg)'}
+              label={c.pickups.length > 1 ? `Additional weight, ${pickupWord(p)} pickup (kg)` : 'Additional weight (kg)'}
               value={extras[p.which]}
               disabled={locked === true}
               onChange={(t) => onExtra(p.which, t)}
             />
           ))}
 
-          {c.pickups.length > 0 ? <DepthField label={c.pickups.length > 1 ? 'Rear pickup to max depth (m)' : 'Pickup to max depth (m)'} value={depth} disabled={locked === true} onChange={onDepth} /> : null}
+          {c.pickups.length > 0 ? <DepthField label={c.pickups.length > 1 && c.pickups.every((p) => p.side === undefined) ? 'Rear pickup to max depth (m)' : 'Pickup to max depth (m)'} value={depth} disabled={locked === true} onChange={onDepth} /> : null}
 
           <label className="field offset-field">
             <span>Ground offset (m)</span>

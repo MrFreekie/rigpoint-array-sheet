@@ -58,7 +58,7 @@ test('the weights are saved with the file and come back, and a read-only file ca
   await openPdf(page, samplePdf('a'));
   await type(page, MAIN, '12.50');
   const saved = await save(page);
-  expect(saved.json['format']).toBe('arraysheet/20');
+  expect(saved.json['format']).toBe('arraysheet/21');
   const typed = (saved.json['extra_weight'] as { front: string; rear: string }[]).filter((e) => e.front !== '' || e.rear !== '');
   expect(typed).toHaveLength(1);
   expect(Object.values(typed[0] ?? {}).sort()).toEqual(['', '12.5']);

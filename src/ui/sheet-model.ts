@@ -5,7 +5,7 @@ import { parseExtra } from '../engine/extra-weight';
 import type { PickupSide } from '../engine/markers';
 import type { PatchRow } from '../engine/patch';
 import { flySheetColumn, type FlySheetColumn } from '../engine/sheet';
-import { findMirrors } from '../engine/symmetry';
+import { findMirrors, isMirror } from '../engine/symmetry';
 import type { ArraySource } from '../engine/types';
 import { cartShade } from '../engine/carts';
 import { cartsOf, extraOf, patchOf, deletedList, displayName, effectiveOffset, isDeleted, isOnPlot, isPrinted, plotPrintChosen, type Doc, type EffectiveOffset } from './document';
@@ -142,11 +142,34 @@ export function sheetModel(doc: Doc, showMirrors: boolean, cardsOff = false): Sh
 }
 
 /**
+ * Where a pickup takes its typed choices from: its own array and slot, or, for a mirror image that a card stands for, that card.
+ * Across the centre line the pickups the report names left and right swap, so the left pickup of the mirror image copies the right
+ * pickup of the card.
+ */
+export function choicesFrom(model: SheetModel): (arrayIndex: number, side: PickupSide) => { index: number; side: PickupSide } {
+  const standsFor = new Map<number, { index: number; swap: boolean }>();
+  for (const e of model.entries) {
+    if (e.mirrorIndex === undefined) continue;
+    const a = model.sources[e.index];
+    const b = model.sources[e.mirrorIndex];
+    const swap = a !== undefined && b !== undefined && a.pickups.some((p) => p.side !== undefined) && isMirror(a, b);
+    standsFor.set(e.mirrorIndex, { index: e.index, swap });
+  }
+  return (arrayIndex, side) => {
+    const from = standsFor.get(arrayIndex);
+    if (!from) return { index: arrayIndex, side };
+    return { index: from.index, side: from.swap ? (side === 'front' ? 'rear' : 'front') : side };
+  };
+}
+
+/**
  * The additional weight in kilograms typed for a pickup, or null for none. A mirror image that a card stands for has none
  * of its own: it takes the weight of that card, as it takes the card's plot symbol.
  */
 export function extraKgFor(doc: Doc, model: SheetModel): (arrayIndex: number, side: PickupSide) => number | null {
-  const standsFor = new Map<number, number>();
-  for (const e of model.entries) if (e.mirrorIndex !== undefined) standsFor.set(e.mirrorIndex, e.index);
-  return (arrayIndex, side) => parseExtra(extraOf(doc, standsFor.get(arrayIndex) ?? arrayIndex, side));
+  const from = choicesFrom(model);
+  return (arrayIndex, side) => {
+    const at = from(arrayIndex, side);
+    return parseExtra(extraOf(doc, at.index, at.side));
+  };
 }

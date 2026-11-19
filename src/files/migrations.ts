@@ -1,7 +1,6 @@
 // Each saved-file version has a step that upgrades it to the next. A file from a newer version of
 // the app is refused, because it may hold things this version would silently lose.
 
-import { defaultCartSizes } from '../engine/carts';
 import { defaultSymbolValues } from '../engine/markers';
 import { FORMAT_NAME, FORMAT_VERSION } from '../schema/array-file';
 
@@ -9,13 +8,18 @@ export class FileError extends Error {}
 
 export type Migration = (file: Record<string, unknown>) => Record<string, unknown>;
 
+/** The report's sources, one for each array, or undefined when the file does not hold a list of them. */
+function sourcesOf(file: Record<string, unknown>): unknown[] | undefined {
+  const report = file['report'];
+  const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
+  return Array.isArray(sources) ? sources : undefined;
+}
+
 /** Key is the version a step upgrades from. */
 export const MIGRATIONS: Record<number, Migration> = {
   // Version 2 added the choice of which arrays to print. A version 1 file printed them all.
   1: (file) => {
-    const report = file['report'];
-    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
-    return { ...file, print: Array.isArray(sources) ? sources.map(() => true) : [] };
+    return { ...file, print: (sourcesOf(file) ?? []).map(() => true) };
   },
   // Version 3 added the venue. Earlier files had none.
   2: (file) => {
@@ -38,9 +42,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   // Version 7 added a card title and a note for each array, the arrays the person deleted, and the notes and date of the show.
   // An older copy of the app would drop them when it saved, and bring deleted arrays back, so it refuses version 7 files.
   6: (file) => {
-    const report = file['report'];
-    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
-    const count = Array.isArray(sources) ? sources.length : 0;
+    const count = sourcesOf(file)?.length ?? 0;
     const job = file['job'];
     return {
       ...file,
@@ -53,9 +55,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   // Version 8 added the plot symbol of each pickup. Earlier files had the 1 ton symbol everywhere. An older copy of the app
   // would drop the choices when it saved, so it refuses version 8 files.
   7: (file) => {
-    const report = file['report'];
-    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
-    const count = Array.isArray(sources) ? sources.length : 0;
+    const count = sourcesOf(file)?.length ?? 0;
     return { ...file, markers: Array.from({ length: count }, () => ({ front: { shape: 'one', text: '' }, rear: { shape: 'one', text: '' } })) };
   },
   // Version 9 added the venue underlay of the rigging plot. Earlier files had none. An older copy of the app would drop it
@@ -64,24 +64,25 @@ export const MIGRATIONS: Record<number, Migration> = {
   // Version 10 added the cable patch: a feeder and a way for each enclosure row of each array. Earlier files had none, so
   // every row starts blank. An older copy of the app would drop the patch when it saved, so it refuses version 10 files.
   9: (file) => {
-    const report = file['report'];
-    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
     const rows = (source: unknown): number => {
       const cabinets = typeof source === 'object' && source !== null ? (source as { cabinets?: unknown }).cabinets : undefined;
       return Array.isArray(cabinets) ? cabinets.length : 0;
     };
-    return { ...file, patch: Array.isArray(sources) ? sources.map((s) => Array.from({ length: rows(s) }, () => ({ feeder: '', way: '' }))) : [] };
+    return { ...file, patch: (sourcesOf(file) ?? []).map((s) => Array.from({ length: rows(s) }, () => ({ feeder: '', way: '' }))) };
   },
   // Version 11 added carts: the groups of enclosures an array is built from, cut from a size for each type of enclosure, or by
   // hand. Earlier files start with the usual sizes and every array automatic. An older copy of the app would drop the sizes and
   // any hand cut carts when it saved, so it refuses version 11 files.
   10: (file) => {
-    const report = file['report'];
-    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
     return {
       ...file,
-      cart_sizes: defaultCartSizes(),
-      carts: Array.isArray(sources) ? sources.map(() => ({ manual: false, breaks: [] })) : [],
+      // The sizes version 11 started with, kept as they were: a later default does not change an upgraded file.
+      cart_sizes: [
+        { type: 'K2', size: 4 },
+        { type: 'KARA II', size: 3 },
+        { type: 'KARA', size: 3 },
+      ],
+      carts: (sourcesOf(file) ?? []).map(() => ({ manual: false, breaks: [] })),
     };
   },
   // Version 12 added the optional row of an enclosure row (ground stacks laid out in rows, "R2 #1"). Nothing in an older file
@@ -90,9 +91,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   // Version 13 added the choice of which arrays are on the rigging plot, and whether the plot prints. Earlier files had every
   // array on the plot and printed it. An older copy of the app would drop the choices when it saved, so it refuses version 13 files.
   12: (file) => {
-    const report = file['report'];
-    const sources = typeof report === 'object' && report !== null ? (report as { sources?: unknown }).sources : undefined;
-    return { ...file, plot: Array.isArray(sources) ? sources.map(() => true) : [], print_plot: true };
+    return { ...file, plot: (sourcesOf(file) ?? []).map(() => true), print_plot: true };
   },
   // Version 14 moved the value written for each plot symbol (such as "1 t") to Settings, one value for each of the four shapes
   // for the whole job. Earlier files could type a value on a single pickup: that text is dropped and every symbol starts with
@@ -119,8 +118,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   // Version 16 added an additional weight, typed in kilograms, for each pickup. Earlier files had none. An older copy of the
   // app would drop the weights when it saved, so it refuses version 16 files.
   15: (file) => {
-    const sources = (file['report'] as { sources?: unknown } | undefined)?.sources;
-    return { ...file, extra_weight: Array.isArray(sources) ? sources.map(() => ({ front: '', rear: '' })) : [] };
+    return { ...file, extra_weight: (sourcesOf(file) ?? []).map(() => ({ front: '', rear: '' })) };
   },
   // Version 17 added the tuning the report states for each array (delay, gain, Autofilter, LF Contour, zoom and the
   // delay and gain of its groups), kept inside the report. A file from before has none, and the app shows that it was
@@ -137,8 +135,7 @@ export const MIGRATIONS: Record<number, Migration> = {
   // drawn from. Earlier files had none, so those arrays have no outline until it is typed. An older copy of the app would drop
   // the depths when it saved, so it refuses version 19 files.
   18: (file) => {
-    const sources = (file['report'] as { sources?: unknown } | undefined)?.sources;
-    return { ...file, max_depth_m: Array.isArray(sources) ? sources.map(() => '') : [] };
+    return { ...file, max_depth_m: (sourcesOf(file) ?? []).map(() => '') };
   },
   // Version 20 added the cloud link, the address of the hosted PDF, printed under the notes as a link and a QR code. Earlier
   // files had none. An older copy of the app would drop the address when it saved, so it refuses version 20 files.
@@ -146,6 +143,10 @@ export const MIGRATIONS: Record<number, Migration> = {
     const job = file['job'];
     return typeof job === 'object' && job !== null && !Array.isArray(job) ? { ...file, job: { ...job, cloud_url: '' } } : file;
   },
+  // Version 21 added the side of a pickup (left or right) and a pickup position that is a code such as EXT, kept inside the
+  // report for an array whose report names its pickups left and right. A file from before has neither. Nothing in an older file
+  // changes; the step makes older copies of the app refuse every version 21 file, because they would drop the sides when they saved.
+  20: (file) => file,
 };
 
 export function migrate(
@@ -156,7 +157,7 @@ export function migrate(
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     throw new FileError('This is not a RigPoint Array Sheet file.');
   }
-  let file = raw as Record<string, unknown>;
+  let file: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
   const m = /^arraysheet\/(\d+)$/.exec(typeof file['format'] === 'string' ? file['format'] : '');
   if (!m) throw new FileError(`This is not a RigPoint Array Sheet file. It does not say its format is "${FORMAT_NAME}/${current}".`);
   let version = Number(m[1]);
@@ -166,7 +167,7 @@ export function migrate(
   while (version < current) {
     const step = steps[version];
     if (!step) throw new FileError(`This file is version ${version} and cannot be upgraded.`);
-    file = step(file);
+    file = { ...step(file) };
     version++;
     file['format'] = `${FORMAT_NAME}/${version}`;
   }

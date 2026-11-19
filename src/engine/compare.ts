@@ -1,7 +1,7 @@
 // Compares a saved report with a newer one read from a fresh PDF, so the person can see exactly what
 // the new PDF changes before choosing to update. Reads and compares; it does not decide anything.
 
-import type { ArraySource, ArrayTuning, Report } from './types';
+import { pickupName, type ArraySource, type ArrayTuning, type PickupWord, type Report } from './types';
 
 export interface Change {
   kind: 'added' | 'removed' | 'changed' | 'restored';
@@ -39,9 +39,11 @@ function facts(s: ArraySource, withTuning: boolean): Map<string, string> {
   m.set('Bottom site', show(s.bottomSite));
   m.set('Total weight', show(s.weights.total));
   m.set('Enclosure weight', show(s.weights.enclosures));
-  m.set('Front motor load', show(s.weights.frontMotorLoad));
-  m.set('Rear motor load', show(s.weights.rearMotorLoad));
-  for (const p of s.pickups) m.set(`${p.which === 'front' ? 'Front' : 'Rear'} pickup`, `${p.position} at ${point(p.at)}`);
+  // A report that names its pickups left and right names their motor loads so too.
+  const sided = s.pickups.some((p) => p.side !== undefined);
+  m.set(sided ? 'Left motor load' : 'Front motor load', show(s.weights.frontMotorLoad));
+  m.set(sided ? 'Right motor load' : 'Rear motor load', show(s.weights.rearMotorLoad));
+  for (const p of s.pickups) m.set(`${pickupName(p)} pickup`, `${p.position} at ${point(p.at)}`);
   if (s.fixationCount !== undefined) m.set('Fixations', show(s.fixationCount));
   // A name that repeats is told apart by its occurrence, so a change to any of them is listed.
   const seen = new Map<string, number>();
@@ -99,13 +101,13 @@ export function compareReports(
   deleted: ReadonlySet<number> = new Set(),
   titles: Readonly<Record<number, string>> = {},
   /** Plot symbols Update from PDF cannot follow, because the array or its pickup is not in the new PDF. They go back to the default. */
-  symbolsReset: readonly { array: string; side: 'front' | 'rear'; value: string; fallback: string }[] = [],
+  symbolsReset: readonly { array: string; side: PickupWord; value: string; fallback: string }[] = [],
   /** Cable patches Update from PDF cannot follow, because the array has a different number of enclosures in the new PDF. They are cleared. */
   patchReset: readonly { array: string; rows: number; nowRows: number }[] = [],
   /** Carts the person cut by hand that Update from PDF cannot follow, because the rows or their types differ in the new PDF. They go back to automatic. */
   cartReset: readonly { array: string; groups: string }[] = [],
   /** Additional weights Update from PDF cannot follow, because the array or its pickup is not in the new PDF. They are dropped. */
-  extraReset: readonly { array: string; side: 'front' | 'rear'; weight: string }[] = [],
+  extraReset: readonly { array: string; side: PickupWord; weight: string }[] = [],
 ): Change[] {
   const out: Change[] = [];
 

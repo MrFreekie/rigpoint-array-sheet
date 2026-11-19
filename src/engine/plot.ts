@@ -41,10 +41,12 @@ export interface PlotPoint {
   arrayIndex: number;
   source: string;
   which: 'front' | 'rear';
-  /** True when the array has only one pickup, so the table says Single rather than Front or Rear. */
+  /** Set when the report names the pickup left or right: the table and the key then say Left or Right rather than Front or Rear. */
+  side?: 'left' | 'right' | undefined;
+  /** True when the array has only one pickup, so the table says Single rather than Front, Rear, Left or Right. */
   single: boolean;
-  /** The pickup position number as the report prints it. */
-  pickupPosition: number;
+  /** The pickup position number as the report prints it, or its code, such as EXT, when it is not a number. */
+  pickupPosition: number | string;
   at: Point3;
   load: number | null;
   /** On a front pickup whose array also has a rear one: the plan distance between the two, in metres to 2 decimals. */
@@ -168,6 +170,7 @@ export function numberPickups(
           arrayIndex: a.index,
           source: a.name,
           which: p.which,
+          ...(p.side === undefined ? {} : { side: p.side }),
           single: ordered.length === 1,
           pickupPosition: p.position,
           at: p.at,

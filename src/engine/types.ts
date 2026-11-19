@@ -16,10 +16,26 @@ export interface Point3 {
 }
 
 export interface Pickup {
+  /** The slot the pickup fills. A pickup the report names left is the front one and a pickup it names right is the rear one. */
   which: 'front' | 'rear';
-  /** The pickup position number as printed, e.g. 6 in "Front pickup position: 6 (10; 12.68; 9.51)". */
-  position: number;
+  /** Set when the report names the pickup left or right, e.g. "Front left pickup position". Absent for a pickup named front or rear. */
+  side?: 'left' | 'right' | undefined;
+  /** The pickup position number as printed, e.g. 6 in "Front pickup position: 6 (10; 12.68; 9.51)", or its code, e.g. EXT, when it is not a number. */
+  position: number | string;
   at: Point3;
+}
+
+export type PickupWord = 'front' | 'rear' | 'left' | 'right';
+
+/** How a pickup is named: left or right when the report says so, else front or rear. */
+export function pickupWord(p: { which: 'front' | 'rear'; side?: 'left' | 'right' | undefined }): PickupWord {
+  return p.side ?? p.which;
+}
+
+/** The same word as it starts a label: Front, Rear, Left or Right. */
+export function pickupName(p: { which: 'front' | 'rear'; side?: 'left' | 'right' | undefined }): Capitalize<PickupWord> {
+  const w = pickupWord(p);
+  return `${w.charAt(0).toUpperCase()}${w.slice(1)}` as Capitalize<PickupWord>;
 }
 
 export interface Fixation {

@@ -329,7 +329,7 @@ describe('saving and opening', () => {
   it('saving twice gives the same text apart from the time', () => {
     const doc = sample();
     expect(serialiseDoc(doc, '0.1.0', NOW)).toBe(serialiseDoc(doc, '0.1.0', NOW));
-    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/20');
+    expect(docToFile(doc, '0.1.0', NOW).format).toBe('arraysheet/21');
   });
 
   it('writes one offset per array, blank where none was typed', () => {
@@ -387,7 +387,7 @@ describe('opening a bad file', () => {
   });
 
   it('refuses a file from a newer version', () => {
-    expect(() => open(edited((f) => (f.format = 'arraysheet/21')))).toThrow(/newer version/);
+    expect(() => open(edited((f) => (f.format = 'arraysheet/22')))).toThrow(/newer version/);
   });
 
   it('refuses a file over the size limit', () => {
@@ -714,5 +714,43 @@ describe('tuning', () => {
       f.report.sources[0].tuning.autofilter = 'x'.repeat(120);
     });
     expect(() => open(text)).not.toThrow();
+  });
+});
+
+describe('the side of a pickup', () => {
+  const sided = (f: Record<string, any>) => {
+    const pickups = f.report.sources[0].pickups as Record<string, any>[];
+    pickups.splice(0, pickups.length, { which: 'front', side: 'left', position: 'EXT', at: { x: 1, y: 2, z: 3 } }, { which: 'rear', side: 'right', position: 'EXT', at: { x: 2, y: 2, z: 3 } });
+  };
+
+  it('is saved and opened again, with a position that is a code', () => {
+    const doc = sample();
+    doc.result.report.sources[0]!.pickups = [
+      { which: 'front', side: 'left', position: 'EXT', at: { x: 1, y: 2, z: 3 } },
+      { which: 'rear', side: 'right', position: 'EXT', at: { x: 2, y: 2, z: 3 } },
+    ];
+    expect(roundTrip(doc).doc.result.report.sources[0]?.pickups).toEqual(doc.result.report.sources[0]?.pickups);
+  });
+
+  it('is absent from a pickup that has none, in the file and when it opens', () => {
+    const f = JSON.parse(serialiseDoc(sample(), '0.1.0', NOW)) as Record<string, any>;
+    expect(f.report.sources[0].pickups.some((p: Record<string, unknown>) => 'side' in p)).toBe(false);
+    expect(roundTrip(sample()).doc.result.report.sources[0]?.pickups.every((p) => p.side === undefined)).toBe(true);
+  });
+
+  const limits: [string, (p: Record<string, any>) => void, RegExp][] = [
+    ['a side that is neither left nor right', (p) => (p.side = 'middle'), /Array 1, Pickups, entry 1, Pickup side: Pickup side must be "left" or "right"/],
+    ['a side that is not text', (p) => (p.side = 3), /Pickup side must be "left" or "right"/],
+    ['a position code that is too long', (p) => (p.position = 'EXTERNALLYHUNG'), /Array 1, Pickups, entry 1, position: must be a number or a code of up to 12 letters/],
+    ['a position code with a digit in it', (p) => (p.position = 'EXT1'), /must be a number or a code of up to 12 letters/],
+    ['a position that is not a number or text', (p) => (p.position = null), /must be a number or a code of up to 12 letters/],
+  ];
+
+  it.each(limits)('names the field when it holds %s', (_what, change, message) => {
+    expect(() => open(edited((f) => { sided(f); change(f.report.sources[0].pickups[0]); }))).toThrow(message);
+  });
+
+  it('accepts a code of 12 letters', () => {
+    expect(() => open(edited((f) => { sided(f); f.report.sources[0].pickups[0].position = 'ABCDEFGHIJKL'; }))).not.toThrow();
   });
 });
