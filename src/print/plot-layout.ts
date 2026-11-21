@@ -758,7 +758,7 @@ export function layoutPlotPages(input: PlotInput, measure: Measure): PlotPage[] 
       : []),
     ...(showPosition ? ([[() => ops.push({ op: 'circle', cx: COLUMN.x0 + sw / 2, cy: y + 1.2, r: dotR, width: 0.1, color: 'dot', fill: true }), 'Position']] as [() => void, string][]) : []),
     ...(showOutlines && hasStacks ? ([[() => stackBox(ops, swatch()), 'Stacked array on the ground']] as [() => void, string][]) : []),
-    [() => ops.push(line(COLUMN.x0, y + 1.2, COLUMN.x0 + sw, y + 1.2, 0.2, 'grey')), 'Front to rear pickup'],
+    [() => ops.push(line(COLUMN.x0, y + 1.2, COLUMN.x0 + sw, y + 1.2, 0.2, 'grey')), "Between an array's pickups"],
   ];
   ops.push(text(COLUMN.x0, y, 'Key', 5.5, { bold: true }));
   y += 4.2;
